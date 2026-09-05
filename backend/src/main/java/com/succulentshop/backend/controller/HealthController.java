@@ -1,0 +1,25 @@
+package com.succulentshop.backend.controller;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api")
+public class HealthController {
+
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, Object>> healthCheck() {
+        return ResponseEntity.ok(Map.of(
+            "status", "ok",
+            "service", "Sen Xinh Garden - Java Spring Boot API",
+            "framework", "Spring Boot 3 + Java 21",
+            "database", "H2 Database (Persistent)",
+            "timestamp", LocalDateTime.now().toString()
+        ));
+    }
+}

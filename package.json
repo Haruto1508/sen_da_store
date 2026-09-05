@@ -1,0 +1,13 @@
+{
+  "name": "succulentshop-root",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Dự án Website Bán Sen Đá - Sen Xinh Garden (Java Spring Boot + React Vite)",
+  "scripts": {
+    "dev": "npm run dev --prefix frontend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "cd backend && .\\mvnw.cmd spring-boot:run",
+    "build:frontend": "npm run build --prefix frontend",
+    "build:backend": "cd backend && .\\mvnw.cmd clean package -DskipTests"
+  }
+}
