@@ -15,6 +15,9 @@ import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import QuizPage from './pages/QuizPage';
 import AccountPage from './pages/AccountPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 
 import { PRODUCTS } from './data/products';
 import { getProducts, validateCoupon } from './services/api';
@@ -62,14 +65,22 @@ export default function App() {
   const [discountCode, setDiscountCode] = useState('');
   const [discountPercent, setDiscountPercent] = useState(0);
 
-  // User state
-  const [user, setUser] = useState({
-    name: 'Nguyễn Hoàng Long',
-    email: 'long.senxinh@gmail.com',
-    phone: '0988 123 456',
-    address: '123 Phố Trúc Bạch, Quận Ba Đình, Hà Nội',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-    role: 'Thành viên thân thiết'
+  // User state (Loaded from LocalStorage with fallback demo user)
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('senxinh_user');
+      if (saved) return JSON.parse(saved);
+    } catch (err) {
+      console.error('Lỗi khi đọc tài khoản từ LocalStorage:', err);
+    }
+    return {
+      name: 'Nguyễn Hoàng Long',
+      email: 'long.senxinh@gmail.com',
+      phone: '0988 123 456',
+      address: '123 Phố Trúc Bạch, Quận Ba Đình, Hà Nội',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+      role: 'Thành viên thân thiết'
+    };
   });
 
   // Toasts
@@ -99,12 +110,20 @@ export default function App() {
         setCurrentRoute('admin');
       } else if (hash === '#cart') {
         setCurrentRoute('cart');
+      } else if (hash === '#wishlist') {
+        setCurrentRoute('wishlist');
       } else if (hash === '#checkout') {
         setCurrentRoute('checkout');
       } else if (hash === '#quiz') {
         setCurrentRoute('quiz');
       } else if (hash === '#account') {
         setCurrentRoute('account');
+      } else if (hash === '#login') {
+        setCurrentRoute('login');
+      } else if (hash === '#register') {
+        setCurrentRoute('register');
+      } else if (hash === '#forgot-password' || hash === '#password') {
+        setCurrentRoute('password');
       } else {
         setCurrentRoute('home');
       }
@@ -133,6 +152,8 @@ export default function App() {
       window.location.hash = '#admin';
     } else if (route === 'cart') {
       window.location.hash = '#cart';
+    } else if (route === 'wishlist') {
+      window.location.hash = '#wishlist';
     } else if (route === 'checkout') {
       window.location.hash = '#checkout';
     } else if (route === 'order-success' && param) {
@@ -141,6 +162,12 @@ export default function App() {
       window.location.hash = '#quiz';
     } else if (route === 'account') {
       window.location.hash = '#account';
+    } else if (route === 'login') {
+      window.location.hash = '#login';
+    } else if (route === 'register') {
+      window.location.hash = '#register';
+    } else if (route === 'password' || route === 'forgot-password') {
+      window.location.hash = '#forgot-password';
     }
   };
 
@@ -181,7 +208,7 @@ export default function App() {
   };
 
   // Cart operations
-  const handleAddToCart = (product, qty = 1) => {
+  const handleAddToCart = (product, qty = 1, showToast = true) => {
     setCartItems((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
@@ -191,16 +218,46 @@ export default function App() {
       }
       return [...prev, { ...product, quantity: qty }];
     });
-    addToast(`Đã thêm ${product.name} vào giỏ hàng!`, 'cart');
+    if (showToast) {
+      addToast(`Đã thêm ${product.name} vào giỏ hàng!`, 'cart');
+    }
+  };
+
+  const handleLoginSuccess = (userData, remember = true) => {
+    setUser(userData);
+    if (remember) {
+      try {
+        localStorage.setItem('senxinh_user', JSON.stringify(userData));
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    navigateTo('account');
+  };
+
+  const handleRegisterSuccess = (userData) => {
+    setUser(userData);
+    try {
+      localStorage.setItem('senxinh_user', JSON.stringify(userData));
+    } catch (err) {
+      console.error(err);
+    }
+    navigateTo('account');
   };
 
   const handleLogout = () => {
+    setUser(null);
+    try {
+      localStorage.removeItem('senxinh_user');
+    } catch (err) {
+      console.error(err);
+    }
     addToast('Đã đăng xuất tài khoản thành công. Hẹn gặp lại bạn!', 'info');
-    navigateTo('home');
+    navigateTo('login');
   };
 
   const handleBuyNow = (product, qty = 1) => {
-    handleAddToCart(product, qty);
+    handleAddToCart(product, qty, false);
     navigateTo('checkout');
   };
 
@@ -300,8 +357,7 @@ export default function App() {
         user={user}
         onLogout={handleLogout}
         onOpenWishlist={() => {
-          setOnlyWishlist(true);
-          navigateTo('shop');
+          navigateTo('wishlist');
         }}
         onNavigate={navigateTo}
       />
@@ -379,31 +435,10 @@ export default function App() {
           />
         )}
 
-        {currentRoute === 'admin' && (
-          <AdminPage
-            onNavigateHome={() => navigateTo('home')}
-          />
-        )}
-
-        {/* Dedicated Cart Page */}
-        {currentRoute === 'cart' && (
-          <CartPage
-            cartItems={cartItems}
-            onUpdateQty={handleUpdateQty}
-            onRemoveItem={handleRemoveItem}
-            discountCode={discountCode}
-            discountPercent={discountPercent}
-            onApplyCoupon={handleApplyCoupon}
-            onNavigateShop={() => navigateTo('shop')}
-            onNavigateCheckout={() => navigateTo('checkout')}
-            onNavigateHome={() => navigateTo('home')}
-            onOpenProductDetail={(id) => navigateTo('product-detail', id)}
-          />
-        )}
-
         {/* Dedicated Checkout Page */}
         {currentRoute === 'checkout' && (
           <CheckoutPage
+            user={user}
             cartItems={cartItems}
             discountCode={discountCode}
             discountPercent={discountPercent}
@@ -424,6 +459,7 @@ export default function App() {
         {/* Dedicated Order Success & VietQR View */}
         {currentRoute === 'order-success' && (
           <CheckoutPage
+            user={user}
             cartItems={[]}
             initialOrderCode={orderSuccessCode}
             onClearCart={() => setCartItems([])}
@@ -444,12 +480,73 @@ export default function App() {
           />
         )}
 
-        {/* Dedicated Account Page */}
-        {currentRoute === 'account' && (
+        {/* Dedicated Login Page */}
+        {currentRoute === 'login' && (
+          <LoginPage
+            onLoginSuccess={handleLoginSuccess}
+            onNavigate={navigateTo}
+            addToast={addToast}
+          />
+        )}
+
+        {/* Dedicated Register Page */}
+        {currentRoute === 'register' && (
+          <RegisterPage
+            onRegisterSuccess={handleRegisterSuccess}
+            onNavigate={navigateTo}
+            addToast={addToast}
+          />
+        )}
+
+        {/* Dedicated Forgot / Reset Password Page */}
+        {currentRoute === 'password' && (
+          <ForgotPasswordPage
+            onNavigate={navigateTo}
+            addToast={addToast}
+          />
+        )}
+
+        {/* Dedicated Admin Console Page */}
+        {currentRoute === 'admin' && (
+          <AdminPage
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateShop={() => navigateTo('shop')}
+            onProductsChange={(updated) => setProductList(updated)}
+            addToast={addToast}
+          />
+        )}
+
+        {/* Dedicated Account Dashboard: Profile, Orders, Wishlist, Cart (Always Preserves Sidebar) */}
+        {currentRoute === 'account' && !user ? (
+          <LoginPage
+            onLoginSuccess={handleLoginSuccess}
+            onNavigate={navigateTo}
+            addToast={addToast}
+          />
+        ) : ['account', 'cart', 'wishlist'].includes(currentRoute) && (
           <AccountPage
+            initialTab={
+              currentRoute === 'cart'
+                ? 'cart'
+                : currentRoute === 'wishlist'
+                ? 'wishlist'
+                : 'profile'
+            }
             user={user}
             wishlistCount={wishlist.length}
             cartCount={cartTotalCount}
+            cartItems={cartItems}
+            products={productList}
+            wishlist={wishlist}
+            discountCode={discountCode}
+            discountPercent={discountPercent}
+            onUpdateQty={handleUpdateQty}
+            onRemoveItem={handleRemoveItem}
+            onApplyCoupon={handleApplyCoupon}
+            onToggleWishlist={handleToggleWishlist}
+            onAddToCart={handleAddToCart}
+            onOpenProductDetail={(id) => navigateTo('product-detail', id)}
+            onNavigateCheckout={() => navigateTo('checkout')}
             onNavigateShop={() => navigateTo('shop')}
             onNavigateCart={() => navigateTo('cart')}
             onNavigateAdmin={() => navigateTo('admin')}

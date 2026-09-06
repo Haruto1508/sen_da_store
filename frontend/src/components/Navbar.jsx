@@ -8,7 +8,9 @@ import {
   User, 
   Package, 
   LogOut, 
-  ChevronDown 
+  ChevronDown,
+  KeyRound,
+  LogIn
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -23,13 +25,7 @@ export default function Navbar({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
-  // Default demo user if not passed
-  const currentUser = user || {
-    name: 'Nguyễn Hoàng Long',
-    email: 'long.senxinh@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-    role: 'Thành viên thân thiết'
-  };
+  const currentUser = user;
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -156,97 +152,147 @@ export default function Navbar({
               )}
             </button>
 
-            {/* User Avatar & Dropdown Menu */}
-            <div className="user-dropdown-container" ref={menuRef}>
+            {/* User Login Button or Avatar Dropdown */}
+            {!currentUser ? (
               <button 
-                id="user-avatar-btn"
-                className={`user-avatar-btn ${isMenuOpen ? 'open' : ''} ${currentRoute === 'account' ? 'active' : ''}`}
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                title="Tài khoản cá nhân"
-                aria-label="Menu tài khoản"
-                aria-expanded={isMenuOpen}
+                id="navbar-login-btn"
+                className={`navbar-auth-btn ${currentRoute === 'login' || currentRoute === 'register' ? 'active' : ''}`}
+                onClick={() => onNavigate('login')}
+                title="Đăng nhập hoặc đăng ký tài khoản"
               >
-                <img 
-                  src={currentUser.avatar} 
-                  alt={currentUser.name} 
-                  className="navbar-avatar-img" 
-                />
-                <span className="navbar-avatar-status" />
-                <ChevronDown size={14} className={`navbar-avatar-chevron ${isMenuOpen ? 'open' : ''}`} />
+                <LogIn size={16} />
+                <span>Đăng Nhập</span>
               </button>
+            ) : (
+              <div className="user-dropdown-container" ref={menuRef}>
+                <button 
+                  id="user-avatar-btn"
+                  className={`user-avatar-btn ${isMenuOpen ? 'open' : ''} ${currentRoute === 'account' ? 'active' : ''}`}
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  title={`Tài khoản: ${currentUser.name}`}
+                  aria-label="Menu tài khoản"
+                  aria-expanded={isMenuOpen}
+                >
+                  <img 
+                    src={currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'} 
+                    alt={currentUser.name} 
+                    className="navbar-avatar-img" 
+                  />
+                  <span className="navbar-avatar-status" />
+                  <ChevronDown size={14} className={`navbar-avatar-chevron ${isMenuOpen ? 'open' : ''}`} />
+                </button>
 
-              {/* Dropdown Menu */}
-              {isMenuOpen && (
-                <div className="user-dropdown-menu">
-                  {/* User info head */}
-                  <div className="user-menu-header" onClick={() => handleMenuItemClick('account')}>
-                    <img 
-                      src={currentUser.avatar} 
-                      alt={currentUser.name} 
-                      className="menu-header-avatar" 
-                    />
-                    <div className="menu-header-text">
-                      <strong className="menu-header-name">{currentUser.name}</strong>
-                      <span className="menu-header-email">{currentUser.email}</span>
-                      <span className="menu-header-badge">🌿 {currentUser.role}</span>
+                {/* Dropdown Menu */}
+                {isMenuOpen && (
+                  <div className="user-dropdown-menu">
+                    {/* User Info Header in Dropdown */}
+                    <div style={{ padding: '12px 16px 10px', borderBottom: '1px solid var(--border-light)' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {currentUser.name}
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                        {currentUser.role || 'Thành viên'}
+                      </div>
+                    </div>
+
+                    {/* Menu Items */}
+                    <div className="user-menu-items">
+                      {/* Item Admin (Nếu là Admin) */}
+                      {(currentUser.role?.includes('Admin') || currentUser.email === 'admin@senxinh.vn') && (
+                        <button 
+                          id="menu-admin-btn"
+                          className={`user-menu-item ${currentRoute === 'admin' ? 'active' : ''}`}
+                          onClick={() => handleMenuItemClick('admin')}
+                          style={{ background: 'rgba(220, 38, 38, 0.05)' }}
+                        >
+                          <div className="menu-item-icon" style={{ color: '#DC2626' }}><ShieldCheck size={17} /></div>
+                          <span className="menu-item-label" style={{ fontWeight: 700, color: '#DC2626' }}>Quản Trị Nhà Vườn</span>
+                          <span className="menu-item-tag" style={{ background: '#DC2626', color: '#fff' }}>Admin</span>
+                        </button>
+                      )}
+
+                      {/* Item 1: Lịch sử đơn hàng */}
+                      <button 
+                        id="menu-orders-btn"
+                        className="user-menu-item"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          window.location.hash = '#account';
+                        }}
+                      >
+                        <div className="menu-item-icon"><Package size={17} /></div>
+                        <span className="menu-item-label">Lịch Sử Đơn Hàng</span>
+                      </button>
+
+                      {/* Item 2: Xem giỏ hàng */}
+                      <button 
+                        id="menu-cart-btn"
+                        className={`user-menu-item ${currentRoute === 'cart' ? 'active' : ''}`}
+                        onClick={() => handleMenuItemClick('cart')}
+                      >
+                        <div className="menu-item-icon"><ShoppingBag size={17} /></div>
+                        <span className="menu-item-label">Xem Giỏ Hàng</span>
+                        {cartCount > 0 && (
+                          <span className="menu-item-count">{cartCount}</span>
+                        )}
+                      </button>
+
+                      {/* Item 3: Mục yêu thích */}
+                      <button 
+                        id="menu-wishlist-btn"
+                        className={`user-menu-item ${currentRoute === 'wishlist' ? 'active' : ''}`}
+                        onClick={() => handleMenuItemClick('wishlist')}
+                      >
+                        <div className="menu-item-icon"><Heart size={17} /></div>
+                        <span className="menu-item-label">Mục Yêu Thích</span>
+                        {wishlistCount > 0 && (
+                          <span className="menu-item-count" style={{ background: '#FEE2E2', color: '#DC2626' }}>
+                            {wishlistCount}
+                          </span>
+                        )}
+                      </button>
+
+                      {/* Item 4: Tài khoản */}
+                      <button 
+                        id="menu-account-btn"
+                        className={`user-menu-item ${currentRoute === 'account' ? 'active' : ''}`}
+                        onClick={() => handleMenuItemClick('account')}
+                      >
+                        <div className="menu-item-icon"><User size={17} /></div>
+                        <span className="menu-item-label">Thông Tin Tài Khoản</span>
+                      </button>
+
+                      {/* Item 5: Đổi mật khẩu */}
+                      <button 
+                        id="menu-password-btn"
+                        className="user-menu-item"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onNavigate('password');
+                        }}
+                      >
+                        <div className="menu-item-icon"><KeyRound size={17} /></div>
+                        <span className="menu-item-label">Đổi Mật Khẩu</span>
+                      </button>
+                    </div>
+
+                    <div className="menu-divider" />
+
+                    {/* Item 6: Đăng xuất */}
+                    <div className="user-menu-footer">
+                      <button 
+                        id="menu-logout-btn"
+                        className="user-menu-item logout"
+                        onClick={handleLogoutClick}
+                      >
+                        <div className="menu-item-icon"><LogOut size={17} /></div>
+                        <span className="menu-item-label">Đăng Xuất</span>
+                      </button>
                     </div>
                   </div>
-
-                  <div className="menu-divider" />
-
-                  {/* Menu Items */}
-                  <div className="user-menu-items">
-                    {/* Item 1: Xem đơn hàng */}
-                    <button 
-                      id="menu-orders-btn"
-                      className={`user-menu-item ${currentRoute === 'admin' ? 'active' : ''}`}
-                      onClick={() => handleMenuItemClick('admin')}
-                    >
-                      <div className="menu-item-icon"><Package size={17} /></div>
-                      <span className="menu-item-label">Xem Đơn Hàng</span>
-                      <span className="menu-item-tag">Java API</span>
-                    </button>
-
-                    {/* Item 2: Xem giỏ hàng */}
-                    <button 
-                      id="menu-cart-btn"
-                      className={`user-menu-item ${currentRoute === 'cart' ? 'active' : ''}`}
-                      onClick={() => handleMenuItemClick('cart')}
-                    >
-                      <div className="menu-item-icon"><ShoppingBag size={17} /></div>
-                      <span className="menu-item-label">Xem Giỏ Hàng</span>
-                      {cartCount > 0 && (
-                        <span className="menu-item-count">{cartCount}</span>
-                      )}
-                    </button>
-
-                    {/* Item 3: Tài khoản */}
-                    <button 
-                      id="menu-account-btn"
-                      className={`user-menu-item ${currentRoute === 'account' ? 'active' : ''}`}
-                      onClick={() => handleMenuItemClick('account')}
-                    >
-                      <div className="menu-item-icon"><User size={17} /></div>
-                      <span className="menu-item-label">Thông Tin Tài Khoản</span>
-                    </button>
-                  </div>
-
-                  <div className="menu-divider" />
-
-                  {/* Item 4: Đăng xuất */}
-                  <div className="user-menu-footer">
-                    <button 
-                      id="menu-logout-btn"
-                      className="user-menu-item logout"
-                      onClick={handleLogoutClick}
-                    >
-                      <div className="menu-item-icon"><LogOut size={17} /></div>
-                      <span className="menu-item-label">Đăng Xuất</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </nav>
       </div>

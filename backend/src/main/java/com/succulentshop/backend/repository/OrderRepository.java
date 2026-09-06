@@ -11,10 +11,15 @@ import java.util.Optional;
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByOrderCode(String orderCode);
+    Optional<Order> findByPublicId(String publicId);
 
     List<Order> findByStatusOrderByCreatedAtDesc(String status);
 
     List<Order> findAllByOrderByCreatedAtDesc();
+
+    List<Order> findByCustomerPhoneOrderByCreatedAtDesc(String customerPhone);
+
+    List<Order> findByCustomerPhoneContainingOrCustomerNameContainingOrderByCreatedAtDesc(String phone, String name);
 
     long countByStatus(String status);
 }

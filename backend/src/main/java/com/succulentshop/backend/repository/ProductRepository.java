@@ -12,6 +12,7 @@ import java.util.List;
 public interface ProductRepository extends JpaRepository<Product, String> {
 
     List<Product> findByCategory(String category);
+    java.util.Optional<Product> findByPublicId(String publicId);
 
     @Query("SELECT p FROM Product p WHERE " +
            "(:category IS NULL OR :category = 'all' OR p.category = :category) AND " +

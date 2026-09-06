@@ -2,7 +2,8 @@ package com.succulentshop.backend.controller;
 
 import com.succulentshop.backend.dto.ValidateCouponRequest;
 import com.succulentshop.backend.entity.Coupon;
-import com.succulentshop.backend.repository.CouponRepository;
+import com.succulentshop.backend.exception.ErrorCode;
+import com.succulentshop.backend.service.CouponService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,10 +14,10 @@ import java.util.Optional;
 @RequestMapping("/api/coupons")
 public class CouponController {
 
-    private final CouponRepository couponRepository;
+    private final CouponService couponService;
 
-    public CouponController(CouponRepository couponRepository) {
-        this.couponRepository = couponRepository;
+    public CouponController(CouponService couponService) {
+        this.couponService = couponService;
     }
 
     @PostMapping("/validate")
@@ -25,17 +26,19 @@ public class CouponController {
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,
                 "valid", false,
-                "message", "Vui lòng nhập mã giảm giá"
+                "errorCode", ErrorCode.COUPON_CODE_REQUIRED.getCode(),
+                "message", ErrorCode.COUPON_CODE_REQUIRED.getMessage()
             ));
         }
 
-        Optional<Coupon> optionalCoupon = couponRepository.findByCodeIgnoreCaseAndIsActiveTrue(request.getCode().trim());
+        Optional<Coupon> optionalCoupon = couponService.validateCoupon(request.getCode());
 
         if (optionalCoupon.isEmpty()) {
             return ResponseEntity.status(404).body(Map.of(
                 "success", false,
                 "valid", false,
-                "message", "Mã giảm giá không hợp lệ hoặc đã hết hạn"
+                "errorCode", ErrorCode.COUPON_INVALID_OR_EXPIRED.getCode(),
+                "message", ErrorCode.COUPON_INVALID_OR_EXPIRED.getMessage()
             ));
         }
 

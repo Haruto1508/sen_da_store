@@ -18,7 +18,7 @@ public class HealthController {
             "status", "ok",
             "service", "Sen Xinh Garden - Java Spring Boot API",
             "framework", "Spring Boot 3 + Java 21",
-            "database", "H2 Database (Persistent)",
+            "database", "PostgreSQL Database (Local)",
             "timestamp", LocalDateTime.now().toString()
         ));
     }

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "orders")
@@ -12,6 +13,9 @@ public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "public_id", nullable = false, unique = true, length = 36)
+    private String publicId;
 
     @Column(nullable = false, unique = true)
     private String orderCode;
@@ -42,6 +46,7 @@ public class Order {
     private List<OrderItem> items = new ArrayList<>();
 
     public Order() {
+        this.publicId = UUID.randomUUID().toString();
         this.createdAt = LocalDateTime.now();
         this.status = "PENDING";
     }
@@ -54,6 +59,9 @@ public class Order {
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public String getPublicId() { return publicId; }
+    public void setPublicId(String publicId) { this.publicId = publicId; }
 
     public String getOrderCode() { return orderCode; }
     public void setOrderCode(String orderCode) { this.orderCode = orderCode; }

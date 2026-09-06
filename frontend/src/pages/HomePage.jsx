@@ -1,9 +1,7 @@
 import React from 'react';
 import Hero from '../components/Hero';
 import ProductCard from '../components/ProductCard';
-import ReviewsSection from '../components/ReviewsSection';
-import { NEWS_ARTICLES } from '../data/news';
-import { ArrowRight, Sparkles, BookOpen, Calendar, Clock } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 
 export default function HomePage({
   products,
@@ -12,12 +10,9 @@ export default function HomePage({
   wishlist,
   onToggleWishlist,
   onNavigateShop,
-  onNavigateNews,
-  onSelectArticle,
   onOpenQuiz
 }) {
   const featuredProducts = products.slice(0, 5);
-  const featuredNews = NEWS_ARTICLES.slice(0, 3);
 
   return (
     <div className="home-page">
@@ -109,68 +104,6 @@ export default function HomePage({
           </div>
         </div>
       </section>
-
-      {/* Featured Care Guides / News Section */}
-      <section style={{ padding: '80px 0' }}>
-        <div className="container">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px', marginBottom: '40px' }}>
-            <div>
-              <span className="section-subtitle">Kinh Nghiệm Nhà Vườn</span>
-              <h2 className="section-title">Cẩm Nang & Tin Tức Nổi Bật</h2>
-              <p className="section-desc">Bí quyết trồng và chăm sóc sen đá tươi tốt từ các chuyên gia.</p>
-            </div>
-
-            <button 
-              className="btn-secondary" 
-              onClick={onNavigateNews}
-              style={{ padding: '10px 20px', fontSize: '0.9rem' }}
-            >
-              <span>Xem Tất Cả Bài Viết</span>
-              <ArrowRight size={16} />
-            </button>
-          </div>
-
-          <div className="news-grid">
-            {featuredNews.map((article) => (
-              <article 
-                key={article.id} 
-                className="news-card"
-                onClick={() => onSelectArticle(article.id)}
-              >
-                <div className="news-card-img-wrap">
-                  <img src={article.thumbnail} alt={article.title} className="news-card-img" />
-                  <span className="news-category-badge">{article.category}</span>
-                </div>
-
-                <div className="news-card-content">
-                  <div className="news-meta">
-                    <span><Calendar size={13} /> {article.date}</span>
-                    <span>•</span>
-                    <span><Clock size={13} /> {article.readTime}</span>
-                  </div>
-
-                  <h3 className="news-card-title">{article.title}</h3>
-                  <p className="news-card-summary">{article.summary}</p>
-
-                  <div className="news-card-footer">
-                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
-                      Tác giả: {article.author.split('(')[0]}
-                    </span>
-
-                    <span className="news-read-more">
-                      <span>Chi tiết</span>
-                      <ArrowRight size={15} />
-                    </span>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Customer Reviews Section */}
-      <ReviewsSection />
     </div>
   );
 }

@@ -82,24 +82,6 @@ export default function CartPage({
       </div>
 
       <div className="container" style={{ padding: '36px 24px 80px' }}>
-        {/* Free Shipping Banner */}
-        <div className="cart-freeship-banner">
-          <div className="freeship-info">
-            <Truck size={20} color="var(--primary)" />
-            <span>
-              {remainingForFreeShip === 0 ? (
-                <strong style={{ color: 'var(--primary)' }}>🎉 Tuyệt vời! Đơn hàng của bạn đã đủ điều kiện MIỄN PHÍ VẬN CHUYỂN toàn quốc!</strong>
-              ) : (
-                <span>Mua thêm <strong>{formatPrice(remainingForFreeShip)}</strong> để nhận ưu đãi <strong>Miễn Phí Giao Hàng</strong>!</span>
-              )}
-            </span>
-            <span className="freeship-percent">{progressPercent}%</span>
-          </div>
-          <div className="freeship-progress-track">
-            <div className="freeship-progress-bar" style={{ width: `${progressPercent}%` }} />
-          </div>
-        </div>
-
         {cartItems.length === 0 ? (
           /* Empty Cart State */
           <div className="cart-empty-box">

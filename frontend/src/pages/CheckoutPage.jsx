@@ -10,12 +10,17 @@ import {
   ArrowRight,
   ShoppingBag,
   Clock,
-  Sparkles
+  Sparkles,
+  Smartphone,
+  ExternalLink,
+  Zap,
+  Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { createOrder } from '../services/api';
+import { createOrder, createMoMoPayment, simulateMoMoPayment, lookupOrder } from '../services/api';
 
 export default function CheckoutPage({
+  user,
   cartItems,
   discountCode = '',
   discountPercent = 0,
@@ -27,27 +32,87 @@ export default function CheckoutPage({
   onNavigateAdmin,
   initialOrderCode = null
 }) {
+  const detectCity = (addr) => {
+    if (!addr) return 'Hà Nội';
+    if (addr.includes('Hồ Chí Minh') || addr.includes('TP.HCM') || addr.includes('Sài Gòn')) return 'TP. Hồ Chí Minh';
+    if (addr.includes('Đà Lạt') || addr.includes('Lâm Đồng')) return 'Đà Lạt';
+    if (addr.includes('Đà Nẵng')) return 'Đà Nẵng';
+    if (addr.includes('Hải Phòng')) return 'Hải Phòng';
+    if (addr.includes('Cần Thơ')) return 'Cần Thơ';
+    if (addr.includes('Hà Nội')) return 'Hà Nội';
+    return 'Hà Nội';
+  };
+
   const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    address: '',
-    city: 'Hà Nội',
-    paymentMethod: 'vietqr', // 'vietqr' | 'cod'
+    name: user?.name || '',
+    phone: user?.phone || '',
+    address: user?.address || '',
+    city: detectCity(user?.address),
+    paymentMethod: 'momo', // 'momo' | 'vietqr' | 'cod'
     note: ''
   });
+
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        name: user.name || prev.name || '',
+        phone: user.phone || prev.phone || '',
+        address: user.address || prev.address || '',
+        city: detectCity(user.address) || prev.city
+      }));
+    }
+  }, [user]);
 
   const [copied, setCopied] = useState(false);
   const [isCompleted, setIsCompleted] = useState(Boolean(initialOrderCode));
   const [orderCode, setOrderCode] = useState(initialOrderCode || '');
   const [placedOrder, setPlacedOrder] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [momoData, setMomoData] = useState(null);
+  const [orderStatus, setOrderStatus] = useState('PENDING');
+  const [isSimulating, setIsSimulating] = useState(false);
 
   useEffect(() => {
     if (initialOrderCode) {
       setIsCompleted(true);
       setOrderCode(initialOrderCode);
+      lookupOrder(initialOrderCode)
+        .then((ord) => {
+          if (ord) {
+            setPlacedOrder(ord);
+            if (ord.status) setOrderStatus(ord.status);
+          }
+        })
+        .catch(() => {});
     }
   }, [initialOrderCode]);
+
+  // Polling tự động kiểm tra trạng thái đơn hàng khi đang chờ thanh toán
+  useEffect(() => {
+    if (!isCompleted || !orderCode || orderStatus === 'PAID') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const fetchedOrder = await lookupOrder(orderCode);
+        if (fetchedOrder && (fetchedOrder.status === 'PAID' || fetchedOrder.status === 'CONFIRMED')) {
+          setOrderStatus('PAID');
+          setPlacedOrder((prev) => ({ ...prev, status: 'PAID' }));
+          try {
+            confetti({
+              particleCount: 160,
+              spread: 90,
+              origin: { y: 0.6 }
+            });
+          } catch (e) {}
+        }
+      } catch (err) {
+        // Yên lặng bỏ qua lỗi kết nối polling ngầm
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [isCompleted, orderCode, orderStatus]);
 
   const formatPrice = (amount) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
@@ -113,20 +178,32 @@ export default function CheckoutPage({
         paymentMethod: formData.paymentMethod,
         customerName: formData.name,
         customerPhone: formData.phone,
-        customerAddress: formData.address
+        customerAddress: formData.address,
+        status: 'PENDING'
       });
+
+      // Nếu chọn MoMo, khởi tạo cổng thanh toán MoMo ngay
+      if (formData.paymentMethod === 'momo') {
+        try {
+          const momoRes = await createMoMoPayment(code);
+          if (momoRes && momoRes.data) {
+            setMomoData(momoRes.data);
+          }
+        } catch (mErr) {
+          console.warn('Khởi tạo giao dịch MoMo offline fallback:', mErr);
+        }
+      }
+
       setIsCompleted(true);
 
-      // Fire celebratory confetti!
+      // Bắn pháo hoa chào mừng tạo đơn thành công
       try {
         confetti({
           particleCount: 120,
           spread: 80,
           origin: { y: 0.6 }
         });
-      } catch (err) {
-        // Confetti is optional
-      }
+      } catch (err) {}
 
       if (onOrderSuccess) {
         onOrderSuccess(result.order);
@@ -145,9 +222,35 @@ export default function CheckoutPage({
     }
   };
 
-  // Screen 1: Order Completed Successfully View
+  // Hàm mô phỏng quét mã MoMo thành công (dành cho Test Sandbox / Demo)
+  const handleSimulateMoMo = async () => {
+    setIsSimulating(true);
+    try {
+      const res = await simulateMoMoPayment(currentCode);
+      if (res && res.success) {
+        setOrderStatus('PAID');
+        setPlacedOrder((prev) => ({ ...prev, status: 'PAID' }));
+        try {
+          confetti({
+            particleCount: 180,
+            spread: 100,
+            origin: { y: 0.6 }
+          });
+        } catch (e) {}
+      }
+    } catch (err) {
+      console.error('Lỗi mô phỏng MoMo:', err);
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  // Screen 1: Order Completed View
   if (isCompleted) {
-    const isVietQr = (placedOrder ? placedOrder.paymentMethod : formData.paymentMethod) === 'vietqr';
+    const currentPaymentMethod = placedOrder ? placedOrder.paymentMethod : formData.paymentMethod;
+    const isMoMo = currentPaymentMethod === 'momo';
+    const isVietQr = currentPaymentMethod === 'vietqr';
+    const isPaid = orderStatus === 'PAID';
 
     return (
       <div className="checkout-page">
@@ -171,13 +274,13 @@ export default function CheckoutPage({
 
             <span className="section-subtitle" style={{ color: 'var(--primary)' }}>Cảm Ơn Bạn Đã Mua Hàng!</span>
             <h1 style={{ fontSize: '2.2rem', marginTop: '6px', marginBottom: '12px' }}>
-              Đặt Hàng Thành Công!
+              {isPaid ? 'Đơn Hàng Đã Được Thanh Toán!' : 'Đặt Hàng Thành Công!'}
             </h1>
             <p style={{ color: 'var(--text-muted)', fontSize: '1.02rem', maxWidth: '580px', margin: '0 auto 28px' }}>
               Nhà vườn Sen Xinh Garden đã tiếp nhận đơn hàng <strong>#{currentCode}</strong> và đang tiến hành chọn lọc những cây sen đá tươi khỏe nhất để đóng gói giao đến bạn.
             </p>
 
-            {/* Order summary pill */}
+            {/* Order summary pill with live status */}
             <div className="success-order-pill">
               <div>
                 <span>Mã đơn hàng:</span>
@@ -191,20 +294,155 @@ export default function CheckoutPage({
               <div style={{ height: '32px', width: '1px', background: 'var(--border-light)' }} />
               <div>
                 <span>Hình thức:</span>
-                <strong>{isVietQr ? 'Chuyển Khoản VietQR' : 'Tiền Mặt (COD)'}</strong>
+                <strong>
+                  {isMoMo ? 'Cổng MoMo (Ví & QR)' : isVietQr ? 'Chuyển Khoản VietQR' : 'Tiền Mặt (COD)'}
+                </strong>
+              </div>
+              <div style={{ height: '32px', width: '1px', background: 'var(--border-light)' }} />
+              <div>
+                <span>Trạng thái:</span>
+                {isPaid ? (
+                  <span className="live-status-pill paid">✓ Đã Thanh Toán</span>
+                ) : (
+                  <span className="live-status-pill waiting">
+                    <span className="pulsing-dot" />
+                    Chờ Thanh Toán
+                  </span>
+                )}
               </div>
             </div>
 
+            {/* Bảng chúc mừng khi đã thanh toán thành công */}
+            {isPaid && (
+              <div className="paid-celebration-card">
+                <div className="paid-badge-circle">
+                  <CheckCircle2 size={36} />
+                </div>
+                <h2 style={{ fontSize: '1.55rem', color: '#065F46', marginBottom: '8px' }}>
+                  Giao Dịch Đã Được Xác Nhận Thành Công!
+                </h2>
+                <p style={{ color: '#047857', maxWidth: '560px', margin: '0 auto 16px', fontSize: '0.98rem', lineHeight: 1.6 }}>
+                  Hệ thống Sen Xinh Garden đã tự động ghi nhận số tiền <strong>{formatPrice(finalTotalAmount)}</strong> qua cổng thanh toán. Đơn hàng <strong>#{currentCode}</strong> đã được chuyển sang trạng thái <strong>ĐÃ THANH TOÁN (PAID)</strong>.
+                </p>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', padding: '8px 18px', borderRadius: 'var(--radius-full)', border: '1px solid #A7F3D0', fontSize: '0.88rem', color: '#065F46', fontWeight: 600 }}>
+                  <Sparkles size={16} color="#10B981" />
+                  <span>Hệ thống Webhook IPN tự động xác nhận • Khách không cần gửi biên lai</span>
+                </div>
+              </div>
+            )}
+
+            {/* MoMo Payment View */}
+            {!isPaid && isMoMo && (
+              <div className="momo-full-card">
+                <div className="momo-card-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className="momo-brand-badge">
+                      <Smartphone size={16} />
+                      <span>MoMo Payment</span>
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: '1.15rem', margin: 0, color: '#1F2937' }}>
+                        Quét Mã MoMo Để Hoàn Tất Thanh Toán
+                      </h3>
+                      <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                        Mở App MoMo hoặc bất kỳ App Ngân Hàng nào hỗ trợ VietQR để quét
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="live-status-pill waiting">
+                    <span className="pulsing-dot" />
+                    <span>Tự động phát hiện thanh toán...</span>
+                  </div>
+                </div>
+
+                <div className="vietqr-card-body">
+                  <div className="vietqr-image-wrap" style={{ border: '2px solid #F3A8D0' }}>
+                    <img 
+                      src={momoData?.qrCodeUrl || `https://img.vietqr.io/image/970422-0988123456-compact2.png?amount=${finalTotalAmount}&addInfo=${currentCode}&accountName=MOMO%20SEN%20XINH%20GARDEN`} 
+                      alt="Mã QR Thanh Toán MoMo" 
+                      className="vietqr-img" 
+                    />
+                    <span style={{ fontSize: '0.75rem', color: '#D82D8B', fontWeight: 600, marginTop: '8px', display: 'block' }}>
+                      Mã QR tương thích Ví MoMo & VietQR NAPAS
+                    </span>
+                  </div>
+
+                  <div className="vietqr-info-list">
+                    <div className="qr-info-item">
+                      <span className="qr-info-label">Cổng thanh toán:</span>
+                      <strong className="qr-info-val" style={{ color: '#D82D8B' }}>MoMo Payment Gateway v2</strong>
+                    </div>
+
+                    <div className="qr-info-item">
+                      <span className="qr-info-label">Đơn vị nhận:</span>
+                      <strong className="qr-info-val">Nhà Vườn Sen Xinh Garden</strong>
+                    </div>
+
+                    <div className="qr-info-item">
+                      <span className="qr-info-label">Số tiền cần thanh toán:</span>
+                      <strong className="qr-info-val" style={{ color: '#D82D8B', fontSize: '1.25rem' }}>
+                        {formatPrice(finalTotalAmount)}
+                      </strong>
+                    </div>
+
+                    <div className="qr-info-item">
+                      <span className="qr-info-label">Mã giao dịch / Nội dung:</span>
+                      <strong className="qr-info-val" style={{ background: '#FFF0F6', padding: '3px 10px', borderRadius: '4px', color: '#A50064', border: '1px solid #FBCFE8' }}>
+                        {currentCode}
+                      </strong>
+                    </div>
+
+                    {/* Action buttons MoMo */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
+                      {momoData?.payUrl && (
+                        <a 
+                          href={momoData.payUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="btn-momo-pay"
+                        >
+                          <ExternalLink size={18} />
+                          <span>Mở Cổng Thanh Toán MoMo (App / Web)</span>
+                        </a>
+                      )}
+
+                      <button 
+                        type="button" 
+                        className="btn-momo-simulate" 
+                        onClick={handleSimulateMoMo}
+                        disabled={isSimulating}
+                      >
+                        {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                        <span>{isSimulating ? 'Đang gửi tín hiệu Webhook...' : '⚡ Test Sandbox: Mô phỏng đã quét MoMo thành công'}</span>
+                      </button>
+
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        💡 <em>Hệ thống kết nối Webhook IPN trực tiếp: Ngay khi quét mã thành công, màn hình sẽ tự động kích hoạt thông báo thành công và chuyển trạng thái đơn sang PAID.</em>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* VietQR Payment Details if QR */}
-            {isVietQr ? (
+            {!isPaid && isVietQr && (
               <div className="vietqr-full-card">
                 <div className="vietqr-card-header">
-                  <QrCode size={22} color="var(--primary)" />
-                  <div>
-                    <h3 style={{ fontSize: '1.15rem' }}>Quét Mã VietQR Để Hoàn Tất Thanh Toán</h3>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      Sử dụng ứng dụng bất kỳ của 40+ ngân hàng Việt Nam (Vietcombank, MBBank, Techcombank...)
-                    </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <QrCode size={22} color="var(--primary)" />
+                    <div>
+                      <h3 style={{ fontSize: '1.15rem', margin: 0 }}>Quét Mã VietQR Để Hoàn Tất Thanh Toán</h3>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                        Sử dụng ứng dụng bất kỳ của 40+ ngân hàng Việt Nam (Vietcombank, MBBank, Techcombank...)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="live-status-pill waiting" style={{ marginLeft: 'auto' }}>
+                    <span className="pulsing-dot" />
+                    <span>Đang chờ chuyển khoản...</span>
                   </div>
                 </div>
 
@@ -253,10 +491,26 @@ export default function CheckoutPage({
                         {currentCode}
                       </strong>
                     </div>
+
+                    <div style={{ marginTop: '12px' }}>
+                      <button 
+                        type="button" 
+                        className="btn-momo-simulate" 
+                        onClick={handleSimulateMoMo}
+                        disabled={isSimulating}
+                        style={{ width: '100%', borderColor: 'var(--primary)', color: 'var(--primary)', background: '#F4F8F5' }}
+                      >
+                        {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                        <span>{isSimulating ? 'Đang xác thực...' : '⚡ Xác nhận chuyển khoản nhanh (Test Demo)'}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            ) : (
+            )}
+
+            {/* COD Details */}
+            {currentPaymentMethod === 'cod' && (
               <div className="cod-info-card">
                 <Truck size={36} color="var(--primary)" style={{ marginBottom: '10px' }} />
                 <h3>Thanh Toán Bằng Tiền Mặt Khi Nhận Hàng (COD)</h3>
@@ -335,7 +589,14 @@ export default function CheckoutPage({
               <div className="card-section-header">
                 <div className="step-num">1</div>
                 <div>
-                  <h3 className="card-section-title">Thông Tin Nhận Hàng</h3>
+                  <h3 className="card-section-title" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <span>Thông Tin Nhận Hàng</span>
+                    {user?.name && (
+                      <span style={{ fontSize: '0.75rem', background: '#EBF4EE', color: 'var(--primary)', padding: '2px 10px', borderRadius: 'var(--radius-full)', fontWeight: 600 }}>
+                        ✓ Điền tự động từ tài khoản
+                      </span>
+                    )}
+                  </h3>
                   <p className="card-section-subtitle">Chúng tôi sẽ liên hệ xác nhận và giao cây đến địa chỉ này</p>
                 </div>
               </div>
@@ -418,6 +679,32 @@ export default function CheckoutPage({
               </div>
 
               <div className="payment-options">
+                <label className={`payment-card ${formData.paymentMethod === 'momo' ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="momo"
+                    checked={formData.paymentMethod === 'momo'}
+                    onChange={() => setFormData({ ...formData, paymentMethod: 'momo' })}
+                    style={{ display: 'none' }}
+                  />
+                  <div className="payment-card-left">
+                    <div className="payment-icon-wrap" style={{ background: '#FFF0F6', color: '#D82D8B' }}>
+                      <Smartphone size={24} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <strong style={{ fontSize: '1rem' }}>Cổng Thanh Toán MoMo (Ví MoMo & VietQR MoMo)</strong>
+                        <span className="badge-recommend" style={{ background: '#FFF0F6', color: '#D82D8B', border: '1px solid #FBCFE8' }}>Khuyên Dùng • Tự Động</span>
+                      </div>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Quét bằng App MoMo hoặc 40+ App Ngân Hàng. Hệ thống nhận diện thanh toán tự động trong vài giây.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="radio-dot" />
+                </label>
+
                 <label className={`payment-card ${formData.paymentMethod === 'vietqr' ? 'selected' : ''}`}>
                   <input
                     type="radio"
@@ -434,7 +721,6 @@ export default function CheckoutPage({
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <strong style={{ fontSize: '1rem' }}>Chuyển Khoản Ngân Hàng Qua Mã VietQR</strong>
-                        <span className="badge-recommend">Khuyên Dùng</span>
                       </div>
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                         Quét mã QR 24/7 tự động điền số tiền và mã đơn. Xác nhận lập tức qua ngân hàng.
