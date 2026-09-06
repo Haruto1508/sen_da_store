@@ -57,7 +57,7 @@ export default function Navbar({
         <nav className="nav-container">
           {/* Logo */}
           <a 
-            href="#home" 
+            href="#/" 
             className="logo" 
             onClick={(e) => { 
               e.preventDefault(); 
@@ -74,7 +74,7 @@ export default function Navbar({
           <ul className="nav-menu">
             <li>
               <a 
-                href="#home" 
+                href="#/" 
                 className={`nav-link ${currentRoute === 'home' ? 'active' : ''}`} 
                 onClick={(e) => { e.preventDefault(); onNavigate('home'); }}
               >
@@ -83,7 +83,7 @@ export default function Navbar({
             </li>
             <li>
               <a 
-                href="#shop" 
+                href="#/shop" 
                 className={`nav-link ${currentRoute === 'shop' || currentRoute === 'product-detail' ? 'active' : ''}`} 
                 onClick={(e) => { e.preventDefault(); onNavigate('shop'); }}
               >
@@ -92,7 +92,7 @@ export default function Navbar({
             </li>
             <li>
               <a 
-                href="#news" 
+                href="#/news" 
                 className={`nav-link ${currentRoute === 'news' || currentRoute === 'news-detail' ? 'active' : ''}`} 
                 onClick={(e) => { e.preventDefault(); onNavigate('news'); }}
               >
@@ -101,7 +101,7 @@ export default function Navbar({
             </li>
             <li>
               <a 
-                href="#admin" 
+                href="#/admin" 
                 className={`nav-link ${currentRoute === 'admin' ? 'active' : ''}`} 
                 onClick={(e) => { e.preventDefault(); onNavigate('admin'); }}
               >
@@ -215,10 +215,7 @@ export default function Navbar({
                       <button 
                         id="menu-orders-btn"
                         className="user-menu-item"
-                        onClick={() => {
-                          setIsMenuOpen(false);
-                          window.location.hash = '#account';
-                        }}
+                        onClick={() => handleMenuItemClick('account')}
                       >
                         <div className="menu-item-icon"><Package size={17} /></div>
                         <span className="menu-item-label">Lịch Sử Đơn Hàng</span>

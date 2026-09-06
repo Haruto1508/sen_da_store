@@ -364,7 +364,7 @@ export default function RegisterPage({ onRegisterSuccess, onNavigate, addToast }
                     onChange={handleChange}
                   />
                   <span style={{ fontSize: '0.84rem', lineHeight: 1.4 }}>
-                    Tôi đồng ý với <a href="#home" className="auth-link">Điều khoản dịch vụ</a> và <a href="#home" className="auth-link">Chính sách bảo mật</a> của Sen Xinh Garden.
+                    Tôi đồng ý với <a href="#/" className="auth-link">Điều khoản dịch vụ</a> và <a href="#/" className="auth-link">Chính sách bảo mật</a> của Sen Xinh Garden.
                   </span>
                 </label>
               </div>
@@ -391,7 +391,7 @@ export default function RegisterPage({ onRegisterSuccess, onNavigate, addToast }
             <p className="auth-switch-prompt">
               Bạn đã có tài khoản Sen Xinh?{' '}
               <a 
-                href="#login" 
+                href="#/login" 
                 className="auth-link"
                 onClick={(e) => {
                   e.preventDefault();

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Toast from './components/Toast';
@@ -11,7 +12,6 @@ import ProductDetailPage from './pages/ProductDetailPage';
 import NewsPage from './pages/NewsPage';
 import NewsDetailPage from './pages/NewsDetailPage';
 import AdminPage from './pages/AdminPage';
-import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import QuizPage from './pages/QuizPage';
 import AccountPage from './pages/AccountPage';
@@ -22,15 +22,65 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import { PRODUCTS } from './data/products';
 import { getProducts, validateCoupon } from './services/api';
 
-export default function App() {
-  // Routing State
-  // 'home' | 'shop' | 'product-detail' | 'news' | 'news-detail' | 'admin' | 'cart' | 'checkout' | 'order-success' | 'quiz' | 'account'
-  const [currentRoute, setCurrentRoute] = useState('home');
-  const [currentProductId, setCurrentProductId] = useState(null);
-  const [currentArticleId, setCurrentArticleId] = useState(null);
-  const [orderSuccessCode, setOrderSuccessCode] = useState('');
+// Route Helper Wrappers to extract URL parameters via useParams()
+function ProductDetailRoute({ productList, onAddToCart, onBuyNow, wishlist, onToggleWishlist, navigateTo }) {
+  const { id } = useParams();
+  const product = productList.find((p) => p.id === id || p.publicId === id) || productList[0];
 
-  // Products state (loaded from Java backend API or fallback)
+  return (
+    <ProductDetailPage
+      product={product}
+      allProducts={productList}
+      onNavigateBack={() => window.history.back()}
+      onNavigateHome={() => navigateTo('home')}
+      onNavigateShop={() => navigateTo('shop')}
+      onSelectProduct={(productId) => navigateTo('product-detail', productId)}
+      onAddToCart={onAddToCart}
+      onBuyNow={onBuyNow}
+      isWishlisted={wishlist.includes(product?.id)}
+      onToggleWishlist={onToggleWishlist}
+      wishlist={wishlist}
+    />
+  );
+}
+
+function NewsDetailRoute({ navigateTo }) {
+  const { id } = useParams();
+
+  return (
+    <NewsDetailPage
+      articleId={id}
+      onNavigateBack={() => navigateTo('news')}
+      onNavigateHome={() => navigateTo('home')}
+      onNavigateNews={() => navigateTo('news')}
+      onNavigateShop={() => navigateTo('shop')}
+      onSelectArticle={(articleId) => navigateTo('news-detail', articleId)}
+    />
+  );
+}
+
+function OrderSuccessRoute({ user, onClearCart, navigateTo }) {
+  const { orderCode } = useParams();
+
+  return (
+    <CheckoutPage
+      user={user}
+      cartItems={[]}
+      initialOrderCode={orderCode || ''}
+      onClearCart={onClearCart}
+      onNavigateHome={() => navigateTo('home')}
+      onNavigateShop={() => navigateTo('shop')}
+      onNavigateCart={() => navigateTo('cart')}
+      onNavigateAdmin={() => navigateTo('admin')}
+    />
+  );
+}
+
+export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Products state (loaded from Java backend API or mockData.json)
   const [productList, setProductList] = useState(PRODUCTS);
 
   // Cart state from LocalStorage
@@ -86,98 +136,97 @@ export default function App() {
   // Toasts
   const [toasts, setToasts] = useState([]);
 
-  // URL Hash Routing Listener
+  // Auto scroll to top on route changes
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash || '#home';
-      if (hash.startsWith('#product/')) {
-        const id = hash.replace('#product/', '');
-        setCurrentRoute('product-detail');
-        setCurrentProductId(id);
-      } else if (hash.startsWith('#news/')) {
-        const id = hash.replace('#news/', '');
-        setCurrentRoute('news-detail');
-        setCurrentArticleId(id);
-      } else if (hash.startsWith('#order-success/')) {
-        const code = hash.replace('#order-success/', '');
-        setCurrentRoute('order-success');
-        setOrderSuccessCode(code);
-      } else if (hash === '#shop') {
-        setCurrentRoute('shop');
-      } else if (hash === '#news') {
-        setCurrentRoute('news');
-      } else if (hash === '#admin') {
-        setCurrentRoute('admin');
-      } else if (hash === '#cart') {
-        setCurrentRoute('cart');
-      } else if (hash === '#wishlist') {
-        setCurrentRoute('wishlist');
-      } else if (hash === '#checkout') {
-        setCurrentRoute('checkout');
-      } else if (hash === '#quiz') {
-        setCurrentRoute('quiz');
-      } else if (hash === '#account') {
-        setCurrentRoute('account');
-      } else if (hash === '#login') {
-        setCurrentRoute('login');
-      } else if (hash === '#register') {
-        setCurrentRoute('register');
-      } else if (hash === '#forgot-password' || hash === '#password') {
-        setCurrentRoute('password');
-      } else {
-        setCurrentRoute('home');
-      }
-    };
-
-    handleHashChange();
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  // Navigation function
-  const navigateTo = (route, param = null) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (route === 'home') {
-      window.location.hash = '#home';
-    } else if (route === 'shop') {
-      setOnlyWishlist(false);
-      window.location.hash = '#shop';
-    } else if (route === 'product-detail' && param) {
-      window.location.hash = `#product/${param}`;
-    } else if (route === 'news') {
-      window.location.hash = '#news';
-    } else if (route === 'news-detail' && param) {
-      window.location.hash = `#news/${param}`;
-    } else if (route === 'admin') {
-      window.location.hash = '#admin';
-    } else if (route === 'cart') {
-      window.location.hash = '#cart';
-    } else if (route === 'wishlist') {
-      window.location.hash = '#wishlist';
-    } else if (route === 'checkout') {
-      window.location.hash = '#checkout';
-    } else if (route === 'order-success' && param) {
-      window.location.hash = `#order-success/${param}`;
-    } else if (route === 'quiz') {
-      window.location.hash = '#quiz';
-    } else if (route === 'account') {
-      window.location.hash = '#account';
-    } else if (route === 'login') {
-      window.location.hash = '#login';
-    } else if (route === 'register') {
-      window.location.hash = '#register';
-    } else if (route === 'password' || route === 'forgot-password') {
-      window.location.hash = '#forgot-password';
+  }, [location.pathname]);
+
+  // Derived currentRoute for Navbar active states
+  const currentRoute = useMemo(() => {
+    const path = location.pathname;
+    if (path === '/' || path === '/home') return 'home';
+    if (path === '/shop') return 'shop';
+    if (path.startsWith('/product/')) return 'product-detail';
+    if (path === '/news') return 'news';
+    if (path.startsWith('/news/')) return 'news-detail';
+    if (path === '/admin') return 'admin';
+    if (path === '/cart') return 'cart';
+    if (path === '/wishlist') return 'wishlist';
+    if (path === '/checkout') return 'checkout';
+    if (path.startsWith('/order-success')) return 'order-success';
+    if (path === '/quiz') return 'quiz';
+    if (path === '/account') return 'account';
+    if (path === '/login') return 'login';
+    if (path === '/register') return 'register';
+    if (path === '/forgot-password' || path === '/password') return 'password';
+    return 'home';
+  }, [location.pathname]);
+
+  // Centralized Navigation function using react-router-dom
+  const navigateTo = (route, param = null) => {
+    switch (route) {
+      case 'home':
+        navigate('/');
+        break;
+      case 'shop':
+        setOnlyWishlist(false);
+        navigate('/shop');
+        break;
+      case 'product-detail':
+        navigate(`/product/${param}`);
+        break;
+      case 'news':
+        navigate('/news');
+        break;
+      case 'news-detail':
+        navigate(`/news/${param}`);
+        break;
+      case 'admin':
+        navigate('/admin');
+        break;
+      case 'cart':
+        navigate('/cart');
+        break;
+      case 'wishlist':
+        navigate('/wishlist');
+        break;
+      case 'checkout':
+        navigate('/checkout');
+        break;
+      case 'order-success':
+        navigate(param ? `/order-success/${param}` : '/order-success');
+        break;
+      case 'quiz':
+        navigate('/quiz');
+        break;
+      case 'account':
+        navigate('/account');
+        break;
+      case 'login':
+        navigate('/login');
+        break;
+      case 'register':
+        navigate('/register');
+        break;
+      case 'password':
+      case 'forgot-password':
+        navigate('/forgot-password');
+        break;
+      default:
+        navigate('/');
+        break;
     }
   };
 
-  // Load products from Java Spring Boot Backend
+  // Load products from API / Mock
   useEffect(() => {
-    getProducts().then((data) => {
-      if (data && data.length > 0) {
-        setProductList(data);
-      }
-    });
+    getProducts()
+      .then((data) => {
+        if (data && data.length > 0) {
+          setProductList(data);
+        }
+      })
+      .catch((err) => console.error('Error loading products:', err));
   }, []);
 
   // Save Cart to LocalStorage
@@ -289,7 +338,7 @@ export default function App() {
     });
   };
 
-  // Validate coupon through Java Spring Boot API
+  // Validate coupon
   const handleApplyCoupon = async (code) => {
     try {
       const result = await validateCoupon(code);
@@ -307,45 +356,41 @@ export default function App() {
 
   // Filter & Sort Logic for Shop Page
   const filteredProducts = useMemo(() => {
-    return productList.filter((item) => {
-      // Wishlist filter
-      if (onlyWishlist && !wishlist.includes(item.id)) return false;
+    return productList
+      .filter((item) => {
+        // Wishlist filter
+        if (onlyWishlist && !wishlist.includes(item.id)) return false;
 
-      // Category filter
-      if (selectedCategory !== 'all' && item.category !== selectedCategory) return false;
+        // Category filter
+        if (selectedCategory !== 'all' && item.category !== selectedCategory) return false;
 
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesName = item.name.toLowerCase().includes(q);
-        const matchesSci = (item.scientificName || '').toLowerCase().includes(q);
-        const matchesDesc = (item.description || '').toLowerCase().includes(q);
-        if (!matchesName && !matchesSci && !matchesDesc) return false;
-      }
+        // Search query
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchesName = item.name.toLowerCase().includes(q);
+          const matchesSci = (item.scientificName || '').toLowerCase().includes(q);
+          const matchesDesc = (item.description || '').toLowerCase().includes(q);
+          if (!matchesName && !matchesSci && !matchesDesc) return false;
+        }
 
-      // Light filter
-      if (selectedLight !== 'all' && item.lightType !== selectedLight) return false;
+        // Light filter
+        if (selectedLight !== 'all' && item.lightType !== selectedLight) return false;
 
-      // Difficulty filter
-      if (selectedDifficulty === 'easy' && item.difficultyLevel !== 1) return false;
-      if (selectedDifficulty === 'medium' && item.difficultyLevel < 2) return false;
+        // Difficulty filter
+        if (selectedDifficulty === 'easy' && item.difficultyLevel !== 1) return false;
+        if (selectedDifficulty === 'medium' && item.difficultyLevel < 2) return false;
 
-      return true;
-    }).sort((a, b) => {
-      if (sortBy === 'price-asc') return a.price - b.price;
-      if (sortBy === 'price-desc') return b.price - a.price;
-      if (sortBy === 'rating') return b.rating - a.rating;
-      return 0; // featured default
-    });
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'price-asc') return a.price - b.price;
+        if (sortBy === 'price-desc') return b.price - a.price;
+        if (sortBy === 'rating') return b.rating - a.rating;
+        return 0; // featured default
+      });
   }, [productList, selectedCategory, searchQuery, selectedLight, selectedDifficulty, sortBy, onlyWishlist, wishlist]);
 
   const cartTotalCount = cartItems.reduce((acc, it) => acc + it.quantity, 0);
-
-  // Current active product for detail view
-  const activeProduct = useMemo(() => {
-    if (!currentProductId) return productList[0];
-    return productList.find((p) => p.id === currentProductId) || productList[0];
-  }, [currentProductId, productList]);
 
   return (
     <div className="app">
@@ -356,208 +401,312 @@ export default function App() {
         wishlistCount={wishlist.length}
         user={user}
         onLogout={handleLogout}
-        onOpenWishlist={() => {
-          navigateTo('wishlist');
-        }}
+        onOpenWishlist={() => navigateTo('wishlist')}
         onNavigate={navigateTo}
       />
 
-      {/* Main Dedicated Views */}
+      {/* Main Routed Content */}
       <main className="main-content">
-        {currentRoute === 'home' && (
-          <HomePage
-            products={productList}
-            onOpenProductDetail={(id) => navigateTo('product-detail', id)}
-            onAddToCart={handleAddToCart}
-            wishlist={wishlist}
-            onToggleWishlist={handleToggleWishlist}
-            onNavigateShop={() => navigateTo('shop')}
-            onNavigateNews={() => navigateTo('news')}
-            onSelectArticle={(id) => navigateTo('news-detail', id)}
-            onOpenQuiz={() => navigateTo('quiz')}
-          />
-        )}
-
-        {currentRoute === 'shop' && (
-          <ShopPage
-            products={filteredProducts}
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            selectedLight={selectedLight}
-            onSelectLight={setSelectedLight}
-            selectedDifficulty={selectedDifficulty}
-            onSelectDifficulty={setSelectedDifficulty}
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-            onOpenProductDetail={(id) => navigateTo('product-detail', id)}
-            onAddToCart={handleAddToCart}
-            wishlist={wishlist}
-            onToggleWishlist={handleToggleWishlist}
-            onlyWishlist={onlyWishlist}
-            onSetOnlyWishlist={setOnlyWishlist}
-            onNavigateHome={() => navigateTo('home')}
-          />
-        )}
-
-        {currentRoute === 'product-detail' && (
-          <ProductDetailPage
-            product={activeProduct}
-            allProducts={productList}
-            onNavigateBack={() => window.history.back()}
-            onNavigateHome={() => navigateTo('home')}
-            onNavigateShop={() => navigateTo('shop')}
-            onSelectProduct={(id) => navigateTo('product-detail', id)}
-            onAddToCart={handleAddToCart}
-            onBuyNow={handleBuyNow}
-            isWishlisted={wishlist.includes(activeProduct?.id)}
-            onToggleWishlist={handleToggleWishlist}
-            wishlist={wishlist}
-          />
-        )}
-
-        {currentRoute === 'news' && (
-          <NewsPage
-            onSelectArticle={(id) => navigateTo('news-detail', id)}
-            onNavigateHome={() => navigateTo('home')}
-          />
-        )}
-
-        {currentRoute === 'news-detail' && (
-          <NewsDetailPage
-            articleId={currentArticleId}
-            onNavigateBack={() => navigateTo('news')}
-            onNavigateHome={() => navigateTo('home')}
-            onNavigateNews={() => navigateTo('news')}
-            onNavigateShop={() => navigateTo('shop')}
-            onSelectArticle={(id) => navigateTo('news-detail', id)}
-          />
-        )}
-
-        {/* Dedicated Checkout Page */}
-        {currentRoute === 'checkout' && (
-          <CheckoutPage
-            user={user}
-            cartItems={cartItems}
-            discountCode={discountCode}
-            discountPercent={discountPercent}
-            onOrderSuccess={(order) => {
-              setCartItems([]);
-              if (order?.orderCode) {
-                navigateTo('order-success', order.orderCode);
-              }
-            }}
-            onClearCart={() => setCartItems([])}
-            onNavigateHome={() => navigateTo('home')}
-            onNavigateShop={() => navigateTo('shop')}
-            onNavigateCart={() => navigateTo('cart')}
-            onNavigateAdmin={() => navigateTo('admin')}
-          />
-        )}
-
-        {/* Dedicated Order Success & VietQR View */}
-        {currentRoute === 'order-success' && (
-          <CheckoutPage
-            user={user}
-            cartItems={[]}
-            initialOrderCode={orderSuccessCode}
-            onClearCart={() => setCartItems([])}
-            onNavigateHome={() => navigateTo('home')}
-            onNavigateShop={() => navigateTo('shop')}
-            onNavigateCart={() => navigateTo('cart')}
-            onNavigateAdmin={() => navigateTo('admin')}
-          />
-        )}
-
-        {/* Dedicated Quiz Page */}
-        {currentRoute === 'quiz' && (
-          <QuizPage
-            onSelectProduct={(prod) => navigateTo('product-detail', prod.id)}
-            onAddToCart={handleAddToCart}
-            onNavigateHome={() => navigateTo('home')}
-            onNavigateShop={() => navigateTo('shop')}
-          />
-        )}
-
-        {/* Dedicated Login Page */}
-        {currentRoute === 'login' && (
-          <LoginPage
-            onLoginSuccess={handleLoginSuccess}
-            onNavigate={navigateTo}
-            addToast={addToast}
-          />
-        )}
-
-        {/* Dedicated Register Page */}
-        {currentRoute === 'register' && (
-          <RegisterPage
-            onRegisterSuccess={handleRegisterSuccess}
-            onNavigate={navigateTo}
-            addToast={addToast}
-          />
-        )}
-
-        {/* Dedicated Forgot / Reset Password Page */}
-        {currentRoute === 'password' && (
-          <ForgotPasswordPage
-            onNavigate={navigateTo}
-            addToast={addToast}
-          />
-        )}
-
-        {/* Dedicated Admin Console Page */}
-        {currentRoute === 'admin' && (
-          <AdminPage
-            onNavigateHome={() => navigateTo('home')}
-            onNavigateShop={() => navigateTo('shop')}
-            onProductsChange={(updated) => setProductList(updated)}
-            addToast={addToast}
-          />
-        )}
-
-        {/* Dedicated Account Dashboard: Profile, Orders, Wishlist, Cart (Always Preserves Sidebar) */}
-        {currentRoute === 'account' && !user ? (
-          <LoginPage
-            onLoginSuccess={handleLoginSuccess}
-            onNavigate={navigateTo}
-            addToast={addToast}
-          />
-        ) : ['account', 'cart', 'wishlist'].includes(currentRoute) && (
-          <AccountPage
-            initialTab={
-              currentRoute === 'cart'
-                ? 'cart'
-                : currentRoute === 'wishlist'
-                ? 'wishlist'
-                : 'profile'
+        <Routes>
+          {/* Home Route */}
+          <Route
+            path="/"
+            element={
+              <HomePage
+                products={productList}
+                onOpenProductDetail={(id) => navigateTo('product-detail', id)}
+                onAddToCart={handleAddToCart}
+                wishlist={wishlist}
+                onToggleWishlist={handleToggleWishlist}
+                onNavigateShop={() => navigateTo('shop')}
+                onNavigateNews={() => navigateTo('news')}
+                onSelectArticle={(id) => navigateTo('news-detail', id)}
+                onOpenQuiz={() => navigateTo('quiz')}
+              />
             }
-            user={user}
-            wishlistCount={wishlist.length}
-            cartCount={cartTotalCount}
-            cartItems={cartItems}
-            products={productList}
-            wishlist={wishlist}
-            discountCode={discountCode}
-            discountPercent={discountPercent}
-            onUpdateQty={handleUpdateQty}
-            onRemoveItem={handleRemoveItem}
-            onApplyCoupon={handleApplyCoupon}
-            onToggleWishlist={handleToggleWishlist}
-            onAddToCart={handleAddToCart}
-            onOpenProductDetail={(id) => navigateTo('product-detail', id)}
-            onNavigateCheckout={() => navigateTo('checkout')}
-            onNavigateShop={() => navigateTo('shop')}
-            onNavigateCart={() => navigateTo('cart')}
-            onNavigateAdmin={() => navigateTo('admin')}
-            onNavigateHome={() => navigateTo('home')}
-            onLogout={handleLogout}
-            onUpdateUser={(updated) => {
-              setUser((prev) => ({ ...prev, ...updated }));
-              addToast('Đã cập nhật thông tin tài khoản thành công!', 'info');
-            }}
           />
-        )}
+          <Route path="/home" element={<Navigate to="/" replace />} />
+
+          {/* Shop Route */}
+          <Route
+            path="/shop"
+            element={
+              <ShopPage
+                products={filteredProducts}
+                selectedCategory={selectedCategory}
+                onSelectCategory={setSelectedCategory}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                selectedLight={selectedLight}
+                onSelectLight={setSelectedLight}
+                selectedDifficulty={selectedDifficulty}
+                onSelectDifficulty={setSelectedDifficulty}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                onOpenProductDetail={(id) => navigateTo('product-detail', id)}
+                onAddToCart={handleAddToCart}
+                wishlist={wishlist}
+                onToggleWishlist={handleToggleWishlist}
+                onlyWishlist={onlyWishlist}
+                onSetOnlyWishlist={setOnlyWishlist}
+                onNavigateHome={() => navigateTo('home')}
+              />
+            }
+          />
+
+          {/* Product Detail Route */}
+          <Route
+            path="/product/:id"
+            element={
+              <ProductDetailRoute
+                productList={productList}
+                onAddToCart={handleAddToCart}
+                onBuyNow={handleBuyNow}
+                wishlist={wishlist}
+                onToggleWishlist={handleToggleWishlist}
+                navigateTo={navigateTo}
+              />
+            }
+          />
+
+          {/* News & Guides Route */}
+          <Route
+            path="/news"
+            element={
+              <NewsPage
+                onSelectArticle={(id) => navigateTo('news-detail', id)}
+                onNavigateHome={() => navigateTo('home')}
+              />
+            }
+          />
+
+          {/* News Detail Route */}
+          <Route
+            path="/news/:id"
+            element={<NewsDetailRoute navigateTo={navigateTo} />}
+          />
+
+          {/* Dedicated Checkout Route */}
+          <Route
+            path="/checkout"
+            element={
+              <CheckoutPage
+                user={user}
+                cartItems={cartItems}
+                discountCode={discountCode}
+                discountPercent={discountPercent}
+                onOrderSuccess={(order) => {
+                  setCartItems([]);
+                  if (order?.orderCode) {
+                    navigateTo('order-success', order.orderCode);
+                  }
+                }}
+                onClearCart={() => setCartItems([])}
+                onNavigateHome={() => navigateTo('home')}
+                onNavigateShop={() => navigateTo('shop')}
+                onNavigateCart={() => navigateTo('cart')}
+                onNavigateAdmin={() => navigateTo('admin')}
+              />
+            }
+          />
+
+          {/* Dedicated Order Success & VietQR View */}
+          <Route
+            path="/order-success/:orderCode"
+            element={
+              <OrderSuccessRoute
+                user={user}
+                onClearCart={() => setCartItems([])}
+                navigateTo={navigateTo}
+              />
+            }
+          />
+          <Route
+            path="/order-success"
+            element={
+              <OrderSuccessRoute
+                user={user}
+                onClearCart={() => setCartItems([])}
+                navigateTo={navigateTo}
+              />
+            }
+          />
+
+          {/* Dedicated Quiz Page */}
+          <Route
+            path="/quiz"
+            element={
+              <QuizPage
+                onSelectProduct={(prod) => navigateTo('product-detail', prod.id)}
+                onAddToCart={handleAddToCart}
+                onNavigateHome={() => navigateTo('home')}
+                onNavigateShop={() => navigateTo('shop')}
+              />
+            }
+          />
+
+          {/* Dedicated Admin Console Route */}
+          <Route
+            path="/admin"
+            element={
+              <AdminPage
+                onNavigateHome={() => navigateTo('home')}
+                onNavigateShop={() => navigateTo('shop')}
+                onProductsChange={(updated) => setProductList(updated)}
+                addToast={addToast}
+              />
+            }
+          />
+
+          {/* Dedicated Login Route */}
+          <Route
+            path="/login"
+            element={
+              <LoginPage
+                onLoginSuccess={handleLoginSuccess}
+                onNavigate={navigateTo}
+                addToast={addToast}
+              />
+            }
+          />
+
+          {/* Dedicated Register Route */}
+          <Route
+            path="/register"
+            element={
+              <RegisterPage
+                onRegisterSuccess={handleRegisterSuccess}
+                onNavigate={navigateTo}
+                addToast={addToast}
+              />
+            }
+          />
+
+          {/* Dedicated Forgot / Reset Password Route */}
+          <Route
+            path="/forgot-password"
+            element={
+              <ForgotPasswordPage
+                onNavigate={navigateTo}
+                addToast={addToast}
+              />
+            }
+          />
+          <Route path="/password" element={<Navigate to="/forgot-password" replace />} />
+
+          {/* Dedicated Cart Route (Opens AccountPage with Cart Tab) */}
+          <Route
+            path="/cart"
+            element={
+              <AccountPage
+                initialTab="cart"
+                user={user}
+                wishlistCount={wishlist.length}
+                cartCount={cartTotalCount}
+                cartItems={cartItems}
+                products={productList}
+                wishlist={wishlist}
+                discountCode={discountCode}
+                discountPercent={discountPercent}
+                onUpdateQty={handleUpdateQty}
+                onRemoveItem={handleRemoveItem}
+                onApplyCoupon={handleApplyCoupon}
+                onToggleWishlist={handleToggleWishlist}
+                onAddToCart={handleAddToCart}
+                onOpenProductDetail={(id) => navigateTo('product-detail', id)}
+                onNavigateCheckout={() => navigateTo('checkout')}
+                onNavigateShop={() => navigateTo('shop')}
+                onNavigateCart={() => navigateTo('cart')}
+                onNavigateAdmin={() => navigateTo('admin')}
+                onNavigateHome={() => navigateTo('home')}
+                onLogout={handleLogout}
+                onUpdateUser={(updated) => {
+                  setUser((prev) => ({ ...prev, ...updated }));
+                  addToast('Đã cập nhật thông tin tài khoản thành công!', 'info');
+                }}
+              />
+            }
+          />
+
+          {/* Dedicated Wishlist Route (Opens AccountPage with Wishlist Tab) */}
+          <Route
+            path="/wishlist"
+            element={
+              <AccountPage
+                initialTab="wishlist"
+                user={user}
+                wishlistCount={wishlist.length}
+                cartCount={cartTotalCount}
+                cartItems={cartItems}
+                products={productList}
+                wishlist={wishlist}
+                discountCode={discountCode}
+                discountPercent={discountPercent}
+                onUpdateQty={handleUpdateQty}
+                onRemoveItem={handleRemoveItem}
+                onApplyCoupon={handleApplyCoupon}
+                onToggleWishlist={handleToggleWishlist}
+                onAddToCart={handleAddToCart}
+                onOpenProductDetail={(id) => navigateTo('product-detail', id)}
+                onNavigateCheckout={() => navigateTo('checkout')}
+                onNavigateShop={() => navigateTo('shop')}
+                onNavigateCart={() => navigateTo('cart')}
+                onNavigateAdmin={() => navigateTo('admin')}
+                onNavigateHome={() => navigateTo('home')}
+                onLogout={handleLogout}
+                onUpdateUser={(updated) => {
+                  setUser((prev) => ({ ...prev, ...updated }));
+                  addToast('Đã cập nhật thông tin tài khoản thành công!', 'info');
+                }}
+              />
+            }
+          />
+
+          {/* Dedicated Account Route (Opens AccountPage with Profile Tab) */}
+          <Route
+            path="/account"
+            element={
+              !user ? (
+                <LoginPage
+                  onLoginSuccess={handleLoginSuccess}
+                  onNavigate={navigateTo}
+                  addToast={addToast}
+                />
+              ) : (
+                <AccountPage
+                  initialTab="profile"
+                  user={user}
+                  wishlistCount={wishlist.length}
+                  cartCount={cartTotalCount}
+                  cartItems={cartItems}
+                  products={productList}
+                  wishlist={wishlist}
+                  discountCode={discountCode}
+                  discountPercent={discountPercent}
+                  onUpdateQty={handleUpdateQty}
+                  onRemoveItem={handleRemoveItem}
+                  onApplyCoupon={handleApplyCoupon}
+                  onToggleWishlist={handleToggleWishlist}
+                  onAddToCart={handleAddToCart}
+                  onOpenProductDetail={(id) => navigateTo('product-detail', id)}
+                  onNavigateCheckout={() => navigateTo('checkout')}
+                  onNavigateShop={() => navigateTo('shop')}
+                  onNavigateCart={() => navigateTo('cart')}
+                  onNavigateAdmin={() => navigateTo('admin')}
+                  onNavigateHome={() => navigateTo('home')}
+                  onLogout={handleLogout}
+                  onUpdateUser={(updated) => {
+                    setUser((prev) => ({ ...prev, ...updated }));
+                    addToast('Đã cập nhật thông tin tài khoản thành công!', 'info');
+                  }}
+                />
+              )
+            }
+          />
+
+          {/* Catch-all Wildcard Route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
 
       {/* Footer */}

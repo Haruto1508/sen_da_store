@@ -176,7 +176,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                 <label htmlFor="login-password">
                   <span>Mật khẩu</span>
                   <a 
-                    href="#forgot-password" 
+                    href="#/forgot-password" 
                     className="auth-link"
                     style={{ fontSize: '0.82rem' }}
                     onClick={(e) => {
@@ -313,7 +313,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
             <p className="auth-switch-prompt">
               Chưa có tài khoản Sen Xinh?{' '}
               <a 
-                href="#register" 
+                href="#/register" 
                 className="auth-link"
                 onClick={(e) => {
                   e.preventDefault();

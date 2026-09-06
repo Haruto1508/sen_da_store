@@ -450,7 +450,7 @@ export default function ForgotPasswordPage({ onNavigate, addToast }) {
             {step < 4 && (
               <p className="auth-switch-prompt">
                 <a 
-                  href="#login" 
+                  href="#/login" 
                   className="auth-link"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   onClick={(e) => {
