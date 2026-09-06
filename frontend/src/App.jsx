@@ -392,21 +392,25 @@ export default function App() {
 
   const cartTotalCount = cartItems.reduce((acc, it) => acc + it.quantity, 0);
 
+  const isAdminRoute = location.pathname.startsWith('/admin');
+
   return (
-    <div className="app">
-      {/* Navigation Header */}
-      <Navbar
-        currentRoute={currentRoute}
-        cartCount={cartTotalCount}
-        wishlistCount={wishlist.length}
-        user={user}
-        onLogout={handleLogout}
-        onOpenWishlist={() => navigateTo('wishlist')}
-        onNavigate={navigateTo}
-      />
+    <div className={`app ${isAdminRoute ? 'admin-layout' : ''}`}>
+      {/* Chỉ hiển thị Header Navbar khi là trang người dùng, ẩn hoàn toàn trên trang Admin */}
+      {!isAdminRoute && (
+        <Navbar
+          currentRoute={currentRoute}
+          cartCount={cartTotalCount}
+          wishlistCount={wishlist.length}
+          user={user}
+          onLogout={handleLogout}
+          onOpenWishlist={() => navigateTo('wishlist')}
+          onNavigate={navigateTo}
+        />
+      )}
 
       {/* Main Routed Content */}
-      <main className="main-content">
+      <main className={isAdminRoute ? 'admin-main-wrapper' : 'main-content'}>
         <Routes>
           {/* Home Route */}
           <Route
@@ -550,6 +554,9 @@ export default function App() {
             path="/admin"
             element={
               <AdminPage
+                user={user}
+                onLoginAsAdmin={handleLoginSuccess}
+                onLogout={handleLogout}
                 onNavigateHome={() => navigateTo('home')}
                 onNavigateShop={() => navigateTo('shop')}
                 onProductsChange={(updated) => setProductList(updated)}
@@ -709,14 +716,14 @@ export default function App() {
         </Routes>
       </main>
 
-      {/* Footer */}
-      <Footer />
+      {/* Chỉ hiển thị Footer khách hàng khi KHÔNG PHẢI trang admin */}
+      {!isAdminRoute && <Footer />}
 
       {/* Toast Notifications */}
       <Toast toasts={toasts} />
 
-      {/* Floating Scroll To Top Button */}
-      <ScrollToTop />
+      {/* Floating Scroll To Top Button (chỉ ở trang khách hàng) */}
+      {!isAdminRoute && <ScrollToTop />}
     </div>
   );
 }

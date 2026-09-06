@@ -112,6 +112,125 @@ export function saveStoredUsers(users) {
   }
 }
 
+export const SEED_MOCK_ORDERS = [
+  {
+    id: 1718000001,
+    orderCode: 'SX-HL8812',
+    customerName: 'Nguyễn Hoàng Long',
+    customerEmail: 'long.senxinh@gmail.com',
+    customerPhone: '0988123456',
+    shippingAddress: '123 Phố Trúc Bạch, Quận Ba Đình, Hà Nội',
+    status: 'COMPLETED',
+    paymentMethod: 'VIETQR',
+    createdAt: '2026-08-28T09:15:00.000Z',
+    items: [
+      {
+        id: 'sen-da-kim-cuong',
+        name: 'Sen Đá Kim Cương Pha Lê (Haworthia Cooperi)',
+        price: 85000,
+        quantity: 2,
+        image: 'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'sen-da-chuoi-ngoc',
+        name: 'Sen Đá Chuỗi Ngọc Bi Rủ',
+        price: 65000,
+        quantity: 1,
+        image: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'dat-trong-sen-da',
+        name: 'Đất Trồng Sen Đá Chuyên Dụng Soil Mix (1kg)',
+        price: 35000,
+        quantity: 1,
+        image: 'https://images.unsplash.com/photo-1520302630591-fd1c66edc19d?auto=format&fit=crop&w=800&q=80'
+      }
+    ],
+    subtotal: 270000,
+    discountAmount: 20000,
+    shippingFee: 15000,
+    totalAmount: 265000,
+    note: 'Giao giờ hành chính, bọc kỹ chậu giúp mình nhé shop.'
+  },
+  {
+    id: 1718000002,
+    orderCode: 'SX-HL9941',
+    customerName: 'Nguyễn Hoàng Long',
+    customerEmail: 'long.senxinh@gmail.com',
+    customerPhone: '0988123456',
+    shippingAddress: '123 Phố Trúc Bạch, Quận Ba Đình, Hà Nội',
+    status: 'SHIPPING',
+    paymentMethod: 'COD',
+    createdAt: '2026-09-02T14:30:00.000Z',
+    items: [
+      {
+        id: 'sen-da-mong-rong',
+        name: 'Sen Đá Móng Rồng Xanh Viền Trắng',
+        price: 55000,
+        quantity: 2,
+        image: 'https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'chau-dat-nung-mini',
+        name: 'Bộ 2 Chậu Đất Nung Thấm Nước Size M',
+        price: 45000,
+        quantity: 1,
+        image: 'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=800&q=80'
+      }
+    ],
+    subtotal: 155000,
+    discountAmount: 0,
+    shippingFee: 20000,
+    totalAmount: 175000,
+    note: 'Gọi trước khi giao 15 phút.'
+  },
+  {
+    id: 1718000003,
+    orderCode: 'SX-AD1002',
+    customerName: 'Quản Trị Viên Sen Xinh',
+    customerEmail: 'admin@senxinh.vn',
+    customerPhone: '0901234567',
+    shippingAddress: 'Vườn Sen Xinh, Tây Hồ, Hà Nội',
+    status: 'PAID',
+    paymentMethod: 'MOMO',
+    createdAt: '2026-09-04T10:00:00.000Z',
+    items: [
+      {
+        id: 'sen-da-hoa-hong-xanh',
+        name: 'Sen Đá Hoa Hồng Xanh Cổ Thụ',
+        price: 150000,
+        quantity: 2,
+        image: 'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'sen-da-do-la-hong',
+        name: 'Sen Đá Đô La Hồng Cẩm Thạch',
+        price: 120000,
+        quantity: 1,
+        image: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=800&q=80'
+      }
+    ],
+    subtotal: 420000,
+    discountAmount: 40000,
+    shippingFee: 0,
+    totalAmount: 380000,
+    note: 'Đơn đặt kiểm tra cây giống nhập khẩu'
+  }
+];
+
+export function getStoredOrders() {
+  try {
+    const raw = localStorage.getItem('senxinh_mock_orders');
+    if (!raw || JSON.parse(raw).length === 0) {
+      localStorage.setItem('senxinh_mock_orders', JSON.stringify(SEED_MOCK_ORDERS));
+      return SEED_MOCK_ORDERS;
+    }
+    return JSON.parse(raw);
+  } catch {
+    return SEED_MOCK_ORDERS;
+  }
+}
+
 // ==============================================================================
 // STOREFRONT PRODUCT & ORDER APIs
 // ==============================================================================
@@ -241,16 +360,20 @@ export async function submitReview(productId, reviewData) {
 /**
  * Lấy lịch sử đơn hàng của người dùng theo số điện thoại
  */
-export async function getCustomerOrders(phone) {
+export async function getCustomerOrders(identifier) {
   if (USE_MOCK_DATA) {
-    const mockOrders = JSON.parse(localStorage.getItem('senxinh_mock_orders') || '[]');
-    if (phone) {
-      return mockOrders.filter((o) => o.customerPhone === phone);
-    }
-    return mockOrders;
+    const mockOrders = getStoredOrders();
+    if (!identifier) return mockOrders;
+    const query = String(identifier).toLowerCase();
+    return mockOrders.filter(
+      (o) =>
+        (o.customerPhone && o.customerPhone.includes(query)) ||
+        (o.customerEmail && o.customerEmail.toLowerCase() === query) ||
+        (o.customerName && o.customerName.toLowerCase().includes(query))
+    );
   }
 
-  const res = await fetch(`${API_BASE}/users/my-orders?phone=${encodeURIComponent(phone)}`);
+  const res = await fetch(`${API_BASE}/users/my-orders?phone=${encodeURIComponent(identifier)}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Không thể lấy lịch sử đơn hàng');
   return data.data || [];
@@ -321,7 +444,7 @@ export async function validateCoupon(code) {
  */
 export async function getAdminOrders(status = 'all') {
   if (USE_MOCK_DATA) {
-    const mockOrders = JSON.parse(localStorage.getItem('senxinh_mock_orders') || '[]');
+    const mockOrders = getStoredOrders();
     if (status && status !== 'all') {
       return mockOrders.filter((o) => o.status === status);
     }
@@ -342,7 +465,7 @@ export async function getAdminOrders(status = 'all') {
  */
 export async function updateOrderStatus(orderId, status) {
   if (USE_MOCK_DATA) {
-    const mockOrders = JSON.parse(localStorage.getItem('senxinh_mock_orders') || '[]');
+    const mockOrders = getStoredOrders();
     const updated = mockOrders.map((o) =>
       String(o.id) === String(orderId) ? { ...o, status } : o
     );
@@ -366,7 +489,7 @@ export async function getAdminStats() {
     const products = getStoredProducts();
     const users = getStoredUsers();
     const coupons = getStoredCoupons();
-    const orders = JSON.parse(localStorage.getItem('senxinh_mock_orders') || '[]');
+    const orders = getStoredOrders();
 
     const paidOrders = orders.filter((o) => o.status === 'PAID' || o.status === 'COMPLETED').length;
     const pendingOrders = orders.filter((o) => o.status === 'PENDING').length;

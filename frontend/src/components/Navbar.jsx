@@ -99,15 +99,6 @@ export default function Navbar({
                 Tin Tức & Cẩm Nang
               </a>
             </li>
-            <li>
-              <a 
-                href="#/admin" 
-                className={`nav-link ${currentRoute === 'admin' ? 'active' : ''}`} 
-                onClick={(e) => { e.preventDefault(); onNavigate('admin'); }}
-              >
-                Quản Lý Đơn
-              </a>
-            </li>
           </ul>
 
           {/* Actions */}

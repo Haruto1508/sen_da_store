@@ -20,10 +20,18 @@ import {
   X,
   Sparkles,
   ChevronRight,
+  ChevronLeft,
+  Menu,
+  PanelLeft,
   TrendingUp,
   SlidersHorizontal,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Lock,
+  LogIn,
+  LogOut,
+  ExternalLink,
+  ShieldCheck
 } from 'lucide-react';
 import {
   getAdminOrders,
@@ -39,7 +47,9 @@ import {
   toggleAdminCoupon,
   deleteAdminCoupon,
   getAdminCustomers,
-  updateCustomerRole
+  updateCustomerRole,
+  loginUser,
+  USE_MOCK_DATA
 } from '../services/api';
 import { CATEGORIES } from '../data/products';
 
@@ -60,13 +70,71 @@ const SAMPLE_IMAGES = [
 ];
 
 export default function AdminPage({
+  user,
+  onLoginAsAdmin,
+  onLogout,
   onNavigateHome,
   onNavigateShop,
   onProductsChange,
   addToast
 }) {
+  const isAdmin = Boolean(
+    user &&
+    (user.role?.toLowerCase().includes('admin') || user.email === 'admin@senxinh.vn')
+  );
+
+  // Admin Gatekeeper Login State
+  const [adminEmail, setAdminEmail] = useState('admin@senxinh.vn');
+  const [adminPassword, setAdminPassword] = useState('admin123');
+  const [gateError, setGateError] = useState('');
+  const [gateLoading, setGateLoading] = useState(false);
+
+  const handleAdminGateLogin = async (e) => {
+    if (e) e.preventDefault();
+    setGateError('');
+    setGateLoading(true);
+    try {
+      const res = await loginUser(adminEmail, adminPassword);
+      if (res && res.data) {
+        if (
+          res.data.role?.toLowerCase().includes('admin') ||
+          res.data.email === 'admin@senxinh.vn'
+        ) {
+          if (onLoginAsAdmin) onLoginAsAdmin(res.data, true);
+          if (addToast) addToast(`Chào mừng Quản trị viên ${res.data.name}!`, 'success');
+        } else {
+          setGateError('Tài khoản này không có quyền Quản Trị Viên (Admin)!');
+        }
+      }
+    } catch (err) {
+      setGateError(err.message || 'Đăng nhập quản trị thất bại');
+    } finally {
+      setGateLoading(false);
+    }
+  };
+
+  const handleQuickAdminLogin = async () => {
+    setAdminEmail('admin@senxinh.vn');
+    setAdminPassword('admin123');
+    setGateLoading(true);
+    try {
+      const res = await loginUser('admin@senxinh.vn', 'admin123');
+      if (res && res.data) {
+        if (onLoginAsAdmin) onLoginAsAdmin(res.data, true);
+        if (addToast) addToast('Đăng nhập Quản Trị Viên thành công!', 'success');
+      }
+    } catch (err) {
+      setGateError(err.message || 'Lỗi đăng nhập nhanh');
+    } finally {
+      setGateLoading(false);
+    }
+  };
   // Navigation tabs: 'orders' | 'products' | 'coupons' | 'customers'
   const [activeTab, setActiveTab] = useState('orders');
+
+  // Sidebar Layout States
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Stats
   const [stats, setStats] = useState(null);
@@ -369,63 +437,406 @@ export default function AdminPage({
     });
   }, [customers, customerSearch]);
 
-  return (
-    <div className="admin-page">
-      {/* Header Banner */}
-      <div className="page-header-banner">
-        <div className="container">
-          <div className="breadcrumb">
-            <button className="breadcrumb-link" onClick={onNavigateHome}>
-              Trang Chủ
-            </button>
-            <span className="breadcrumb-separator">/</span>
-            <span className="breadcrumb-current">Hệ Thống Quản Trị Sen Xinh Garden</span>
+  if (!isAdmin) {
+    return (
+      <div className="admin-gate-wrapper">
+        <div className="admin-gate-card">
+          <div className="admin-gate-badge">
+            <Shield size={13} />
+            CỔNG BẢO MẬT NỘI BỘ
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-end',
-              flexWrap: 'wrap',
-              gap: '16px',
-              marginTop: '14px'
-            }}
+          <h2 className="admin-gate-title">
+            <Lock size={26} color="#0F172A" />
+            Quản Trị Nhà Vườn
+          </h2>
+          <p className="admin-gate-desc">
+            Khu vực dành riêng cho Quản Trị Viên (Admin) Sen Xinh Garden. Vui lòng đăng nhập với tài khoản được ủy quyền.
+          </p>
+
+          {user && (
+            <div className="admin-gate-current-user">
+              <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <strong>Đang đăng nhập:</strong> {user.name} ({user.email})<br />
+                <span style={{ fontSize: '0.78rem' }}>
+                  Vai trò hiện tại: <em>{user.role || 'CUSTOMER'}</em>. Bạn không có quyền truy cập trang quản trị.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {gateError && (
+            <div className="admin-gate-error">
+              <AlertCircle size={17} style={{ flexShrink: 0 }} />
+              <span>{gateError}</span>
+            </div>
+          )}
+
+          <form className="admin-gate-form" onSubmit={handleAdminGateLogin}>
+            <div className="admin-field">
+              <label>Tài Khoản Quản Trị (Email)</label>
+              <input
+                type="email"
+                placeholder="admin@senxinh.vn"
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="admin-field">
+              <label>Mật Khẩu</label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="admin-btn-primary"
+              disabled={gateLoading}
+            >
+              {gateLoading ? 'Đang xác thực...' : 'Đăng Nhập Quản Trị Viên'}
+            </button>
+          </form>
+
+          <div className="admin-gate-divider">
+            <span>HOẶC TRẢI NGHIỆM NHANH</span>
+          </div>
+
+          <button
+            type="button"
+            className="admin-btn-demo"
+            onClick={handleQuickAdminLogin}
+            disabled={gateLoading}
           >
-            <div>
-              <span className="section-subtitle" style={{ color: 'var(--accent)' }}>
-                Bảng Điều Khiển Nhà Vườn (Spring Boot 3.4 + React 18)
-              </span>
-              <h1 className="page-title" style={{ fontSize: '2.3rem', marginTop: '4px' }}>
-                Trung Tâm Quản Trị & Kho Cây
-              </h1>
-            </div>
+            <Sparkles size={16} />
+            Đăng Nhập Thử Nghiệm (Admin Demo)
+          </button>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                className="btn-secondary"
-                onClick={loadAllData}
-                style={{ padding: '10px 18px', fontSize: '0.88rem' }}
-                title="Làm mới dữ liệu từ server"
-              >
-                <RefreshCw size={15} className={loading ? 'spin' : ''} />
-                <span>Làm Mới</span>
-              </button>
-
-              <button
-                className="btn-secondary"
-                onClick={onNavigateHome}
-                style={{ padding: '10px 18px', fontSize: '0.88rem' }}
-              >
-                <ArrowLeft size={15} />
-                <span>Về Cửa Hàng</span>
-              </button>
-            </div>
+          <div className="admin-gate-footer">
+            <button
+              type="button"
+              className="admin-btn-back"
+              onClick={onNavigateHome}
+            >
+              <ArrowLeft size={15} />
+              Quay lại cửa hàng Sen Xinh
+            </button>
           </div>
         </div>
       </div>
+    );
+  }
 
-      <div className="container" style={{ padding: '32px 24px 80px' }}>
+  return (
+    <div className="admin-page admin-sidebar-layout">
+      {/* Dedicated Left Admin Sidebar */}
+      <aside className={`admin-sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
+        {/* Sidebar Brand Header */}
+        <div className="admin-sidebar-header">
+          <div className="admin-sidebar-brand" onClick={() => setActiveTab('orders')} title="Bảng điều khiển quản trị">
+            <div className="admin-brand-logo">
+              <Sprout size={22} color="#FFFFFF" />
+            </div>
+            {!sidebarCollapsed && (
+              <div className="admin-brand-text">
+                <span className="admin-brand-name">
+                  SEN XINH <span className="admin-brand-accent">ADMIN</span>
+                </span>
+                <span className="admin-brand-sub">Quản Trị Nhà Vườn</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Database Status Card */}
+        {!sidebarCollapsed && (
+          <div className="admin-sidebar-mode-card">
+            {USE_MOCK_DATA ? (
+              <div className="admin-mode-pill mock" title="Đang chạy ở chế độ giả lập dữ liệu JSON nội bộ">
+                <span className="dot" />
+                <div className="mode-info">
+                  <strong>Mock Data JSON</strong>
+                  <small>Chế độ giả lập</small>
+                </div>
+              </div>
+            ) : (
+              <div className="admin-mode-pill live" title="Đang kết nối API Spring Boot 3.4 & PostgreSQL thực tế">
+                <span className="dot" />
+                <div className="mode-info">
+                  <strong>PostgreSQL Live</strong>
+                  <small>Spring Boot REST API</small>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Navigation Section */}
+        <nav className="admin-sidebar-nav">
+          <div className="admin-nav-group-label">
+            {!sidebarCollapsed ? 'QUẢN LÝ KHO BÃI' : '•••'}
+          </div>
+
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'orders' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('orders');
+              setMobileSidebarOpen(false);
+            }}
+            title="Đơn Hàng & Vận Chuyển"
+          >
+            <Package size={19} className="nav-icon" />
+            {!sidebarCollapsed ? (
+              <>
+                <span className="nav-text">Đơn Hàng & Vận Chuyển</span>
+                <span className="nav-badge count">{orders.length}</span>
+              </>
+            ) : (
+              orders.length > 0 && <span className="nav-dot-badge" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'products' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('products');
+              setMobileSidebarOpen(false);
+            }}
+            title="Quản Lý Sen Đá & Tồn Kho"
+          >
+            <Sprout size={19} className="nav-icon" />
+            {!sidebarCollapsed ? (
+              <>
+                <span className="nav-text">Sen Đá & Tồn Kho</span>
+                <span className="nav-badge count">{products.length}</span>
+              </>
+            ) : (
+              products.length > 0 && <span className="nav-dot-badge" />
+            )}
+          </button>
+
+          <div className="admin-nav-group-label">
+            {!sidebarCollapsed ? 'MARKETING & KHÁCH' : '•••'}
+          </div>
+
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'coupons' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('coupons');
+              setMobileSidebarOpen(false);
+            }}
+            title="Mã Ưu Đãi & Voucher"
+          >
+            <Tag size={19} className="nav-icon" />
+            {!sidebarCollapsed ? (
+              <>
+                <span className="nav-text">Mã Giảm Giá & Voucher</span>
+                <span className="nav-badge count">{coupons.length}</span>
+              </>
+            ) : (
+              coupons.length > 0 && <span className="nav-dot-badge" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            className={`admin-nav-item ${activeTab === 'customers' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('customers');
+              setMobileSidebarOpen(false);
+            }}
+            title="Khách Hàng & Phân Quyền"
+          >
+            <Users size={19} className="nav-icon" />
+            {!sidebarCollapsed ? (
+              <>
+                <span className="nav-text">Khách Hàng & Quyền</span>
+                <span className="nav-badge count">{customers.length}</span>
+              </>
+            ) : (
+              customers.length > 0 && <span className="nav-dot-badge" />
+            )}
+          </button>
+
+          <div className="admin-nav-group-label">
+            {!sidebarCollapsed ? 'LỐI TẮT HỆ THỐNG' : '•••'}
+          </div>
+
+          <button
+            type="button"
+            className="admin-nav-item shortcut"
+            onClick={loadAllData}
+            title="Đồng bộ lại toàn bộ dữ liệu từ hệ thống"
+          >
+            <RefreshCw size={19} className={`nav-icon ${loading ? 'spin' : ''}`} />
+            {!sidebarCollapsed && <span className="nav-text">Đồng Bộ Dữ Liệu</span>}
+          </button>
+
+          <button
+            type="button"
+            className="admin-nav-item shortcut"
+            onClick={onNavigateHome}
+            title="Xem giao diện mua sắm của khách hàng"
+          >
+            <ExternalLink size={19} className="nav-icon" />
+            {!sidebarCollapsed && <span className="nav-text">Xem Cửa Hàng</span>}
+          </button>
+        </nav>
+
+        {/* Sidebar Footer with User Profile */}
+        <div className="admin-sidebar-footer">
+          <div className="admin-sidebar-user">
+            <img
+              className="admin-sidebar-avatar"
+              src={
+                user?.avatar ||
+                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
+              }
+              alt={user?.name || 'Admin'}
+            />
+            {!sidebarCollapsed && (
+              <div className="admin-sidebar-user-details">
+                <span className="user-name">{user?.name || 'Quản Trị Viên'}</span>
+                <span className="user-role">{user?.role || 'SUPER ADMIN'}</span>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="admin-sidebar-logout"
+            onClick={onLogout}
+            title="Đăng xuất khỏi phiên Quản Trị"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
+
+        {/* Dedicated Bottom Collapse Bar (Cloudflare style) */}
+        <div className="admin-sidebar-collapse-bar">
+          <button
+            type="button"
+            className="admin-sidebar-collapse-btn"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            title={sidebarCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+            aria-label={sidebarCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+          >
+            <PanelLeft size={18} />
+          </button>
+        </div>
+      </aside>
+
+      {/* Mobile Drawer Backdrop */}
+      {mobileSidebarOpen && (
+        <div
+          className="admin-sidebar-backdrop"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
+      {/* Right Content Area */}
+      <div className="admin-main-wrapper-inner">
+        {/* Topbar inside content area */}
+        <header className="admin-topbar">
+          <div className="admin-topbar-left">
+            <button
+              type="button"
+              className="admin-mobile-toggle"
+              onClick={() => setMobileSidebarOpen(true)}
+              title="Mở menu quản trị"
+            >
+              <Menu size={20} />
+            </button>
+
+            <div className="admin-topbar-title-group">
+              <div className="admin-topbar-breadcrumb">
+                <span>Quản Trị Vườn</span>
+                <span className="sep">/</span>
+                <span className="cur">
+                  {activeTab === 'orders' && 'Đơn Hàng & Vận Chuyển'}
+                  {activeTab === 'products' && 'Kho Sen Đá & Tồn Kho'}
+                  {activeTab === 'coupons' && 'Mã Ưu Đãi & Voucher'}
+                  {activeTab === 'customers' && 'Khách Hàng & Phân Quyền'}
+                </span>
+              </div>
+              <h1 className="admin-topbar-page-title">
+                {activeTab === 'orders' && 'Quản Lý Đơn Hàng & Vận Chuyển'}
+                {activeTab === 'products' && 'Kho Sen Đá & Quản Lý Tồn Kho'}
+                {activeTab === 'coupons' && 'Mã Ưu Đãi & Voucher Giảm Giá'}
+                {activeTab === 'customers' && 'Khách Hàng & Phân Quyền Quản Trị'}
+              </h1>
+            </div>
+          </div>
+
+          <div className="admin-topbar-actions">
+            <button
+              className="btn-primary"
+              onClick={() => {
+                setActiveTab('products');
+                setShowProductModal(true);
+                setEditingProduct(null);
+                setProductFormData({
+                  name: '',
+                  category: 'sen-da-pho-bien',
+                  price: '',
+                  originalPrice: '',
+                  stock: 50,
+                  rating: 5.0,
+                  reviewsCount: 0,
+                  image: SAMPLE_IMAGES[0],
+                  isNew: true,
+                  isHot: false,
+                  shortDesc: '',
+                  description: '',
+                  potSize: 'M',
+                  lightRequirement: 'bright',
+                  waterSchedule: 'medium',
+                  difficultyLevel: 1
+                });
+              }}
+              style={{ padding: '8px 16px', fontSize: '0.84rem' }}
+            >
+              <Plus size={15} />
+              <span>Thêm Sen Đá</span>
+            </button>
+
+            <button
+              className="btn-secondary"
+              onClick={() => {
+                setActiveTab('coupons');
+                setShowCouponModal(true);
+                setCouponFormData({
+                  code: '',
+                  description: '',
+                  discountType: 'PERCENT',
+                  discountValue: 10,
+                  minOrderAmount: 0,
+                  maxDiscountAmount: 50000,
+                  usageLimit: 100,
+                  startDate: new Date().toISOString().split('T')[0],
+                  endDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
+                });
+              }}
+              style={{ padding: '8px 16px', fontSize: '0.84rem' }}
+            >
+              <Plus size={15} />
+              <span>Tạo Voucher</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Content Body */}
+        <div className="admin-content-body">
         {/* KPI Stats Row */}
         {stats && (
           <div
@@ -524,44 +935,7 @@ export default function AdminPage({
           </div>
         )}
 
-        {/* Navigation Tabs Bar */}
-        <div className="admin-nav-tabs">
-          <button
-            className={`admin-tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
-            onClick={() => setActiveTab('orders')}
-          >
-            <Package size={17} />
-            <span>Đơn Hàng & Vận Chuyển</span>
-            <span className="admin-tab-badge">{orders.length}</span>
-          </button>
 
-          <button
-            className={`admin-tab-btn ${activeTab === 'products' ? 'active' : ''}`}
-            onClick={() => setActiveTab('products')}
-          >
-            <Sprout size={17} />
-            <span>Quản Lý Sen Đá & Tồn Kho</span>
-            <span className="admin-tab-badge">{products.length}</span>
-          </button>
-
-          <button
-            className={`admin-tab-btn ${activeTab === 'coupons' ? 'active' : ''}`}
-            onClick={() => setActiveTab('coupons')}
-          >
-            <Tag size={17} />
-            <span>Mã Ưu Đãi & Voucher</span>
-            <span className="admin-tab-badge">{coupons.length}</span>
-          </button>
-
-          <button
-            className={`admin-tab-btn ${activeTab === 'customers' ? 'active' : ''}`}
-            onClick={() => setActiveTab('customers')}
-          >
-            <Users size={17} />
-            <span>Khách Hàng & Phân Quyền</span>
-            <span className="admin-tab-badge">{customers.length}</span>
-          </button>
-        </div>
 
         {/* ============================================================ */}
         {/* TAB 1: ORDERS MANAGEMENT */}
@@ -1489,6 +1863,7 @@ export default function AdminPage({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
