@@ -1,38 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Package,
-  CheckCircle2,
-  Clock,
-  Truck,
-  RefreshCw,
-  AlertCircle,
-  ArrowLeft,
-  Plus,
-  Edit2,
-  Trash2,
-  Search,
-  Filter,
-  Sprout,
-  Tag,
-  Users,
-  Shield,
-  Eye,
-  X,
-  Sparkles,
-  ChevronRight,
-  ChevronLeft,
-  Menu,
-  PanelLeft,
-  TrendingUp,
-  SlidersHorizontal,
-  Check,
-  AlertTriangle,
-  Lock,
-  LogIn,
-  LogOut,
-  ExternalLink,
-  ShieldCheck
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import NotificationModal from '../components/NotificationModal';
+import useModal from '../components/useModal';
 import {
   getAdminOrders,
   updateOrderStatus,
@@ -47,27 +15,24 @@ import {
   toggleAdminCoupon,
   deleteAdminCoupon,
   getAdminCustomers,
-  updateCustomerRole,
-  loginUser,
-  USE_MOCK_DATA
+  updateCustomerRole
 } from '../services/api';
-import { CATEGORIES } from '../data/products';
 
-const ORDER_STATUS_LABELS = {
-  PENDING: { label: 'Chờ Thanh Toán', color: '#D97706', bg: '#FEF3C7', icon: Clock },
-  PAID: { label: 'Đã Thanh Toán', color: '#059669', bg: '#D1FAE5', icon: CheckCircle2 },
-  SHIPPING: { label: 'Đang Giao Hàng', color: '#2563EB', bg: '#DBEAFE', icon: Truck },
-  COMPLETED: { label: 'Đã Hoàn Tất', color: '#047857', bg: '#A7F3D0', icon: CheckCircle2 },
-  CANCELLED: { label: 'Đã Hủy', color: '#DC2626', bg: '#FEE2E2', icon: AlertCircle }
-};
+import { ORDER_STATUS_LABELS, SAMPLE_IMAGES } from '../components/admin/adminConstants';
+import AdminGatekeeper from '../components/admin/AdminGatekeeper';
+import AdminSidebar from '../components/admin/AdminSidebar';
+import AdminHeader from '../components/admin/AdminHeader';
+import AdminStatsCards from '../components/admin/AdminStatsCards';
+import OrdersTab from '../components/admin/OrdersTab';
+import ProductsTab from '../components/admin/ProductsTab';
+import CouponsTab from '../components/admin/CouponsTab';
+import CustomersTab from '../components/admin/CustomersTab';
+import CustomerOrdersView from '../components/admin/CustomerOrdersView';
+import OrderDetailView from '../components/admin/OrderDetailView';
+import ProductModal from '../components/admin/ProductModal';
+import CouponModal from '../components/admin/CouponModal';
 
-const SAMPLE_IMAGES = [
-  'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1520302630591-fd1c66edc19d?auto=format&fit=crop&w=800&q=80'
-];
+const ITEMS_PER_PAGE = 10;
 
 export default function AdminPage({
   user,
@@ -83,52 +48,8 @@ export default function AdminPage({
     (user.role?.toLowerCase().includes('admin') || user.email === 'admin@senxinh.vn')
   );
 
-  // Admin Gatekeeper Login State
-  const [adminEmail, setAdminEmail] = useState('admin@senxinh.vn');
-  const [adminPassword, setAdminPassword] = useState('admin123');
-  const [gateError, setGateError] = useState('');
-  const [gateLoading, setGateLoading] = useState(false);
+  const { modalProps, showModal } = useModal();
 
-  const handleAdminGateLogin = async (e) => {
-    if (e) e.preventDefault();
-    setGateError('');
-    setGateLoading(true);
-    try {
-      const res = await loginUser(adminEmail, adminPassword);
-      if (res && res.data) {
-        if (
-          res.data.role?.toLowerCase().includes('admin') ||
-          res.data.email === 'admin@senxinh.vn'
-        ) {
-          if (onLoginAsAdmin) onLoginAsAdmin(res.data, true);
-          if (addToast) addToast(`Chào mừng Quản trị viên ${res.data.name}!`, 'success');
-        } else {
-          setGateError('Tài khoản này không có quyền Quản Trị Viên (Admin)!');
-        }
-      }
-    } catch (err) {
-      setGateError(err.message || 'Đăng nhập quản trị thất bại');
-    } finally {
-      setGateLoading(false);
-    }
-  };
-
-  const handleQuickAdminLogin = async () => {
-    setAdminEmail('admin@senxinh.vn');
-    setAdminPassword('admin123');
-    setGateLoading(true);
-    try {
-      const res = await loginUser('admin@senxinh.vn', 'admin123');
-      if (res && res.data) {
-        if (onLoginAsAdmin) onLoginAsAdmin(res.data, true);
-        if (addToast) addToast('Đăng nhập Quản Trị Viên thành công!', 'success');
-      }
-    } catch (err) {
-      setGateError(err.message || 'Lỗi đăng nhập nhanh');
-    } finally {
-      setGateLoading(false);
-    }
-  };
   // Navigation tabs: 'orders' | 'products' | 'coupons' | 'customers'
   const [activeTab, setActiveTab] = useState('orders');
 
@@ -136,12 +57,13 @@ export default function AdminPage({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  // Stats
+  // Stats & Data
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // Orders State
   const [orders, setOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
   const [orderFilterStatus, setOrderFilterStatus] = useState('all');
   const [orderSearch, setOrderSearch] = useState('');
 
@@ -149,7 +71,7 @@ export default function AdminPage({
   const [products, setProducts] = useState([]);
   const [productSearch, setProductSearch] = useState('');
   const [productCategory, setProductCategory] = useState('all');
-  const [productStockFilter, setProductStockFilter] = useState('all'); // 'all' | 'low' | 'out'
+  const [productStockFilter, setProductStockFilter] = useState('all');
 
   // Product Modal State
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -189,9 +111,48 @@ export default function AdminPage({
   const [customers, setCustomers] = useState([]);
   const [customerSearch, setCustomerSearch] = useState('');
 
-  const formatPrice = (amount) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
-  };
+  // Dedicated View Navigation State: 'tabs' | 'customer-orders' | 'order-detail'
+  const [viewMode, setViewMode] = useState('tabs');
+  const [activeCustomer, setActiveCustomer] = useState(null);
+  const [activeOrder, setActiveOrder] = useState(null);
+  const [previousViewMode, setPreviousViewMode] = useState('tabs');
+  const [customerOrderFilter, setCustomerOrderFilter] = useState('all');
+
+  // Pagination states
+  const [orderPage, setOrderPage] = useState(1);
+  const [productPage, setProductPage] = useState(1);
+  const [couponPage, setCouponPage] = useState(1);
+  const [customerPage, setCustomerPage] = useState(1);
+  const [custOrderPage, setCustOrderPage] = useState(1);
+
+  // Reset pages when filters change
+  useEffect(() => { setOrderPage(1); }, [orderSearch, orderFilterStatus]);
+  useEffect(() => { setProductPage(1); }, [productSearch, productCategory, productStockFilter]);
+  useEffect(() => { setCustomerPage(1); }, [customerSearch]);
+  useEffect(() => { setCustOrderPage(1); }, [customerOrderFilter, activeCustomer]);
+
+  // Lock body scroll when Product or Coupon modal is open
+  useEffect(() => {
+    const isAnyModalOpen = isProductModalOpen || isCouponModalOpen;
+    if (isAnyModalOpen) {
+      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      if (scrollBarWidth > 0) {
+        document.body.style.paddingRight = `${scrollBarWidth}px`;
+      }
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+      document.body.classList.remove('modal-open');
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+      document.body.classList.remove('modal-open');
+    };
+  }, [isProductModalOpen, isCouponModalOpen]);
 
   // ----------------------------------------------------
   // DATA FETCHING
@@ -199,16 +160,18 @@ export default function AdminPage({
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [statsData, ordersData, productsData, couponsData, customersData] = await Promise.all([
+      const [statsData, ordersData, productsData, couponsData, customersData, allOrdersData] = await Promise.all([
         getAdminStats(),
         getAdminOrders(orderFilterStatus),
         getAdminProducts(),
         getAdminCoupons(),
-        getAdminCustomers()
+        getAdminCustomers(),
+        getAdminOrders('all')
       ]);
 
       setStats(statsData);
       setOrders(ordersData);
+      setAllOrders(allOrdersData);
       setProducts(productsData);
       setCoupons(couponsData);
       setCustomers(customersData);
@@ -227,33 +190,88 @@ export default function AdminPage({
     loadAllData();
   }, [orderFilterStatus]);
 
-  // ----------------------------------------------------
-  // ORDER ACTIONS
-  // ----------------------------------------------------
+  // Customer Orders Calculation Helper
+  const getCustomerOrdersCountAndSpent = (customer) => {
+    if (!customer) return { count: 0, totalSpent: 0, orders: [] };
+    const cPhone = (customer.phone || '').trim();
+    const cEmail = (customer.email || '').trim().toLowerCase();
+    const cName = (customer.name || '').trim().toLowerCase();
+    const cId = customer.id ? String(customer.id) : '';
+
+    const source = allOrders && allOrders.length > 0 ? allOrders : orders;
+    const matched = source.filter((o) => {
+      if (cId && o.userId && String(o.userId) === cId) return true;
+      if (cPhone && o.customerPhone && o.customerPhone.trim() === cPhone) return true;
+      if (cEmail && o.customerEmail && o.customerEmail.trim().toLowerCase() === cEmail) return true;
+      if (cName && o.customerName && o.customerName.trim().toLowerCase() === cName) return true;
+      return false;
+    });
+
+    const totalSpent = matched
+      .filter((o) => o.status !== 'CANCELLED')
+      .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+    return { count: matched.length, totalSpent, orders: matched };
+  };
+
+  // Open dedicated Customer Orders page view
+  const handleOpenCustomerOrders = (customer) => {
+    setActiveCustomer(customer);
+    setCustomerOrderFilter('all');
+    setViewMode('customer-orders');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Open dedicated Order Detail page view
+  const handleOpenOrderDetail = (order, sourceView = 'tabs') => {
+    setActiveOrder(order);
+    setPreviousViewMode(sourceView);
+    setViewMode('order-detail');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Back from Order Detail page
+  const handleBackFromOrderDetail = () => {
+    if (previousViewMode === 'customer-orders' && activeCustomer) {
+      setViewMode('customer-orders');
+    } else {
+      setViewMode('tabs');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Back from Customer Orders page
+  const handleBackFromCustomerOrders = () => {
+    setViewMode('tabs');
+    setActiveTab('customers');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Update status directly in Order Detail page
+  const handleDetailStatusChange = async (newStatus) => {
+    if (!activeOrder) return;
+    try {
+      await updateOrderStatus(activeOrder.id, newStatus);
+      if (addToast) addToast(`Đã đổi trạng thái đơn #${activeOrder.orderCode || activeOrder.id} sang ${ORDER_STATUS_LABELS[newStatus]?.label || newStatus}`, 'success');
+      setActiveOrder((prev) => ({ ...prev, status: newStatus }));
+      loadAllData();
+    } catch (err) {
+      showModal('error', 'Không thể cập nhật trạng thái đơn hàng');
+    }
+  };
+
+  // Order status change in table
   const handleStatusChange = async (orderId, newStatus) => {
     try {
       await updateOrderStatus(orderId, newStatus);
       if (addToast) addToast(`Đã đổi trạng thái đơn #${orderId} sang ${newStatus}`, 'success');
       loadAllData();
     } catch (err) {
-      alert('Không thể cập nhật trạng thái đơn hàng');
+      showModal('error', 'Không thể cập nhật trạng thái đơn hàng');
     }
   };
 
-  const filteredOrders = useMemo(() => {
-    return orders.filter((o) => {
-      const matchSearch =
-        !orderSearch ||
-        (o.orderCode && o.orderCode.toLowerCase().includes(orderSearch.toLowerCase())) ||
-        (o.customerName && o.customerName.toLowerCase().includes(orderSearch.toLowerCase())) ||
-        (o.customerPhone && o.customerPhone.includes(orderSearch));
-      return matchSearch;
-    });
-  }, [orders, orderSearch]);
-
-  // ----------------------------------------------------
-  // PRODUCT ACTIONS
-  // ----------------------------------------------------
+  // Product Actions
   const handleOpenAddProduct = () => {
     setEditingProduct(null);
     setProductFormData({
@@ -293,7 +311,7 @@ export default function AdminPage({
   const handleSaveProduct = async (e) => {
     e.preventDefault();
     if (!productFormData.name.trim()) {
-      alert('Vui lòng nhập tên sen đá!');
+      showModal('warning', 'Vui lòng nhập tên sen đá!');
       return;
     }
 
@@ -308,7 +326,7 @@ export default function AdminPage({
       setIsProductModalOpen(false);
       loadAllData();
     } catch (err) {
-      alert('Lỗi khi lưu thông tin sản phẩm: ' + err.message);
+      showModal('error', 'Lỗi khi lưu thông tin sản phẩm: ' + err.message);
     }
   };
 
@@ -336,35 +354,26 @@ export default function AdminPage({
         if (addToast) addToast(`Đã xóa cây "${prod.name}"`, 'info');
         loadAllData();
       } catch (err) {
-        alert('Không thể xóa sản phẩm');
+        showModal('error', 'Không thể xóa sản phẩm');
       }
     }
   };
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchSearch =
-        !productSearch ||
-        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-        (p.scientificName && p.scientificName.toLowerCase().includes(productSearch.toLowerCase()));
-
-      const matchCategory = productCategory === 'all' || p.category === productCategory;
-
-      let matchStock = true;
-      if (productStockFilter === 'low') matchStock = (p.inStock || 0) > 0 && (p.inStock || 0) <= 10;
-      else if (productStockFilter === 'out') matchStock = (p.inStock || 0) === 0;
-
-      return matchSearch && matchCategory && matchStock;
+  // Coupon Actions
+  const handleOpenAddCoupon = () => {
+    setCouponFormData({
+      code: '',
+      discountPercent: 15,
+      description: '',
+      isActive: true
     });
-  }, [products, productSearch, productCategory, productStockFilter]);
+    setIsCouponModalOpen(true);
+  };
 
-  // ----------------------------------------------------
-  // COUPON ACTIONS
-  // ----------------------------------------------------
   const handleSaveCoupon = async (e) => {
     e.preventDefault();
     if (!couponFormData.code.trim()) {
-      alert('Vui lòng nhập mã giảm giá!');
+      showModal('warning', 'Vui lòng nhập mã giảm giá!');
       return;
     }
 
@@ -377,7 +386,7 @@ export default function AdminPage({
       setIsCouponModalOpen(false);
       loadAllData();
     } catch (err) {
-      alert('Lỗi khi tạo mã giảm giá: ' + err.message);
+      showModal('error', 'Lỗi khi tạo mã giảm giá: ' + err.message);
     }
   };
 
@@ -405,14 +414,12 @@ export default function AdminPage({
         if (addToast) addToast(`Đã xóa voucher ${coupon.code}`, 'info');
         loadAllData();
       } catch (err) {
-        alert('Không thể xóa voucher');
+        showModal('error', 'Không thể xóa voucher');
       }
     }
   };
 
-  // ----------------------------------------------------
-  // CUSTOMER ACTIONS
-  // ----------------------------------------------------
+  // Customer Actions
   const handleRoleChange = async (userId, newRole) => {
     try {
       await updateCustomerRole(userId, newRole);
@@ -421,1449 +428,189 @@ export default function AdminPage({
         prev.map((c) => (String(c.id) === String(userId) ? { ...c, role: newRole } : c))
       );
     } catch (err) {
-      alert('Không thể cập nhật phân quyền');
+      showModal('error', 'Không thể cập nhật phân quyền');
     }
   };
 
-  const filteredCustomers = useMemo(() => {
-    return customers.filter((c) => {
-      if (!customerSearch) return true;
-      const q = customerSearch.toLowerCase();
-      return (
-        (c.name && c.name.toLowerCase().includes(q)) ||
-        (c.email && c.email.toLowerCase().includes(q)) ||
-        (c.phone && c.phone.includes(q))
-      );
-    });
-  }, [customers, customerSearch]);
-
+  // Unauthenticated Admin Gatekeeper
   if (!isAdmin) {
     return (
-      <div className="admin-gate-wrapper">
-        <div className="admin-gate-card">
-          <div className="admin-gate-badge">
-            <Shield size={13} />
-            CỔNG BẢO MẬT NỘI BỘ
-          </div>
-
-          <h2 className="admin-gate-title">
-            <Lock size={26} color="#0F172A" />
-            Quản Trị Nhà Vườn
-          </h2>
-          <p className="admin-gate-desc">
-            Khu vực dành riêng cho Quản Trị Viên (Admin) Sen Xinh Garden. Vui lòng đăng nhập với tài khoản được ủy quyền.
-          </p>
-
-          {user && (
-            <div className="admin-gate-current-user">
-              <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
-              <div>
-                <strong>Đang đăng nhập:</strong> {user.name} ({user.email})<br />
-                <span style={{ fontSize: '0.78rem' }}>
-                  Vai trò hiện tại: <em>{user.role || 'CUSTOMER'}</em>. Bạn không có quyền truy cập trang quản trị.
-                </span>
-              </div>
-            </div>
-          )}
-
-          {gateError && (
-            <div className="admin-gate-error">
-              <AlertCircle size={17} style={{ flexShrink: 0 }} />
-              <span>{gateError}</span>
-            </div>
-          )}
-
-          <form className="admin-gate-form" onSubmit={handleAdminGateLogin}>
-            <div className="admin-field">
-              <label>Tài Khoản Quản Trị (Email)</label>
-              <input
-                type="email"
-                placeholder="admin@senxinh.vn"
-                value={adminEmail}
-                onChange={(e) => setAdminEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="admin-field">
-              <label>Mật Khẩu</label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="admin-btn-primary"
-              disabled={gateLoading}
-            >
-              {gateLoading ? 'Đang xác thực...' : 'Đăng Nhập Quản Trị Viên'}
-            </button>
-          </form>
-
-          <div className="admin-gate-divider">
-            <span>HOẶC TRẢI NGHIỆM NHANH</span>
-          </div>
-
-          <button
-            type="button"
-            className="admin-btn-demo"
-            onClick={handleQuickAdminLogin}
-            disabled={gateLoading}
-          >
-            <Sparkles size={16} />
-            Đăng Nhập Thử Nghiệm (Admin Demo)
-          </button>
-
-          <div className="admin-gate-footer">
-            <button
-              type="button"
-              className="admin-btn-back"
-              onClick={onNavigateHome}
-            >
-              <ArrowLeft size={15} />
-              Quay lại cửa hàng Sen Xinh
-            </button>
-          </div>
-        </div>
-      </div>
+      <AdminGatekeeper
+        user={user}
+        onLoginAsAdmin={onLoginAsAdmin}
+        onNavigateHome={onNavigateHome}
+        addToast={addToast}
+      />
     );
   }
 
   return (
     <div className="admin-page admin-sidebar-layout">
       {/* Dedicated Left Admin Sidebar */}
-      <aside className={`admin-sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
-        {/* Sidebar Brand Header */}
-        <div className="admin-sidebar-header">
-          <div className="admin-sidebar-brand" onClick={() => setActiveTab('orders')} title="Bảng điều khiển quản trị">
-            <div className="admin-brand-logo">
-              <Sprout size={22} color="#FFFFFF" />
-            </div>
-            {!sidebarCollapsed && (
-              <div className="admin-brand-text">
-                <span className="admin-brand-name">
-                  SEN XINH <span className="admin-brand-accent">ADMIN</span>
-                </span>
-                <span className="admin-brand-sub">Quản Trị Nhà Vườn</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Database Status Card */}
-        {!sidebarCollapsed && (
-          <div className="admin-sidebar-mode-card">
-            {USE_MOCK_DATA ? (
-              <div className="admin-mode-pill mock" title="Đang chạy ở chế độ giả lập dữ liệu JSON nội bộ">
-                <span className="dot" />
-                <div className="mode-info">
-                  <strong>Mock Data JSON</strong>
-                  <small>Chế độ giả lập</small>
-                </div>
-              </div>
-            ) : (
-              <div className="admin-mode-pill live" title="Đang kết nối API Spring Boot 3.4 & PostgreSQL thực tế">
-                <span className="dot" />
-                <div className="mode-info">
-                  <strong>PostgreSQL Live</strong>
-                  <small>Spring Boot REST API</small>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Navigation Section */}
-        <nav className="admin-sidebar-nav">
-          <div className="admin-nav-group-label">
-            {!sidebarCollapsed ? 'QUẢN LÝ KHO BÃI' : '•••'}
-          </div>
-
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'orders' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('orders');
-              setMobileSidebarOpen(false);
-            }}
-            title="Đơn Hàng & Vận Chuyển"
-          >
-            <Package size={19} className="nav-icon" />
-            {!sidebarCollapsed ? (
-              <>
-                <span className="nav-text">Đơn Hàng & Vận Chuyển</span>
-                <span className="nav-badge count">{orders.length}</span>
-              </>
-            ) : (
-              orders.length > 0 && <span className="nav-dot-badge" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'products' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('products');
-              setMobileSidebarOpen(false);
-            }}
-            title="Quản Lý Sen Đá & Tồn Kho"
-          >
-            <Sprout size={19} className="nav-icon" />
-            {!sidebarCollapsed ? (
-              <>
-                <span className="nav-text">Sen Đá & Tồn Kho</span>
-                <span className="nav-badge count">{products.length}</span>
-              </>
-            ) : (
-              products.length > 0 && <span className="nav-dot-badge" />
-            )}
-          </button>
-
-          <div className="admin-nav-group-label">
-            {!sidebarCollapsed ? 'MARKETING & KHÁCH' : '•••'}
-          </div>
-
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'coupons' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('coupons');
-              setMobileSidebarOpen(false);
-            }}
-            title="Mã Ưu Đãi & Voucher"
-          >
-            <Tag size={19} className="nav-icon" />
-            {!sidebarCollapsed ? (
-              <>
-                <span className="nav-text">Mã Giảm Giá & Voucher</span>
-                <span className="nav-badge count">{coupons.length}</span>
-              </>
-            ) : (
-              coupons.length > 0 && <span className="nav-dot-badge" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            className={`admin-nav-item ${activeTab === 'customers' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('customers');
-              setMobileSidebarOpen(false);
-            }}
-            title="Khách Hàng & Phân Quyền"
-          >
-            <Users size={19} className="nav-icon" />
-            {!sidebarCollapsed ? (
-              <>
-                <span className="nav-text">Khách Hàng & Quyền</span>
-                <span className="nav-badge count">{customers.length}</span>
-              </>
-            ) : (
-              customers.length > 0 && <span className="nav-dot-badge" />
-            )}
-          </button>
-
-          <div className="admin-nav-group-label">
-            {!sidebarCollapsed ? 'LỐI TẮT HỆ THỐNG' : '•••'}
-          </div>
-
-          <button
-            type="button"
-            className="admin-nav-item shortcut"
-            onClick={loadAllData}
-            title="Đồng bộ lại toàn bộ dữ liệu từ hệ thống"
-          >
-            <RefreshCw size={19} className={`nav-icon ${loading ? 'spin' : ''}`} />
-            {!sidebarCollapsed && <span className="nav-text">Đồng Bộ Dữ Liệu</span>}
-          </button>
-
-          <button
-            type="button"
-            className="admin-nav-item shortcut"
-            onClick={onNavigateHome}
-            title="Xem giao diện mua sắm của khách hàng"
-          >
-            <ExternalLink size={19} className="nav-icon" />
-            {!sidebarCollapsed && <span className="nav-text">Xem Cửa Hàng</span>}
-          </button>
-        </nav>
-
-        {/* Sidebar Footer with User Profile */}
-        <div className="admin-sidebar-footer">
-          <div className="admin-sidebar-user">
-            <img
-              className="admin-sidebar-avatar"
-              src={
-                user?.avatar ||
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
-              }
-              alt={user?.name || 'Admin'}
-            />
-            {!sidebarCollapsed && (
-              <div className="admin-sidebar-user-details">
-                <span className="user-name">{user?.name || 'Quản Trị Viên'}</span>
-                <span className="user-role">{user?.role || 'SUPER ADMIN'}</span>
-              </div>
-            )}
-          </div>
-
-          <button
-            type="button"
-            className="admin-sidebar-logout"
-            onClick={onLogout}
-            title="Đăng xuất khỏi phiên Quản Trị"
-          >
-            <LogOut size={16} />
-          </button>
-        </div>
-
-        {/* Dedicated Bottom Collapse Bar (Cloudflare style) */}
-        <div className="admin-sidebar-collapse-bar">
-          <button
-            type="button"
-            className="admin-sidebar-collapse-btn"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            title={sidebarCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
-            aria-label={sidebarCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
-          >
-            <PanelLeft size={18} />
-          </button>
-        </div>
-      </aside>
-
-      {/* Mobile Drawer Backdrop */}
-      {mobileSidebarOpen && (
-        <div
-          className="admin-sidebar-backdrop"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
+      <AdminSidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        sidebarCollapsed={sidebarCollapsed}
+        setSidebarCollapsed={setSidebarCollapsed}
+        mobileSidebarOpen={mobileSidebarOpen}
+        setMobileSidebarOpen={setMobileSidebarOpen}
+      />
 
       {/* Right Content Area */}
       <div className="admin-main-wrapper-inner">
         {/* Topbar inside content area */}
-        <header className="admin-topbar">
-          <div className="admin-topbar-left">
-            <button
-              type="button"
-              className="admin-mobile-toggle"
-              onClick={() => setMobileSidebarOpen(true)}
-              title="Mở menu quản trị"
-            >
-              <Menu size={20} />
-            </button>
-
-            <div className="admin-topbar-title-group">
-              <div className="admin-topbar-breadcrumb">
-                <span>Quản Trị Vườn</span>
-                <span className="sep">/</span>
-                <span className="cur">
-                  {activeTab === 'orders' && 'Đơn Hàng & Vận Chuyển'}
-                  {activeTab === 'products' && 'Kho Sen Đá & Tồn Kho'}
-                  {activeTab === 'coupons' && 'Mã Ưu Đãi & Voucher'}
-                  {activeTab === 'customers' && 'Khách Hàng & Phân Quyền'}
-                </span>
-              </div>
-              <h1 className="admin-topbar-page-title">
-                {activeTab === 'orders' && 'Quản Lý Đơn Hàng & Vận Chuyển'}
-                {activeTab === 'products' && 'Kho Sen Đá & Quản Lý Tồn Kho'}
-                {activeTab === 'coupons' && 'Mã Ưu Đãi & Voucher Giảm Giá'}
-                {activeTab === 'customers' && 'Khách Hàng & Phân Quyền Quản Trị'}
-              </h1>
-            </div>
-          </div>
-
-          <div className="admin-topbar-actions">
-            <button
-              className="btn-primary"
-              onClick={() => {
-                setActiveTab('products');
-                setShowProductModal(true);
-                setEditingProduct(null);
-                setProductFormData({
-                  name: '',
-                  category: 'sen-da-pho-bien',
-                  price: '',
-                  originalPrice: '',
-                  stock: 50,
-                  rating: 5.0,
-                  reviewsCount: 0,
-                  image: SAMPLE_IMAGES[0],
-                  isNew: true,
-                  isHot: false,
-                  shortDesc: '',
-                  description: '',
-                  potSize: 'M',
-                  lightRequirement: 'bright',
-                  waterSchedule: 'medium',
-                  difficultyLevel: 1
-                });
-              }}
-              style={{ padding: '8px 16px', fontSize: '0.84rem' }}
-            >
-              <Plus size={15} />
-              <span>Thêm Sen Đá</span>
-            </button>
-
-            <button
-              className="btn-secondary"
-              onClick={() => {
-                setActiveTab('coupons');
-                setShowCouponModal(true);
-                setCouponFormData({
-                  code: '',
-                  description: '',
-                  discountType: 'PERCENT',
-                  discountValue: 10,
-                  minOrderAmount: 0,
-                  maxDiscountAmount: 50000,
-                  usageLimit: 100,
-                  startDate: new Date().toISOString().split('T')[0],
-                  endDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
-                });
-              }}
-              style={{ padding: '8px 16px', fontSize: '0.84rem' }}
-            >
-              <Plus size={15} />
-              <span>Tạo Voucher</span>
-            </button>
-          </div>
-        </header>
+        <AdminHeader
+          viewMode={viewMode}
+          activeTab={activeTab}
+          activeCustomer={activeCustomer}
+          activeOrder={activeOrder}
+          setMobileSidebarOpen={setMobileSidebarOpen}
+          onOpenAddProduct={() => {
+            setViewMode('tabs');
+            setActiveTab('products');
+            handleOpenAddProduct();
+          }}
+          onOpenAddCoupon={() => {
+            setViewMode('tabs');
+            setActiveTab('coupons');
+            handleOpenAddCoupon();
+          }}
+        />
 
         {/* Content Body */}
         <div className="admin-content-body">
-        {/* KPI Stats Row */}
-        {stats && (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
-              gap: '16px',
-              marginBottom: '32px'
-            }}
-          >
-            <div
-              style={{
-                background: '#fff',
-                padding: '18px 20px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-light)',
-                boxShadow: 'var(--shadow-sm)'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Tổng Doanh Thu</span>
-                <TrendingUp size={16} color="var(--primary)" />
-              </div>
-              <strong style={{ fontSize: '1.45rem', color: 'var(--primary)', display: 'block', marginTop: '4px' }}>
-                {formatPrice(stats.totalRevenue)}
-              </strong>
-            </div>
+          {viewMode === 'tabs' && (
+            <React.Fragment>
+              {/* KPI Stats Row */}
+              <AdminStatsCards
+                stats={stats}
+                productsCount={products.length}
+                customersCount={customers.length}
+              />
 
-            <div
-              style={{
-                background: '#FFFBEB',
-                padding: '18px 20px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid #FDE68A'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.82rem', color: '#B45309' }}>Đơn Chờ Thanh Toán</span>
-                <Clock size={16} color="#D97706" />
-              </div>
-              <strong style={{ fontSize: '1.6rem', color: '#D97706', display: 'block', marginTop: '4px' }}>
-                {stats.pendingOrders}
-              </strong>
-            </div>
-
-            <div
-              style={{
-                background: '#ECFDF5',
-                padding: '18px 20px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid #A7F3D0'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.82rem', color: '#047857' }}>Đơn Đã Xử Lý / Xong</span>
-                <CheckCircle2 size={16} color="#059669" />
-              </div>
-              <strong style={{ fontSize: '1.6rem', color: '#059669', display: 'block', marginTop: '4px' }}>
-                {(stats.paidOrders || 0) + (stats.completedOrders || 0)}
-              </strong>
-            </div>
-
-            <div
-              style={{
-                background: '#EFF6FF',
-                padding: '18px 20px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid #BFDBFE'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.82rem', color: '#1D4ED8' }}>Sen Đá Trong Kho</span>
-                <Sprout size={16} color="#2563EB" />
-              </div>
-              <strong style={{ fontSize: '1.6rem', color: '#1D4ED8', display: 'block', marginTop: '4px' }}>
-                {stats.totalProducts || products.length}
-              </strong>
-            </div>
-
-            <div
-              style={{
-                background: '#FAF5FF',
-                padding: '18px 20px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid #E9D5FF'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.82rem', color: '#7E22CE' }}>Thành Viên Đăng Ký</span>
-                <Users size={16} color="#9333EA" />
-              </div>
-              <strong style={{ fontSize: '1.6rem', color: '#7E22CE', display: 'block', marginTop: '4px' }}>
-                {stats.totalCustomers || customers.length}
-              </strong>
-            </div>
-          </div>
-        )}
-
-
-
-        {/* ============================================================ */}
-        {/* TAB 1: ORDERS MANAGEMENT */}
-        {/* ============================================================ */}
-        {activeTab === 'orders' && (
-          <div>
-            <div className="admin-toolbar">
-              <div className="admin-search-wrapper">
-                <Search size={17} />
-                <input
-                  type="text"
-                  className="admin-search-input"
-                  placeholder="Tìm theo mã đơn (#SX-...), tên khách, số điện thoại..."
-                  value={orderSearch}
-                  onChange={(e) => setOrderSearch(e.target.value)}
+              {/* TAB 1: ORDERS MANAGEMENT */}
+              {activeTab === 'orders' && (
+                <OrdersTab
+                  orders={orders}
+                  customers={customers}
+                  orderFilterStatus={orderFilterStatus}
+                  setOrderFilterStatus={setOrderFilterStatus}
+                  orderSearch={orderSearch}
+                  setOrderSearch={setOrderSearch}
+                  orderPage={orderPage}
+                  setOrderPage={setOrderPage}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  onStatusChange={handleStatusChange}
+                  onOpenOrderDetail={handleOpenOrderDetail}
+                  onOpenCustomerOrders={handleOpenCustomerOrders}
                 />
-              </div>
-
-              {/* Status filter tabs */}
-              <div style={{ display: 'flex', gap: '8px', overflowX: 'auto' }}>
-                {['all', 'PENDING', 'PAID', 'SHIPPING', 'COMPLETED', 'CANCELLED'].map((st) => (
-                  <button
-                    key={st}
-                    className={`cat-tab ${orderFilterStatus === st ? 'active' : ''}`}
-                    onClick={() => setOrderFilterStatus(st)}
-                    style={{ fontSize: '0.82rem', padding: '6px 12px' }}
-                  >
-                    {st === 'all' ? 'Tất Cả' : ORDER_STATUS_LABELS[st]?.label || st}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Order Cards List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {filteredOrders.length === 0 ? (
-                <div
-                  style={{
-                    textAlign: 'center',
-                    padding: '60px 20px',
-                    background: '#fff',
-                    borderRadius: 'var(--radius-lg)',
-                    border: '1px dashed var(--border-light)'
-                  }}
-                >
-                  <Package size={44} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                  <h4>Không tìm thấy đơn hàng nào phù hợp</h4>
-                </div>
-              ) : (
-                filteredOrders.map((order) => {
-                  const statusCfg = ORDER_STATUS_LABELS[order.status] || ORDER_STATUS_LABELS.PENDING;
-                  const StatusIcon = statusCfg.icon;
-
-                  return (
-                    <div
-                      key={order.id}
-                      style={{
-                        background: '#fff',
-                        border: '1px solid var(--border-light)',
-                        borderRadius: 'var(--radius-lg)',
-                        padding: '22px',
-                        boxShadow: 'var(--shadow-sm)'
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'flex-start',
-                          flexWrap: 'wrap',
-                          gap: '14px',
-                          marginBottom: '16px'
-                        }}
-                      >
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <strong style={{ fontSize: '1.12rem', color: 'var(--primary)' }}>
-                              Đơn Hàng #{order.orderCode}
-                            </strong>
-                            <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
-                              • {order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : 'Vừa tạo'}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: '0.92rem', fontWeight: 600, marginTop: '4px' }}>
-                            Khách hàng: {order.customerName} - 📞 {order.customerPhone}
-                          </div>
-                          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                            📍 Địa chỉ: {order.customerAddress}
-                          </div>
-                          {order.note && (
-                            <div style={{ fontSize: '0.84rem', color: 'var(--accent)', marginTop: '2px' }}>
-                              💬 Ghi chú: {order.note}
-                            </div>
-                          )}
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <span
-                            style={{
-                              background: statusCfg.bg,
-                              color: statusCfg.color,
-                              fontSize: '0.82rem',
-                              fontWeight: 700,
-                              padding: '6px 14px',
-                              borderRadius: 'var(--radius-full)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px'
-                            }}
-                          >
-                            <StatusIcon size={14} />
-                            {statusCfg.label}
-                          </span>
-
-                          <select
-                            value={order.status}
-                            onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                            className="select-filter"
-                            style={{ padding: '6px 32px 6px 12px', fontSize: '0.84rem' }}
-                          >
-                            <option value="PENDING">Chờ Thanh Toán</option>
-                            <option value="PAID">Đã Thanh Toán</option>
-                            <option value="SHIPPING">Đang Giao Hàng</option>
-                            <option value="COMPLETED">Đã Hoàn Tất</option>
-                            <option value="CANCELLED">Hủy Đơn</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div
-                        style={{
-                          background: 'var(--bg-main)',
-                          padding: '12px 16px',
-                          borderRadius: 'var(--radius-sm)',
-                          fontSize: '0.88rem'
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            marginBottom: '6px',
-                            flexWrap: 'wrap',
-                            gap: '8px'
-                          }}
-                        >
-                          <span style={{ color: 'var(--text-muted)' }}>Danh sách món:</span>
-                          <span style={{ fontWeight: 500 }}>
-                            {order.items && order.items.length > 0
-                              ? order.items
-                                  .map((it) => `${it.productName || it.name} (x${it.quantity})`)
-                                  .join(' • ')
-                              : 'Chi tiết sản phẩm'}
-                          </span>
-                        </div>
-
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            fontWeight: 700,
-                            paddingTop: '8px',
-                            borderTop: '1px dashed var(--border-light)'
-                          }}
-                        >
-                          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                            Phương thức:{' '}
-                            <strong style={{ color: 'var(--text-main)' }}>
-                              {order.paymentMethod === 'momo'
-                                ? 'Ví MoMo / VietQR'
-                                : order.paymentMethod === 'vietqr'
-                                ? 'VietQR Ngân Hàng'
-                                : 'COD (Thu Hộ)'}
-                            </strong>
-                          </span>
-                          <span style={{ color: 'var(--primary)', fontSize: '1.05rem' }}>
-                            {formatPrice(order.totalAmount)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
               )}
-            </div>
-          </div>
-        )}
 
-        {/* ============================================================ */}
-        {/* TAB 2: PRODUCTS & STOCK CRUD MANAGEMENT */}
-        {/* ============================================================ */}
-        {activeTab === 'products' && (
-          <div>
-            <div className="admin-toolbar">
-              <div className="admin-search-wrapper">
-                <Search size={17} />
-                <input
-                  type="text"
-                  className="admin-search-input"
-                  placeholder="Tìm theo tên sen đá, tên khoa học..."
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
+              {/* TAB 2: PRODUCTS MANAGEMENT */}
+              {activeTab === 'products' && (
+                <ProductsTab
+                  products={products}
+                  productSearch={productSearch}
+                  setProductSearch={setProductSearch}
+                  productCategory={productCategory}
+                  setProductCategory={setProductCategory}
+                  productStockFilter={productStockFilter}
+                  setProductStockFilter={setProductStockFilter}
+                  productPage={productPage}
+                  setProductPage={setProductPage}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  onOpenAddProduct={handleOpenAddProduct}
+                  onOpenEditProduct={handleOpenEditProduct}
+                  onQuickStockChange={handleQuickStockChange}
+                  onDeleteProduct={handleDeleteProduct}
                 />
-              </div>
+              )}
 
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <select
-                  value={productCategory}
-                  onChange={(e) => setProductCategory(e.target.value)}
-                  className="select-filter"
-                  style={{ padding: '8px 28px 8px 12px', fontSize: '0.85rem' }}
-                >
-                  <option value="all">Tất Cả Danh Mục</option>
-                  {CATEGORIES.filter((c) => c.id !== 'all').map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={productStockFilter}
-                  onChange={(e) => setProductStockFilter(e.target.value)}
-                  className="select-filter"
-                  style={{ padding: '8px 28px 8px 12px', fontSize: '0.85rem' }}
-                >
-                  <option value="all">Tất Cả Tồn Kho</option>
-                  <option value="low">⚠️ Sắp Hết (≤ 10)</option>
-                  <option value="out">❌ Hết Hàng (0)</option>
-                </select>
-
-                <button
-                  className="btn-primary"
-                  onClick={handleOpenAddProduct}
-                  style={{ padding: '9px 18px', fontSize: '0.88rem' }}
-                >
-                  <Plus size={16} />
-                  <span>Thêm Cây Mới</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Products Table */}
-            <div className="admin-table-wrapper">
-              <div className="admin-table-responsive">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Sen Đá</th>
-                      <th>Danh Mục</th>
-                      <th>Giá Bán</th>
-                      <th>Tồn Kho</th>
-                      <th>Đặc Tính</th>
-                      <th>Huy Hiệu</th>
-                      <th style={{ textAlign: 'center' }}>Thao Tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredProducts.length === 0 ? (
-                      <tr>
-                        <td colSpan="7" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-light)' }}>
-                          Chưa có sản phẩm nào phù hợp với bộ lọc tìm kiếm
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredProducts.map((prod) => {
-                        const isLow = (prod.inStock || 0) > 0 && (prod.inStock || 0) <= 10;
-                        const isOut = (prod.inStock || 0) === 0;
-
-                        return (
-                          <tr key={prod.id}>
-                            <td>
-                              <div className="admin-prod-cell">
-                                <img
-                                  src={
-                                    prod.image ||
-                                    'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=150&q=80'
-                                  }
-                                  alt={prod.name}
-                                  className="admin-prod-thumb"
-                                />
-                                <div>
-                                  <strong style={{ color: 'var(--text-main)', display: 'block', fontSize: '0.95rem' }}>
-                                    {prod.name}
-                                  </strong>
-                                  <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', fontStyle: 'italic' }}>
-                                    {prod.scientificName || 'Sen mọng nước'}
-                                  </span>
-                                </div>
-                              </div>
-                            </td>
-                            <td>
-                              <span
-                                style={{
-                                  background: 'var(--bg-main)',
-                                  padding: '4px 10px',
-                                  borderRadius: 'var(--radius-full)',
-                                  fontSize: '0.8rem',
-                                  color: 'var(--text-muted)',
-                                  fontWeight: 500
-                                }}
-                              >
-                                {CATEGORIES.find((c) => c.id === prod.category)?.name || prod.category}
-                              </span>
-                            </td>
-                            <td>
-                              <div>
-                                <strong style={{ color: 'var(--primary)', fontSize: '0.98rem' }}>
-                                  {formatPrice(prod.price)}
-                                </strong>
-                                {prod.originalPrice > prod.price && (
-                                  <span
-                                    style={{
-                                      fontSize: '0.78rem',
-                                      color: 'var(--text-light)',
-                                      textDecoration: 'line-through',
-                                      display: 'block'
-                                    }}
-                                  >
-                                    {formatPrice(prod.originalPrice)}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span
-                                  className={`stock-pill ${
-                                    isOut ? 'out-of-stock' : isLow ? 'low-stock' : 'in-stock'
-                                  }`}
-                                >
-                                  {isOut ? 'Hết hàng' : isLow ? `Còn ít (${prod.inStock})` : `Còn ${prod.inStock}`}
-                                </span>
-
-                                <div className="stock-stepper">
-                                  <button
-                                    className="stock-step-btn"
-                                    onClick={() => handleQuickStockChange(prod, -1)}
-                                    title="Giảm 1 cây"
-                                  >
-                                    -
-                                  </button>
-                                  <button
-                                    className="stock-step-btn"
-                                    onClick={() => handleQuickStockChange(prod, 1)}
-                                    title="Tăng 1 cây"
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                              </div>
-                            </td>
-                            <td>
-                              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                                <div>☀️ {prod.light || 'Nắng nhẹ'}</div>
-                                <div>💧 {prod.watering || '1 tuần/lần'}</div>
-                              </div>
-                            </td>
-                            <td>
-                              {prod.badge ? (
-                                <span
-                                  style={{
-                                    background: '#FEF3C7',
-                                    color: '#B45309',
-                                    padding: '3px 8px',
-                                    borderRadius: 'var(--radius-sm)',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 700
-                                  }}
-                                >
-                                  {prod.badge}
-                                </span>
-                              ) : (
-                                <span style={{ color: 'var(--text-light)', fontSize: '0.8rem' }}>—</span>
-                              )}
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
-                              <div style={{ display: 'inline-flex', gap: '6px' }}>
-                                <button
-                                  className="btn-icon-action"
-                                  onClick={() => handleOpenEditProduct(prod)}
-                                  title="Chỉnh sửa sản phẩm"
-                                >
-                                  <Edit2 size={16} />
-                                </button>
-                                <button
-                                  className="btn-icon-action delete"
-                                  onClick={() => handleDeleteProduct(prod)}
-                                  title="Xóa sản phẩm"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ============================================================ */}
-        {/* TAB 3: COUPONS / VOUCHERS MANAGEMENT */}
-        {/* ============================================================ */}
-        {activeTab === 'coupons' && (
-          <div>
-            <div className="admin-toolbar">
-              <div>
-                <strong style={{ fontSize: '1.05rem', color: 'var(--text-main)' }}>
-                  Danh Sách Mã Giảm Giá Đang Có
-                </strong>
-                <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
-                  Khách hàng có thể nhập các mã đang kích hoạt khi xem Giỏ hàng hoặc Thanh toán.
-                </p>
-              </div>
-
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  setCouponFormData({
-                    code: '',
-                    discountPercent: 15,
-                    description: '',
-                    isActive: true
-                  });
-                  setIsCouponModalOpen(true);
-                }}
-                style={{ padding: '9px 18px', fontSize: '0.88rem' }}
-              >
-                <Plus size={16} />
-                <span>Tạo Mã Voucher Mới</span>
-              </button>
-            </div>
-
-            <div className="coupon-cards-grid">
-              {coupons.map((c) => (
-                <div key={c.code} className={`admin-coupon-ticket ${!c.isActive ? 'inactive' : ''}`}>
-                  <div>
-                    <div className="coupon-ticket-header">
-                      <span className="coupon-ticket-code">{c.code}</span>
-                      <span className="coupon-discount-badge">-{c.discountPercent}%</span>
-                    </div>
-
-                    <p style={{ fontSize: '0.88rem', color: 'var(--text-main)', margin: '0 0 14px' }}>
-                      {c.description || 'Ưu đãi dành cho khách hàng Sen Xinh'}
-                    </p>
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      paddingTop: '12px',
-                      borderTop: '1px dashed #E2E8F0'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <label className="admin-toggle" title="Bật / tắt hiệu lực mã voucher">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(c.isActive)}
-                          onChange={() => handleToggleCoupon(c)}
-                        />
-                        <span className="admin-toggle-slider" />
-                      </label>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: c.isActive ? '#059669' : '#94A3B8' }}>
-                        {c.isActive ? 'Đang hoạt động' : 'Tạm dừng'}
-                      </span>
-                    </div>
-
-                    <button
-                      className="btn-icon-action delete"
-                      onClick={() => handleDeleteCoupon(c)}
-                      title="Xóa voucher này"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ============================================================ */}
-        {/* TAB 4: CUSTOMERS & MEMBERSHIP MANAGEMENT */}
-        {/* ============================================================ */}
-        {activeTab === 'customers' && (
-          <div>
-            <div className="admin-toolbar">
-              <div className="admin-search-wrapper">
-                <Search size={17} />
-                <input
-                  type="text"
-                  className="admin-search-input"
-                  placeholder="Tìm thành viên theo tên, email, số điện thoại..."
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
+              {/* TAB 3: COUPONS MANAGEMENT */}
+              {activeTab === 'coupons' && (
+                <CouponsTab
+                  coupons={coupons}
+                  couponPage={couponPage}
+                  setCouponPage={setCouponPage}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  onOpenAddCoupon={handleOpenAddCoupon}
+                  onToggleCoupon={handleToggleCoupon}
+                  onDeleteCoupon={handleDeleteCoupon}
                 />
-              </div>
+              )}
 
-              <div style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>
-                Tổng cộng: <strong style={{ color: 'var(--primary)' }}>{filteredCustomers.length}</strong> người dùng
-              </div>
-            </div>
+              {/* TAB 4: CUSTOMERS MANAGEMENT */}
+              {activeTab === 'customers' && (
+                <CustomersTab
+                  customers={customers}
+                  customerSearch={customerSearch}
+                  setCustomerSearch={setCustomerSearch}
+                  customerPage={customerPage}
+                  setCustomerPage={setCustomerPage}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  getCustomerOrdersCountAndSpent={getCustomerOrdersCountAndSpent}
+                  onOpenCustomerOrders={handleOpenCustomerOrders}
+                  onRoleChange={handleRoleChange}
+                />
+              )}
+            </React.Fragment>
+          )}
 
-            <div className="admin-table-wrapper">
-              <div className="admin-table-responsive">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Khách Hàng</th>
-                      <th>Email & SĐT</th>
-                      <th>Địa Chỉ Giao Hàng</th>
-                      <th>Điểm Sen Thưởng</th>
-                      <th>Vai Trò & Phân Quyền</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredCustomers.map((cust) => (
-                      <tr key={cust.id}>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <img
-                              src={
-                                cust.avatar ||
-                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
-                              }
-                              alt={cust.name}
-                              style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
-                            />
-                            <div>
-                              <strong style={{ color: 'var(--text-main)', fontSize: '0.94rem' }}>
-                                {cust.name}
-                              </strong>
-                              {cust.role && cust.role.includes('Admin') && (
-                                <span
-                                  style={{
-                                    marginLeft: '6px',
-                                    background: '#DC2626',
-                                    color: '#fff',
-                                    fontSize: '0.7rem',
-                                    padding: '2px 6px',
-                                    borderRadius: 'var(--radius-full)',
-                                    fontWeight: 700
-                                  }}
-                                >
-                                  ADMIN
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div style={{ fontSize: '0.88rem' }}>
-                            <div>📧 {cust.email}</div>
-                            {cust.phone && <div style={{ color: 'var(--text-muted)' }}>📞 {cust.phone}</div>}
-                          </div>
-                        </td>
-                        <td>
-                          <span style={{ fontSize: '0.86rem', color: 'var(--text-muted)' }}>
-                            {cust.address || 'Chưa cập nhật'}
-                          </span>
-                        </td>
-                        <td>
-                          <span
-                            style={{
-                              background: '#ECFDF5',
-                              color: '#047857',
-                              fontWeight: 700,
-                              padding: '4px 10px',
-                              borderRadius: 'var(--radius-full)',
-                              fontSize: '0.82rem'
-                            }}
-                          >
-                            🌱 {cust.points || 0} điểm
-                          </span>
-                        </td>
-                        <td>
-                          <select
-                            value={cust.role || 'Thành viên mới'}
-                            onChange={(e) => handleRoleChange(cust.id, e.target.value)}
-                            className="select-filter"
-                            style={{ padding: '6px 30px 6px 10px', fontSize: '0.82rem' }}
-                          >
-                            <option value="Quản trị viên (Admin)">Quản trị viên (Admin)</option>
-                            <option value="Khách hàng VIP">Khách hàng VIP</option>
-                            <option value="Thành viên thân thiết">Thành viên thân thiết</option>
-                            <option value="Thành viên mới">Thành viên mới</option>
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
+          {/* DEDICATED VIEW: CUSTOMER ORDERS LIST VIEW */}
+          {viewMode === 'customer-orders' && activeCustomer && (
+            <CustomerOrdersView
+              activeCustomer={activeCustomer}
+              allOrders={allOrders}
+              orders={orders}
+              customerOrderFilter={customerOrderFilter}
+              setCustomerOrderFilter={setCustomerOrderFilter}
+              custOrderPage={custOrderPage}
+              setCustOrderPage={setCustOrderPage}
+              itemsPerPage={ITEMS_PER_PAGE}
+              getCustomerOrdersCountAndSpent={getCustomerOrdersCountAndSpent}
+              onBack={handleBackFromCustomerOrders}
+              onOpenOrderDetail={handleOpenOrderDetail}
+            />
+          )}
+
+          {/* DEDICATED VIEW: ORDER DETAIL VIEW */}
+          {viewMode === 'order-detail' && activeOrder && (
+            <OrderDetailView
+              activeOrder={activeOrder}
+              activeCustomer={activeCustomer}
+              customers={customers}
+              previousViewMode={previousViewMode}
+              onBack={handleBackFromOrderDetail}
+              onOpenCustomerOrders={handleOpenCustomerOrders}
+              onDetailStatusChange={handleDetailStatusChange}
+            />
+          )}
+        </div>
+
+        {/* MODAL: ADD / EDIT PRODUCT */}
+        <ProductModal
+          isOpen={isProductModalOpen}
+          editingProduct={editingProduct}
+          productFormData={productFormData}
+          setProductFormData={setProductFormData}
+          onClose={() => setIsProductModalOpen(false)}
+          onSave={handleSaveProduct}
+        />
+
+        {/* MODAL: CREATE COUPON */}
+        <CouponModal
+          isOpen={isCouponModalOpen}
+          couponFormData={couponFormData}
+          setCouponFormData={setCouponFormData}
+          onClose={() => setIsCouponModalOpen(false)}
+          onSave={handleSaveCoupon}
+        />
       </div>
 
-      {/* ============================================================ */}
-      {/* MODAL: ADD / EDIT PRODUCT */}
-      {/* ============================================================ */}
-      {isProductModalOpen && (
-        <div className="admin-modal-overlay" onClick={() => setIsProductModalOpen(false)}>
-          <div className="admin-modal-container" onClick={(e) => e.stopPropagation()}>
-            <div className="admin-modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sprout size={20} color="var(--primary)" />
-                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-main)' }}>
-                  {editingProduct ? 'Chỉnh Sửa Thông Tin Sen Đá' : 'Thêm Sen Đá Mới Vào Vườn'}
-                </h3>
-              </div>
-              <button
-                className="btn-icon-action"
-                onClick={() => setIsProductModalOpen(false)}
-                title="Đóng cửa sổ"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveProduct} style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
-              <div className="admin-modal-body">
-                {/* Basic info */}
-                <div className="admin-form-row">
-                  <div className="admin-form-control">
-                    <label>Tên Sen Đá *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="VD: Sen Đá Kim Cương Pha Lê"
-                      value={productFormData.name}
-                      onChange={(e) => setProductFormData({ ...productFormData, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="admin-form-control">
-                    <label>Tên Khoa Học</label>
-                    <input
-                      type="text"
-                      placeholder="VD: Haworthia Cooperi"
-                      value={productFormData.scientificName}
-                      onChange={(e) => setProductFormData({ ...productFormData, scientificName: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="admin-form-row">
-                  <div className="admin-form-control">
-                    <label>Danh Mục</label>
-                    <select
-                      value={productFormData.category}
-                      onChange={(e) => setProductFormData({ ...productFormData, category: e.target.value })}
-                    >
-                      {CATEGORIES.filter((c) => c.id !== 'all').map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="admin-form-control">
-                    <label>Huy Hiệu (Badge)</label>
-                    <input
-                      type="text"
-                      placeholder="VD: Bán chạy, Mới về, Ưa chuộng..."
-                      value={productFormData.badge || ''}
-                      onChange={(e) => setProductFormData({ ...productFormData, badge: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                {/* Pricing & Stock */}
-                <div className="admin-form-row">
-                  <div className="admin-form-control">
-                    <label>Giá Bán (VNĐ) *</label>
-                    <input
-                      type="number"
-                      required
-                      min="1000"
-                      step="1000"
-                      value={productFormData.price}
-                      onChange={(e) =>
-                        setProductFormData({ ...productFormData, price: Number(e.target.value) })
-                      }
-                    />
-                  </div>
-                  <div className="admin-form-control">
-                    <label>Giá Gốc (Trước giảm)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1000"
-                      value={productFormData.originalPrice}
-                      onChange={(e) =>
-                        setProductFormData({ ...productFormData, originalPrice: Number(e.target.value) })
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="admin-form-row">
-                  <div className="admin-form-control">
-                    <label>Số Lượng Tồn Kho *</label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={productFormData.inStock}
-                      onChange={(e) =>
-                        setProductFormData({ ...productFormData, inStock: Number(e.target.value) })
-                      }
-                    />
-                  </div>
-                  <div className="admin-form-control">
-                    <label>Kích Thước Cây</label>
-                    <input
-                      type="text"
-                      placeholder="VD: Mini (6 - 8cm), Trung (8 - 10cm)..."
-                      value={productFormData.size || ''}
-                      onChange={(e) => setProductFormData({ ...productFormData, size: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                {/* Image URL & Sample images */}
-                <div className="admin-form-control">
-                  <label>Đường Dẫn Hình Ảnh (URL)</label>
-                  <input
-                    type="url"
-                    value={productFormData.image}
-                    onChange={(e) => setProductFormData({ ...productFormData, image: e.target.value })}
-                    placeholder="https://..."
-                  />
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>Chọn ảnh mẫu:</span>
-                    {SAMPLE_IMAGES.map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={img}
-                        alt={`Sample ${idx}`}
-                        onClick={() => setProductFormData({ ...productFormData, image: img })}
-                        style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          objectFit: 'cover',
-                          border: productFormData.image === img ? '2px solid var(--primary)' : '1px solid var(--border-light)'
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Care specs */}
-                <div className="admin-form-row">
-                  <div className="admin-form-control">
-                    <label>Yêu Cầu Ánh Sáng</label>
-                    <select
-                      value={productFormData.lightType}
-                      onChange={(e) =>
-                        setProductFormData({
-                          ...productFormData,
-                          lightType: e.target.value,
-                          light:
-                            e.target.value === 'full_sun'
-                              ? 'Nhiều nắng trực tiếp'
-                              : e.target.value === 'indirect'
-                              ? 'Nhiều nắng gián tiếp'
-                              : 'Trong nhà / Bàn làm việc'
-                        })
-                      }
-                    >
-                      <option value="indirect">Nhiều nắng gián tiếp</option>
-                      <option value="full_sun">Nhiều nắng trực tiếp</option>
-                      <option value="indoor">Trong nhà / Bàn làm việc</option>
-                    </select>
-                  </div>
-                  <div className="admin-form-control">
-                    <label>Chu Kỳ Tưới Nước</label>
-                    <input
-                      type="text"
-                      placeholder="VD: 1 tuần / 1 lần"
-                      value={productFormData.watering}
-                      onChange={(e) => setProductFormData({ ...productFormData, watering: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="admin-form-control">
-                  <label>Mô Tả Sản Phẩm</label>
-                  <textarea
-                    rows={3}
-                    value={productFormData.description}
-                    onChange={(e) => setProductFormData({ ...productFormData, description: e.target.value })}
-                    placeholder="Mô tả đặc điểm nổi bật, dáng cây, màu sắc khi tắm nắng..."
-                  />
-                </div>
-
-                <div className="admin-form-control">
-                  <label>Ý Nghĩa Phong Thủy</label>
-                  <input
-                    type="text"
-                    value={productFormData.meaning}
-                    onChange={(e) => setProductFormData({ ...productFormData, meaning: e.target.value })}
-                    placeholder="VD: Mang lại tài lộc, sự may mắn và bình an..."
-                  />
-                </div>
-              </div>
-
-              <div className="admin-modal-footer">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setIsProductModalOpen(false)}
-                >
-                  Hủy Bỏ
-                </button>
-                <button type="submit" className="btn-primary">
-                  <Check size={16} />
-                  <span>{editingProduct ? 'Cập Nhật Sen Đá' : 'Lưu Vào Cửa Hàng'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* MODAL: CREATE COUPON */}
-      {/* ============================================================ */}
-      {isCouponModalOpen && (
-        <div className="admin-modal-overlay" onClick={() => setIsCouponModalOpen(false)}>
-          <div
-            className="admin-modal-container"
-            style={{ maxWidth: '520px' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="admin-modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Tag size={20} color="var(--primary)" />
-                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-main)' }}>
-                  Tạo Mã Voucher Giảm Giá
-                </h3>
-              </div>
-              <button
-                className="btn-icon-action"
-                onClick={() => setIsCouponModalOpen(false)}
-                title="Đóng cửa sổ"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveCoupon}>
-              <div className="admin-modal-body">
-                <div className="admin-form-control">
-                  <label>Mã Voucher (Code) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="VD: SENXINHVIP25, FREESHIP..."
-                    value={couponFormData.code}
-                    onChange={(e) =>
-                      setCouponFormData({
-                        ...couponFormData,
-                        code: e.target.value.toUpperCase().replace(/\s+/g, '')
-                      })
-                    }
-                    style={{ textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}
-                  />
-                </div>
-
-                <div className="admin-form-control">
-                  <label>Phần Trăm Chiết Khấu (%) *</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    max="100"
-                    value={couponFormData.discountPercent}
-                    onChange={(e) =>
-                      setCouponFormData({
-                        ...couponFormData,
-                        discountPercent: Number(e.target.value)
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="admin-form-control">
-                  <label>Mô Tả / Điều Kiện Áp Dụng</label>
-                  <textarea
-                    rows={2}
-                    placeholder="VD: Giảm 25% cho đơn hàng từ 200k, áp dụng toàn quốc..."
-                    value={couponFormData.description}
-                    onChange={(e) =>
-                      setCouponFormData({ ...couponFormData, description: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="admin-modal-footer">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setIsCouponModalOpen(false)}
-                >
-                  Hủy Bỏ
-                </button>
-                <button type="submit" className="btn-primary">
-                  <Check size={16} />
-                  <span>Kích Hoạt Mã Ngay</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      </div>
+      {/* Notification Modal – thay thế window.alert() */}
+      <NotificationModal {...modalProps} />
     </div>
   );
 }

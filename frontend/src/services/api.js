@@ -304,11 +304,16 @@ export async function createOrder(orderPayload) {
     body: JSON.stringify(orderPayload)
   });
 
-  const data = await res.json();
+  const json = await res.json();
   if (!res.ok) {
-    throw new Error(data.message || 'Không thể tạo đơn hàng');
+    throw new Error(json.message || 'Không thể tạo đơn hàng');
   }
-  return data;
+  const payload = json.data || json;
+  return {
+    ...json,
+    order: payload.order || json.order,
+    vietQr: payload.vietQr || json.vietQr
+  };
 }
 
 /**
@@ -428,11 +433,17 @@ export async function validateCoupon(code) {
     body: JSON.stringify({ code })
   });
 
-  const data = await res.json();
-  if (!res.ok) {
-    return { valid: false, message: data.message || 'Mã không hợp lệ' };
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    return { valid: false, message: json.message || 'Mã không hợp lệ' };
   }
-  return data;
+  const payload = json.data || json;
+  return {
+    valid: payload.valid !== false,
+    code: payload.code,
+    discountPercent: payload.discountPercent,
+    description: payload.description
+  };
 }
 
 // ==============================================================================
@@ -816,6 +827,85 @@ export async function loginUser(email, password) {
   const data = await res.json();
   if (!res.ok) {
     throw new Error(data.message || 'Đăng nhập không thành công');
+  }
+  return data;
+}
+
+export async function loginWithGoogle({ idToken, accessToken, profile = null } = {}) {
+  if (USE_MOCK_DATA) {
+    const users = getStoredUsers();
+    let userEmail = profile?.email;
+    let userName = profile?.name;
+    let userAvatar = profile?.picture;
+
+    // Giải mã Google ID Token (JWT) nếu chưa có sẵn thông tin profile
+    if (!userEmail && idToken) {
+      try {
+        const base64Url = idToken.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        const decoded = JSON.parse(jsonPayload);
+        userEmail = decoded.email;
+        userName = decoded.name || decoded.email?.split('@')[0];
+        userAvatar = decoded.picture;
+      } catch (e) {
+        console.warn('Không thể giải mã Google idToken ở chế độ Mock Data:', e);
+      }
+    }
+
+    if (!userEmail) {
+      userEmail = 'google.user@senxinh.vn';
+      userName = userName || 'Khách Hàng Google';
+    }
+
+    const cleanEmail = userEmail.trim().toLowerCase();
+    let matched = users.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
+
+    if (!matched) {
+      matched = {
+        id: `user_google_${Date.now()}`,
+        publicId: `google-uuid-${Date.now()}`,
+        name: userName || 'Khách Hàng Google',
+        email: cleanEmail,
+        phone: '',
+        authProvider: 'GOOGLE',
+        address: 'Hà Nội, Việt Nam',
+        avatar: userAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+        role: 'Thành viên mới',
+        points: 50
+      };
+      users.push(matched);
+      saveStoredUsers(users);
+    } else {
+      if (userAvatar && (!matched.avatar || matched.avatar.includes('unsplash'))) {
+        matched.avatar = userAvatar;
+        saveStoredUsers(users);
+      }
+    }
+
+    const { password: _, ...userSafe } = matched;
+    return {
+      success: true,
+      message: 'Đăng nhập Google thành công!',
+      data: userSafe,
+      token: `google_mock_token_${Date.now()}`
+    };
+  }
+
+  // Kết nối trực tiếp Backend Spring Boot thực tế
+  const res = await fetch(`${API_BASE}/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken, accessToken, profile })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'Đăng nhập Google không thành công');
   }
   return data;
 }

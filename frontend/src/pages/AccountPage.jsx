@@ -28,6 +28,8 @@ import {
   EyeOff
 } from 'lucide-react';
 import { getAdminOrders, updateOrderStatus, getAdminStats, changePassword } from '../services/api';
+import NotificationModal from '../components/NotificationModal';
+import useModal from '../components/useModal';
 
 const STATUS_CONFIG = {
   PENDING: { label: 'Chờ Thanh Toán', color: '#D97706', bg: '#FEF3C7', icon: Clock, step: 1 },
@@ -69,6 +71,8 @@ export default function AccountPage({
   onUpdateUser
 }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'profile');
+  // Notification Modal
+  const { modalProps, showModal } = useModal();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || 'Nguyễn Hoàng Long',
@@ -173,7 +177,7 @@ export default function AccountPage({
       await updateOrderStatus(orderId, newStatus);
       loadOrders();
     } catch (err) {
-      alert('Không thể cập nhật trạng thái đơn hàng');
+      showModal('error', 'Không thể cập nhật trạng thái đơn hàng');
     }
   };
 
@@ -222,6 +226,7 @@ export default function AccountPage({
   const wishlistProducts = products.filter((p) => wishlist.includes(p.id));
 
   return (
+    <>
     <div className="account-page">
       {/* Header Banner */}
       <div className="page-header-banner">
@@ -354,7 +359,6 @@ export default function AccountPage({
                 >
                   <Package size={18} />
                   <span>Xem Đơn Hàng</span>
-                  <span className="profile-nav-badge">Java API</span>
                 </button>
 
                 <button 
@@ -657,11 +661,8 @@ export default function AccountPage({
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
                             <div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <strong style={{ fontSize: '1.15rem', color: 'var(--primary)' }}>
-                                  Đơn Hàng #{order.orderCode}
-                                </strong>
                                 <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
-                                  • {new Date(order.createdAt).toLocaleString('vi-VN')}
+                                  {new Date(order.createdAt).toLocaleString('vi-VN')}
                                 </span>
                               </div>
                               <div style={{ fontSize: '0.92rem', fontWeight: 600, marginTop: '4px' }}>
@@ -1170,5 +1171,9 @@ export default function AccountPage({
         </div>
       </div>
     </div>
+
+    {/* Notification Modal – thay thế window.alert() */}
+    <NotificationModal {...modalProps} />
+    </>
   );
 }

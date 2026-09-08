@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { createOrder, createMoMoPayment, simulateMoMoPayment, lookupOrder } from '../services/api';
+import NotificationModal from '../components/NotificationModal';
+import useModal from '../components/useModal';
 
 export default function CheckoutPage({
   user,
@@ -32,6 +34,8 @@ export default function CheckoutPage({
   onNavigateAdmin,
   initialOrderCode = null
 }) {
+  // Notification Modal
+  const { modalProps, showModal } = useModal();
   const detectCity = (addr) => {
     if (!addr) return 'Hà Nội';
     if (addr.includes('Hồ Chí Minh') || addr.includes('TP.HCM') || addr.includes('Sài Gòn')) return 'TP. Hồ Chí Minh';
@@ -147,7 +151,7 @@ export default function CheckoutPage({
   const handleSubmitOrder = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.phone || !formData.address) {
-      alert('Vui lòng điền đầy đủ Họ tên, Số điện thoại và Địa chỉ giao hàng!');
+      showModal('warning', 'Vui lòng điền đầy đủ Họ tên, Số điện thoại và Địa chỉ giao hàng!');
       return;
     }
 
@@ -559,6 +563,7 @@ export default function CheckoutPage({
 
   // Screen 3: Checkout Form
   return (
+    <>
     <div className="checkout-page">
       {/* Header Banner */}
       <div className="page-header-banner">
@@ -845,5 +850,9 @@ export default function CheckoutPage({
         </form>
       </div>
     </div>
+
+    {/* Notification Modal – thay thế window.alert() */}
+    <NotificationModal {...modalProps} />
+    </>
   );
 }

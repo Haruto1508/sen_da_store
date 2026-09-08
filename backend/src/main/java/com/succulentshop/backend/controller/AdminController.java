@@ -2,6 +2,7 @@ package com.succulentshop.backend.controller;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.entity.Coupon;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.entity.OrderItem;
@@ -11,6 +12,7 @@ import com.succulentshop.backend.repository.CouponRepository;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.repository.ProductRepository;
 import com.succulentshop.backend.repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -45,7 +47,7 @@ public class AdminController {
     // ==========================================
 
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> getStats() {
+    public ResponseEntity<ApiResult<Map<String, Object>>> getStats() {
         long totalOrders = orderRepository.count();
         long pendingOrders = orderRepository.countByStatus("PENDING");
         long paidOrders = orderRepository.countByStatus("PAID");
@@ -61,19 +63,18 @@ public class AdminController {
         long totalCustomers = userRepository.count();
         long totalCoupons = couponRepository.count();
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "data", Map.of(
-                "totalOrders", totalOrders,
-                "pendingOrders", pendingOrders,
-                "paidOrders", paidOrders,
-                "completedOrders", completedOrders,
-                "totalRevenue", totalRevenue,
-                "totalProducts", totalProducts,
-                "totalCustomers", totalCustomers,
-                "totalCoupons", totalCoupons
-            )
-        ));
+        Map<String, Object> stats = Map.of(
+            "totalOrders", totalOrders,
+            "pendingOrders", pendingOrders,
+            "paidOrders", paidOrders,
+            "completedOrders", completedOrders,
+            "totalRevenue", totalRevenue,
+            "totalProducts", totalProducts,
+            "totalCustomers", totalCustomers,
+            "totalCoupons", totalCoupons
+        );
+
+        return ResponseEntity.ok(ApiResult.ok("Lấy thống kê hệ thống thành công", stats));
     }
 
     // ==========================================
@@ -81,7 +82,7 @@ public class AdminController {
     // ==========================================
 
     @GetMapping("/orders")
-    public ResponseEntity<Map<String, Object>> getAllOrders(@RequestParam(required = false) String status) {
+    public ResponseEntity<ApiResult<List<Map<String, Object>>>> getAllOrders(@RequestParam(required = false) String status) {
         List<Order> orders;
         if (status != null && !status.isBlank() && !"all".equalsIgnoreCase(status)) {
             orders = orderRepository.findByStatusOrderByCreatedAtDesc(status.toUpperCase());
@@ -122,42 +123,29 @@ public class AdminController {
             responseList.add(map);
         }
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "total", responseList.size(),
-            "data", responseList
-        ));
+        return ResponseEntity.ok(ApiResult.ok("Lấy danh sách đơn hàng thành công", responseList));
     }
 
     @PatchMapping("/orders/{id}/status")
-    public ResponseEntity<Map<String, Object>> updateOrderStatus(
+    public ResponseEntity<ApiResult<Map<String, Object>>> updateOrderStatus(
             @PathVariable Long id,
             @RequestBody Map<String, String> body
     ) {
         String status = body.get("status");
         if (status == null || status.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Trạng thái không được để trống"
-            ));
+            return ResponseEntity.badRequest().body(ApiResult.error("Trạng thái không được để trống"));
         }
 
         List<String> validStatuses = List.of("PENDING", "PAID", "SHIPPING", "COMPLETED", "CANCELLED");
         String formattedStatus = status.trim().toUpperCase();
 
         if (!validStatuses.contains(formattedStatus)) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Trạng thái không hợp lệ: " + validStatuses
-            ));
+            return ResponseEntity.badRequest().body(ApiResult.error("Trạng thái không hợp lệ: " + validStatuses));
         }
 
         Optional<Order> orderOpt = orderRepository.findById(id);
         if (orderOpt.isEmpty()) {
-            return ResponseEntity.status(404).body(Map.of(
-                "success", false,
-                "message", "Không tìm thấy đơn hàng"
-            ));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error("Không tìm thấy đơn hàng"));
         }
 
         Order order = orderOpt.get();
@@ -175,10 +163,9 @@ public class AdminController {
         order.setStatus(formattedStatus);
         orderRepository.save(order);
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Cập nhật trạng thái đơn hàng thành công",
-            "newStatus", formattedStatus
+        return ResponseEntity.ok(ApiResult.ok(
+            "Cập nhật trạng thái đơn hàng thành công",
+            Map.of("newStatus", formattedStatus)
         ));
     }
 
@@ -187,27 +174,20 @@ public class AdminController {
     // ==========================================
 
     @GetMapping("/products")
-    public ResponseEntity<Map<String, Object>> getAllProducts() {
+    public ResponseEntity<ApiResult<List<Map<String, Object>>>> getAllProducts() {
         List<Product> products = productRepository.findAll();
         List<Map<String, Object>> list = new ArrayList<>();
         for (Product p : products) {
             list.add(convertProductToMap(p));
         }
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "total", list.size(),
-            "data", list
-        ));
+        return ResponseEntity.ok(ApiResult.ok("Lấy danh sách sản phẩm thành công", list));
     }
 
     @PostMapping("/products")
-    public ResponseEntity<Map<String, Object>> createProduct(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<ApiResult<Map<String, Object>>> createProduct(@RequestBody Map<String, Object> payload) {
         String name = (String) payload.get("name");
         if (name == null || name.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Tên sen đá không được để trống"
-            ));
+            return ResponseEntity.badRequest().body(ApiResult.error("Tên sen đá không được để trống"));
         }
 
         String id = (String) payload.get("id");
@@ -225,48 +205,35 @@ public class AdminController {
 
         productRepository.save(p);
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Thêm sen đá mới thành công",
-            "data", convertProductToMap(p)
-        ));
+        return ResponseEntity.ok(ApiResult.ok("Thêm sen đá mới thành công", convertProductToMap(p)));
     }
 
     @PutMapping("/products/{id}")
-    public ResponseEntity<Map<String, Object>> updateProduct(
+    public ResponseEntity<ApiResult<Map<String, Object>>> updateProduct(
             @PathVariable String id,
             @RequestBody Map<String, Object> payload
     ) {
         Optional<Product> optionalProduct = productRepository.findById(id);
         if (optionalProduct.isEmpty()) {
-            return ResponseEntity.status(404).body(Map.of(
-                "success", false,
-                "message", "Không tìm thấy sản phẩm với mã: " + id
-            ));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResult.error("Không tìm thấy sản phẩm với mã: " + id));
         }
 
         Product p = optionalProduct.get();
         populateProductFromMap(p, payload);
         productRepository.save(p);
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Cập nhật sản phẩm thành công",
-            "data", convertProductToMap(p)
-        ));
+        return ResponseEntity.ok(ApiResult.ok("Cập nhật sản phẩm thành công", convertProductToMap(p)));
     }
 
     @PatchMapping("/products/{id}/stock")
-    public ResponseEntity<Map<String, Object>> updateProductStock(
+    public ResponseEntity<ApiResult<Map<String, Object>>> updateProductStock(
             @PathVariable String id,
             @RequestBody Map<String, Object> payload
     ) {
         Optional<Product> optionalProduct = productRepository.findById(id);
         if (optionalProduct.isEmpty()) {
-            return ResponseEntity.status(404).body(Map.of(
-                "success", false,
-                "message", "Không tìm thấy sản phẩm"
-            ));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error("Không tìm thấy sản phẩm"));
         }
 
         Product p = optionalProduct.get();
@@ -276,27 +243,17 @@ public class AdminController {
             productRepository.save(p);
         }
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Cập nhật tồn kho thành công",
-            "inStock", p.getInStock()
-        ));
+        return ResponseEntity.ok(ApiResult.ok("Cập nhật tồn kho thành công", Map.of("inStock", p.getInStock())));
     }
 
     @DeleteMapping("/products/{id}")
-    public ResponseEntity<Map<String, Object>> deleteProduct(@PathVariable String id) {
+    public ResponseEntity<ApiResult<Void>> deleteProduct(@PathVariable String id) {
         if (!productRepository.existsById(id)) {
-            return ResponseEntity.status(404).body(Map.of(
-                "success", false,
-                "message", "Không tìm thấy sản phẩm"
-            ));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error("Không tìm thấy sản phẩm"));
         }
 
         productRepository.deleteById(id);
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Đã xóa sản phẩm thành công"
-        ));
+        return ResponseEntity.ok(ApiResult.ok("Đã xóa sản phẩm thành công", null));
     }
 
     // ==========================================
@@ -304,31 +261,21 @@ public class AdminController {
     // ==========================================
 
     @GetMapping("/coupons")
-    public ResponseEntity<Map<String, Object>> getAllCoupons() {
+    public ResponseEntity<ApiResult<List<Coupon>>> getAllCoupons() {
         List<Coupon> coupons = couponRepository.findAll();
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "total", coupons.size(),
-            "data", coupons
-        ));
+        return ResponseEntity.ok(ApiResult.ok("Lấy danh sách mã giảm giá thành công", coupons));
     }
 
     @PostMapping("/coupons")
-    public ResponseEntity<Map<String, Object>> createCoupon(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<ApiResult<Coupon>> createCoupon(@RequestBody Map<String, Object> payload) {
         String code = (String) payload.get("code");
         if (code == null || code.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Mã giảm giá không được để trống"
-            ));
+            return ResponseEntity.badRequest().body(ApiResult.error("Mã giảm giá không được để trống"));
         }
 
         String formattedCode = code.trim().toUpperCase();
         if (couponRepository.existsById(formattedCode)) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Mã giảm giá này đã tồn tại trong hệ thống"
-            ));
+            return ResponseEntity.badRequest().body(ApiResult.error("Mã giảm giá này đã tồn tại trong hệ thống"));
         }
 
         int discountPercent = payload.containsKey("discountPercent") 
@@ -340,24 +287,17 @@ public class AdminController {
         Coupon coupon = new Coupon(formattedCode, discountPercent, isActive, description);
         couponRepository.save(coupon);
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Tạo mã giảm giá mới thành công",
-            "data", coupon
-        ));
+        return ResponseEntity.ok(ApiResult.ok("Tạo mã giảm giá mới thành công", coupon));
     }
 
     @PatchMapping("/coupons/{code}/toggle")
-    public ResponseEntity<Map<String, Object>> toggleCoupon(
+    public ResponseEntity<ApiResult<Coupon>> toggleCoupon(
             @PathVariable String code,
             @RequestBody(required = false) Map<String, Object> payload
     ) {
         Optional<Coupon> optionalCoupon = couponRepository.findById(code.toUpperCase());
         if (optionalCoupon.isEmpty()) {
-            return ResponseEntity.status(404).body(Map.of(
-                "success", false,
-                "message", "Không tìm thấy mã giảm giá"
-            ));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error("Không tìm thấy mã giảm giá"));
         }
 
         Coupon coupon = optionalCoupon.get();
@@ -368,28 +308,18 @@ public class AdminController {
         }
         couponRepository.save(coupon);
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Cập nhật trạng thái voucher thành công",
-            "data", coupon
-        ));
+        return ResponseEntity.ok(ApiResult.ok("Cập nhật trạng thái voucher thành công", coupon));
     }
 
     @DeleteMapping("/coupons/{code}")
-    public ResponseEntity<Map<String, Object>> deleteCoupon(@PathVariable String code) {
+    public ResponseEntity<ApiResult<Void>> deleteCoupon(@PathVariable String code) {
         String formattedCode = code.toUpperCase();
         if (!couponRepository.existsById(formattedCode)) {
-            return ResponseEntity.status(404).body(Map.of(
-                "success", false,
-                "message", "Không tìm thấy mã giảm giá"
-            ));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error("Không tìm thấy mã giảm giá"));
         }
 
         couponRepository.deleteById(formattedCode);
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Đã xóa mã voucher thành công"
-        ));
+        return ResponseEntity.ok(ApiResult.ok("Đã xóa mã voucher thành công", null));
     }
 
     // ==========================================
@@ -397,7 +327,7 @@ public class AdminController {
     // ==========================================
 
     @GetMapping("/customers")
-    public ResponseEntity<Map<String, Object>> getAllCustomers() {
+    public ResponseEntity<ApiResult<List<Map<String, Object>>>> getAllCustomers() {
         List<User> users = userRepository.findAll();
         List<Map<String, Object>> safeUsers = new ArrayList<>();
 
@@ -415,42 +345,31 @@ public class AdminController {
             safeUsers.add(map);
         }
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "total", safeUsers.size(),
-            "data", safeUsers
-        ));
+        return ResponseEntity.ok(ApiResult.ok("Lấy danh sách khách hàng thành công", safeUsers));
     }
 
     @PatchMapping("/customers/{id}/role")
-    public ResponseEntity<Map<String, Object>> updateCustomerRole(
+    public ResponseEntity<ApiResult<Map<String, Object>>> updateCustomerRole(
             @PathVariable Long id,
             @RequestBody Map<String, String> body
     ) {
         String newRole = body.get("role");
         if (newRole == null || newRole.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Vai trò không được để trống"
-            ));
+            return ResponseEntity.badRequest().body(ApiResult.error("Vai trò không được để trống"));
         }
 
         Optional<User> userOpt = userRepository.findById(id);
         if (userOpt.isEmpty()) {
-            return ResponseEntity.status(404).body(Map.of(
-                "success", false,
-                "message", "Không tìm thấy khách hàng"
-            ));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error("Không tìm thấy khách hàng"));
         }
 
         User user = userOpt.get();
         user.setRole(newRole.trim());
         userRepository.save(user);
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Cập nhật phân quyền khách hàng thành công",
-            "newRole", newRole
+        return ResponseEntity.ok(ApiResult.ok(
+            "Cập nhật phân quyền khách hàng thành công",
+            Map.of("newRole", newRole)
         ));
     }
 

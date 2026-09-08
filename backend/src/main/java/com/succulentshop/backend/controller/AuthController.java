@@ -1,5 +1,7 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.dto.ApiResult;
+import com.succulentshop.backend.dto.GoogleLoginRequest;
 import com.succulentshop.backend.dto.LoginRequest;
 import com.succulentshop.backend.dto.PasswordResetDto.*;
 import com.succulentshop.backend.dto.RegisterRequest;
@@ -7,6 +9,7 @@ import com.succulentshop.backend.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
@@ -23,21 +26,36 @@ public class AuthController {
      * Đăng nhập tài khoản
      */
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<ApiResult<Map<String, Object>>> login(@RequestBody LoginRequest request) {
         Map<String, Object> result = authService.login(request.getEmail(), request.getPassword());
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Đăng nhập thành công!",
-            "data", result.get("user"),
-            "token", result.get("token")
-        ));
+        Map<String, Object> userData = new LinkedHashMap<>((Map<String, Object>) result.get("user"));
+        if (result.containsKey("token")) {
+            userData.put("token", result.get("token"));
+        }
+        return ResponseEntity.ok(ApiResult.ok("Đăng nhập thành công!", userData));
+    }
+
+    /**
+     * Đăng nhập / Đăng ký nhanh qua Google OAuth2
+     */
+    @PostMapping("/google")
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<ApiResult<Map<String, Object>>> loginWithGoogle(@RequestBody GoogleLoginRequest request) {
+        Map<String, Object> result = authService.loginWithGoogle(request);
+        Map<String, Object> userData = new LinkedHashMap<>((Map<String, Object>) result.get("user"));
+        if (result.containsKey("token")) {
+            userData.put("token", result.get("token"));
+        }
+        return ResponseEntity.ok(ApiResult.ok("Đăng nhập Google thành công!", userData));
     }
 
     /**
      * Đăng ký tài khoản mới
      */
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<ApiResult<Map<String, Object>>> register(@RequestBody RegisterRequest request) {
         Map<String, Object> result = authService.register(
                 request.getName(),
                 request.getEmail(),
@@ -45,12 +63,14 @@ public class AuthController {
                 request.getPassword(),
                 request.getAddress()
         );
+        Map<String, Object> userData = new LinkedHashMap<>((Map<String, Object>) result.get("user"));
+        if (result.containsKey("token")) {
+            userData.put("token", result.get("token"));
+        }
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Đăng ký thành công! Chào mừng bạn đến với Sen Xinh Garden.",
-            "data", result.get("user"),
-            "token", result.get("token")
+        return ResponseEntity.ok(ApiResult.ok(
+            "Đăng ký thành công! Chào mừng bạn đến với Sen Xinh Garden.",
+            userData
         ));
     }
 
@@ -58,13 +78,12 @@ public class AuthController {
      * Yêu cầu gửi mã OTP khôi phục mật khẩu
      */
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+    public ResponseEntity<ApiResult<Map<String, Object>>> forgotPassword(@RequestBody ForgotPasswordRequest request) {
         String demoOtp = authService.requestOtp(request.getEmailOrPhone());
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Mã xác thực OTP đã được tạo thành công.",
-            "demoOtp", demoOtp
+        return ResponseEntity.ok(ApiResult.ok(
+            "Mã xác thực OTP đã được tạo thành công.",
+            Map.of("demoOtp", demoOtp)
         ));
     }
 
@@ -72,12 +91,12 @@ public class AuthController {
      * Đặt lại mật khẩu bằng mã OTP
      */
     @PostMapping("/reset-password")
-    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+    public ResponseEntity<ApiResult<Void>> resetPassword(@RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request.getEmailOrPhone(), request.getOtp(), request.getNewPassword());
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Mật khẩu đã được đặt lại thành công! Bạn có thể đăng nhập ngay."
+        return ResponseEntity.ok(ApiResult.ok(
+            "Mật khẩu đã được đặt lại thành công! Bạn có thể đăng nhập ngay.",
+            null
         ));
     }
 
@@ -85,12 +104,12 @@ public class AuthController {
      * Đổi mật khẩu cho tài khoản
      */
     @PostMapping("/change-password")
-    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
+    public ResponseEntity<ApiResult<Void>> changePassword(@RequestBody ChangePasswordRequest request) {
         authService.changePassword(request.getEmail(), request.getCurrentPassword(), request.getNewPassword());
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "Cập nhật mật khẩu mới thành công!"
+        return ResponseEntity.ok(ApiResult.ok(
+            "Cập nhật mật khẩu mới thành công!",
+            null
         ));
     }
 }

@@ -1,9 +1,14 @@
 import React from 'react';
 import { Sprout, Phone, Mail, MapPin, Heart } from 'lucide-react';
+import NotificationModal from './NotificationModal';
+import useModal from './useModal';
 
 export default function Footer() {
+  const { modalProps, showModal } = useModal();
+
   return (
-    <footer id="footer" className="footer">
+    <>
+      <footer id="footer" className="footer">
       <div className="container">
         <div className="footer-grid">
           {/* Brand */}
@@ -81,7 +86,7 @@ export default function Footer() {
               <button 
                 className="btn-primary" 
                 style={{ padding: '10px 16px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm)' }}
-                onClick={() => alert('Cảm ơn bạn đã đăng ký nhận bản tin mầm xanh!')}
+                onClick={() => showModal('success', 'Cảm ơn bạn đã đăng ký nhận bản tin mầm xanh! Chúng tôi sẽ gửi mã giảm giá 10% qua email của bạn sớm nhất.', 'Đăng ký thành công! 🌱')}
               >
                 Gửi
               </button>
@@ -98,5 +103,9 @@ export default function Footer() {
         </div>
       </div>
     </footer>
+
+    {/* Notification Modal – thay thế window.alert() */}
+    <NotificationModal {...modalProps} />
+    </>
   );
 }

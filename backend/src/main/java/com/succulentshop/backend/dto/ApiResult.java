@@ -20,12 +20,20 @@ public class ApiResult<T> extends ApiResponse<T> {
         super(success, code, message, data);
     }
 
+    public static <T> ApiResult<T> ok() {
+        return new ApiResult<>(true, ErrorCode.SUCCESS.getCode(), "Thành công", null);
+    }
+
     public static <T> ApiResult<T> ok(T data) {
         return new ApiResult<>(true, ErrorCode.SUCCESS.getCode(), "Thành công", data);
     }
 
     public static <T> ApiResult<T> ok(String message, T data) {
         return new ApiResult<>(true, ErrorCode.SUCCESS.getCode(), message, data);
+    }
+
+    public static <T> ApiResult<T> success(String message) {
+        return new ApiResult<>(true, ErrorCode.SUCCESS.getCode(), message, null);
     }
 
     public static <T> ApiResult<T> error(String message) {
@@ -43,5 +51,13 @@ public class ApiResult<T> extends ApiResponse<T> {
     public static <T> ApiResult<T> error(ErrorCode errorCode, String customMessage) {
         String msg = (customMessage != null && !customMessage.isBlank()) ? customMessage : errorCode.getMessage();
         return new ApiResult<>(false, errorCode.getCode(), msg, null);
+    }
+
+    public static <T> ApiResult<PageResponse<T>> paged(PageResponse<T> pageResponse) {
+        return new ApiResult<>(true, ErrorCode.SUCCESS.getCode(), "Thành công", pageResponse);
+    }
+
+    public static <T> ApiResult<PageResponse<T>> paged(String message, PageResponse<T> pageResponse) {
+        return new ApiResult<>(true, ErrorCode.SUCCESS.getCode(), message, pageResponse);
     }
 }

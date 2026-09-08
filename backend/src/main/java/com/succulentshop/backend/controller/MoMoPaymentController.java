@@ -1,5 +1,6 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.service.MoMoService;
@@ -26,34 +27,27 @@ public class MoMoPaymentController {
      * Khởi tạo giao dịch thanh toán qua Cổng MoMo (Ví MoMo / VietQR MoMo)
      */
     @PostMapping("/momo/create")
-    public ResponseEntity<Map<String, Object>> createMoMoPayment(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResult<Map<String, Object>>> createMoMoPayment(@RequestBody Map<String, String> request) {
         String orderCode = request.get("orderCode");
         if (orderCode == null || orderCode.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Thiếu mã đơn hàng orderCode"
-            ));
+            return ResponseEntity.badRequest().body(ApiResult.error("Thiếu mã đơn hàng orderCode"));
         }
 
         Optional<Order> orderOpt = orderRepository.findByOrderCode(orderCode.trim());
         if (orderOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                    "success", false,
-                    "message", "Không tìm thấy đơn hàng: " + orderCode
-            ));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResult.error("Không tìm thấy đơn hàng: " + orderCode));
         }
 
         Order order = orderOpt.get();
         Map<String, Object> moMoResponse = moMoService.createPayment(order);
 
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "data", moMoResponse
-        ));
+        return ResponseEntity.ok(ApiResult.ok("Khởi tạo thanh toán MoMo thành công", moMoResponse));
     }
 
     /**
      * Webhook IPN chính thức từ Server MoMo gọi về khi khách chuyển khoản thành công
+     * (Tuân thủ đặc tả giao thức MoMo IPN: trả về resultCode và message)
      */
     @PostMapping("/momo-ipn")
     public ResponseEntity<Map<String, Object>> handleMoMoIpn(@RequestBody Map<String, Object> ipnData) {
@@ -77,15 +71,16 @@ public class MoMoPaymentController {
      * API Hỗ trợ kiểm thử/demo nhanh trên Localhost (Mô phỏng Webhook MoMo xác nhận tiền về)
      */
     @PostMapping("/momo/simulate-ipn")
-    public ResponseEntity<Map<String, Object>> simulateMoMoPayment(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResult<Map<String, Object>>> simulateMoMoPayment(@RequestBody Map<String, String> request) {
         String orderCode = request.get("orderCode");
         if (orderCode == null || orderCode.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Thiếu orderCode"));
+            return ResponseEntity.badRequest().body(ApiResult.error("Thiếu orderCode"));
         }
 
         Optional<Order> orderOpt = orderRepository.findByOrderCode(orderCode.trim());
         if (orderOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Không tìm thấy đơn hàng"));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResult.error("Không tìm thấy đơn hàng: " + orderCode));
         }
 
         Order order = orderOpt.get();
@@ -94,11 +89,9 @@ public class MoMoPaymentController {
 
         System.out.println("⚡ [Demo Simulation] Đơn hàng #" + orderCode + " đã được xác nhận thanh toán MoMo!");
 
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Mô phỏng thanh toán MoMo thành công cho đơn hàng #" + orderCode,
-                "orderCode", orderCode,
-                "status", "PAID"
+        return ResponseEntity.ok(ApiResult.ok(
+                "Mô phỏng thanh toán MoMo thành công cho đơn hàng #" + orderCode,
+                Map.of("orderCode", orderCode, "status", "PAID")
         ));
     }
 }
