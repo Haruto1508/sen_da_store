@@ -865,6 +865,65 @@ export async function simulateMoMoPayment(orderCode) {
   }
 }
 
+/**
+ * Kiểm tra trạng thái đơn hàng theo mã đơn (orderCode) phục vụ polling thanh toán tự động
+ */
+export async function checkOrderStatus(orderCode) {
+  if (!orderCode) return { success: false };
+
+  if (USE_MOCK_DATA) {
+    const orders = getStoredOrders();
+    const order = orders.find(
+      (o) => (o.orderCode && o.orderCode.toUpperCase() === orderCode.toUpperCase()) || String(o.id) === String(orderCode)
+    );
+    if (order) {
+      return { success: true, status: order.status || 'PENDING', order };
+    }
+    return { success: false, status: 'NOT_FOUND' };
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(orderCode)}`);
+    if (!res.ok) {
+      return { success: false, status: 'UNKNOWN' };
+    }
+    const data = await res.json();
+    const order = data.data || {};
+    return { success: true, status: order.status || 'PENDING', order };
+  } catch (err) {
+    console.warn('Lỗi kiểm tra trạng thái đơn hàng:', err);
+    return { success: false, status: 'ERROR' };
+  }
+}
+
+/**
+ * Mô phỏng Webhook Chuyển khoản ngân hàng (SePay / VietQR) tự động xác nhận PAID
+ */
+export async function simulateBankTransferPayment(orderCode) {
+  if (USE_MOCK_DATA) {
+    const orders = getStoredOrders();
+    const updated = orders.map((o) =>
+      o.orderCode?.toUpperCase() === orderCode?.toUpperCase() || String(o.id) === String(orderCode)
+        ? { ...o, status: 'PAID' }
+        : o
+    );
+    localStorage.setItem('senxinh_mock_orders', JSON.stringify(updated));
+    return { success: true, message: 'Mô phỏng chuyển khoản thành công (Mock Data)', status: 'PAID' };
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/payment/bank-transfer/simulate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderCode })
+    });
+    return await res.json();
+  } catch (error) {
+    console.error('Lỗi khi mô phỏng Webhook chuyển khoản:', error);
+    return { success: false, message: 'Lỗi kết nối máy chủ' };
+  }
+}
+
 // ==============================================================================
 // AUTHENTICATION APIs (Login, Register, Password Reset)
 /**

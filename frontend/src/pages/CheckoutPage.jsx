@@ -19,7 +19,7 @@ import {
   Package
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { createOrder, createMoMoPayment, simulateMoMoPayment, lookupOrder } from '../services/api';
+import { createOrder, createMoMoPayment, simulateMoMoPayment, checkOrderStatus, simulateBankTransferPayment } from '../services/api';
 import NotificationModal from '../components/NotificationModal';
 import useModal from '../components/useModal';
 
@@ -232,6 +232,34 @@ export default function CheckoutPage({
     }
   };
 
+  // Auto-polling kiểm tra trạng thái thanh toán khi đơn hàng đang hiển thị mã QR (VietQR hoặc MoMo)
+  useEffect(() => {
+    if (!isCompleted || orderStatus === 'PAID') return;
+    const targetCode = orderCode || placedOrder?.orderCode;
+    if (!targetCode) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const res = await checkOrderStatus(targetCode);
+        if (res && res.success && res.status === 'PAID') {
+          setOrderStatus('PAID');
+          setPlacedOrder((prev) => ({ ...prev, status: 'PAID' }));
+          try {
+            confetti({
+              particleCount: 180,
+              spread: 100,
+              origin: { y: 0.6 }
+            });
+          } catch (e) {}
+        }
+      } catch (err) {
+        console.warn('Lỗi polling trạng thái thanh toán:', err);
+      }
+    }, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [isCompleted, orderStatus, orderCode, placedOrder?.orderCode]);
+
   // Hàm mô phỏng quét mã MoMo thành công (dành cho Test Sandbox / Demo)
   const handleSimulateMoMo = async () => {
     setIsSimulating(true);
@@ -250,6 +278,29 @@ export default function CheckoutPage({
       }
     } catch (err) {
       console.error('Lỗi mô phỏng MoMo:', err);
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  // Hàm mô phỏng chuyển khoản ngân hàng thành công qua SePay Webhook (Test Sandbox / Demo)
+  const handleSimulateBankTransfer = async () => {
+    setIsSimulating(true);
+    try {
+      const res = await simulateBankTransferPayment(currentCode);
+      if (res && (res.success || res.status === 'PAID')) {
+        setOrderStatus('PAID');
+        setPlacedOrder((prev) => ({ ...prev, status: 'PAID' }));
+        try {
+          confetti({
+            particleCount: 180,
+            spread: 100,
+            origin: { y: 0.6 }
+          });
+        } catch (e) {}
+      }
+    } catch (err) {
+      console.error('Lỗi mô phỏng Webhook chuyển khoản:', err);
     } finally {
       setIsSimulating(false);
     }
@@ -452,7 +503,7 @@ export default function CheckoutPage({
 
                   <div className="live-status-pill waiting" style={{ marginLeft: 'auto' }}>
                     <span className="pulsing-dot" />
-                    <span>Đang chờ chuyển khoản...</span>
+                    <span>Đang chờ chuyển khoản (Auto Webhook)...</span>
                   </div>
                 </div>
 
@@ -506,13 +557,17 @@ export default function CheckoutPage({
                       <button 
                         type="button" 
                         className="btn-momo-simulate" 
-                        onClick={handleSimulateMoMo}
+                        onClick={handleSimulateBankTransfer}
                         disabled={isSimulating}
                         style={{ width: '100%', borderColor: 'var(--primary)', color: 'var(--primary)', background: '#F4F8F5' }}
+                        title="Bấm để mô phỏng Webhook SePay bắt giao dịch và tự động duyệt đơn PAID"
                       >
                         {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                        <span>{isSimulating ? 'Đang xác thực...' : '⚡ Xác nhận chuyển khoản nhanh (Test Demo)'}</span>
+                        <span>{isSimulating ? 'Đang kích hoạt Webhook...' : '⚡ Xác nhận chuyển khoản nhanh (Test Demo Webhook)'}</span>
                       </button>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '8px', lineHeight: 1.4 }}>
+                        💡 Hệ thống tự động bắt biến động số dư qua <strong>SePay Webhook</strong> và cập nhật trạng thái đơn ngay khi tiền vào tài khoản.
+                      </div>
                     </div>
                   </div>
                 </div>
