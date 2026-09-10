@@ -9,23 +9,13 @@ import {
   ShieldCheck, 
   Sprout, 
   LogIn, 
-  CheckCircle2,
   Gift,
   HelpCircle,
   Loader2
 } from 'lucide-react';
 import { loginUser, loginWithGoogle } from '../services/api';
-import { USERS } from '../data/products';
 
 export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
-  const customerDemo = USERS.find((u) => u.email === 'long.senxinh@gmail.com') || USERS[0] || {
-    email: 'long.senxinh@gmail.com',
-    password: '123456'
-  };
-  const adminDemo = USERS.find((u) => u.email === 'admin@senxinh.vn') || USERS[1] || {
-    email: 'admin@senxinh.vn',
-    password: 'admin123'
-  };
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -159,13 +149,6 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
       setLoading(false);
       setErrorMsg('Không thể mở cửa sổ đăng nhập Google: ' + err.message);
     }
-  };
-
-  // Quick 1-click Demo Fill & Login
-  const handleQuickLogin = (demoEmail, demoPass) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setErrorMsg('');
   };
 
   return (
@@ -353,40 +336,12 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
               </button>
             </form>
 
-            {/* Quick Demo Login Box */}
-            <div className="auth-demo-card">
-              <div className="auth-demo-title">
-                <Sparkles size={14} color="var(--primary)" />
-                <span>Thử nghiệm nhanh với 1 chạm:</span>
-              </div>
-              <div className="auth-demo-actions">
-                <button
-                  type="button"
-                  className="auth-demo-btn"
-                  onClick={() => handleQuickLogin(customerDemo.email, customerDemo.password || '123456')}
-                  title={`Điền tài khoản ${customerDemo.name || 'Khách Thân Thiết'}`}
-                >
-                  <CheckCircle2 size={14} color="#059669" />
-                  <span>Khách Thân Thiết</span>
-                </button>
-                <button
-                  type="button"
-                  className="auth-demo-btn"
-                  onClick={() => handleQuickLogin(adminDemo.email, adminDemo.password || 'admin123')}
-                  title={`Điền tài khoản ${adminDemo.name || 'Quản Trị Viên'}`}
-                >
-                  <ShieldCheck size={14} color="#2563EB" />
-                  <span>Quản Trị Viên</span>
-                </button>
-              </div>
-            </div>
-
             {/* Social Separator */}
             <div className="auth-separator">
-              <span>hoặc đăng nhập bằng</span>
+              <span>hoặc tiếp tục với</span>
             </div>
 
-            {/* Social Buttons */}
+            {/* Google Sign-in */}
             <div className="auth-social-row">
               <button 
                 type="button" 
@@ -405,21 +360,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                   </svg>
                 )}
-                <span>Google</span>
-              </button>
-
-              <button 
-                type="button" 
-                className="auth-social-btn"
-                onClick={() => {
-                  handleQuickLogin('long.senxinh@gmail.com', '123456');
-                  if (addToast) addToast('Đã kết nối tài khoản Facebook thành công!', 'info');
-                }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-                <span>Facebook</span>
+                <span>Đăng nhập với Google</span>
               </button>
             </div>
 
