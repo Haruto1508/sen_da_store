@@ -213,7 +213,12 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
           {/* Left Botanical Showcase */}
           <div className="auth-banner">
             <div className="auth-banner-header">
-              <div className="auth-brand-badge">
+              <div 
+                className="auth-brand-badge"
+                onClick={() => onNavigate && onNavigate('home')}
+                style={{ cursor: 'pointer' }}
+                title="Quay lại Trang Chủ Sen Xinh"
+              >
                 <Sprout size={16} />
                 <span>Sen Xinh Garden</span>
               </div>
@@ -497,6 +502,28 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                 Đăng ký thành viên ngay
               </a>
             </p>
+
+            {/* Back to Home Link */}
+            <div style={{ textAlign: 'center', marginTop: '14px' }}>
+              <button
+                type="button"
+                onClick={() => onNavigate && onNavigate('home')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 8px',
+                  borderRadius: '6px'
+                }}
+              >
+                ← Quay lại trang chủ mua sắm
+              </button>
+            </div>
           </div>
         </div>
       </div>

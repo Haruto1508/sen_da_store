@@ -169,7 +169,7 @@ export default function App() {
   const navigateTo = (route, param = null) => {
     switch (route) {
       case 'home':
-        navigate('/');
+        navigate('/', { replace: true });
         break;
       case 'shop':
         setOnlyWishlist(false);
@@ -415,7 +415,16 @@ export default function App() {
         console.error(err);
       }
     }
-    navigateTo('home');
+    navigate('/', { replace: true });
+  };
+
+  const handleAdminLoginSuccess = (userData) => {
+    setUser(userData);
+    try {
+      localStorage.setItem('senxinh_user', JSON.stringify(userData));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleRegisterSuccess = (userData) => {
@@ -425,7 +434,7 @@ export default function App() {
     } catch (err) {
       console.error(err);
     }
-    navigateTo('home');
+    navigate('/', { replace: true });
   };
 
   const handleLogout = () => {
@@ -436,7 +445,7 @@ export default function App() {
       console.error(err);
     }
     addToast('Đã đăng xuất tài khoản thành công. Hẹn gặp lại bạn!', 'info');
-    navigateTo('login');
+    navigate('/login', { replace: true });
   };
 
   const handleBuyNow = (product, qty = 1) => {
@@ -547,11 +556,12 @@ export default function App() {
   const cartTotalCount = cartItems.reduce((acc, it) => acc + it.quantity, 0);
 
   const isAdminRoute = location.pathname.startsWith('/admin');
+  const isAuthRoute = currentRoute === 'login' || currentRoute === 'register' || currentRoute === 'password';
 
   return (
-    <div className={`app ${isAdminRoute ? 'admin-layout' : ''}`}>
-      {/* Chỉ hiển thị Header Navbar khi là trang người dùng, ẩn hoàn toàn trên trang Admin */}
-      {!isAdminRoute && (
+    <div className={`app ${isAdminRoute ? 'admin-layout' : ''} ${isAuthRoute ? 'auth-layout' : ''}`}>
+      {/* Ẩn Header Navbar trên trang Admin và các trang Đăng nhập / Đăng ký */}
+      {!isAdminRoute && !isAuthRoute && (
         <Navbar
           currentRoute={currentRoute}
           cartCount={cartTotalCount}
@@ -721,7 +731,7 @@ export default function App() {
             element={
               <AdminPage
                 user={user}
-                onLoginAsAdmin={handleLoginSuccess}
+                onLoginAsAdmin={handleAdminLoginSuccess}
                 onLogout={handleLogout}
                 onNavigateHome={() => navigateTo('home')}
                 onNavigateShop={() => navigateTo('shop')}
@@ -735,11 +745,15 @@ export default function App() {
           <Route
             path="/login"
             element={
-              <LoginPage
-                onLoginSuccess={handleLoginSuccess}
-                onNavigate={navigateTo}
-                addToast={addToast}
-              />
+              user ? (
+                <Navigate to="/" replace />
+              ) : (
+                <LoginPage
+                  onLoginSuccess={handleLoginSuccess}
+                  onNavigate={navigateTo}
+                  addToast={addToast}
+                />
+              )
             }
           />
 
@@ -747,11 +761,15 @@ export default function App() {
           <Route
             path="/register"
             element={
-              <RegisterPage
-                onRegisterSuccess={handleRegisterSuccess}
-                onNavigate={navigateTo}
-                addToast={addToast}
-              />
+              user ? (
+                <Navigate to="/" replace />
+              ) : (
+                <RegisterPage
+                  onRegisterSuccess={handleRegisterSuccess}
+                  onNavigate={navigateTo}
+                  addToast={addToast}
+                />
+              )
             }
           />
 
@@ -830,11 +848,7 @@ export default function App() {
             path="/account"
             element={
               !user ? (
-                <LoginPage
-                  onLoginSuccess={handleLoginSuccess}
-                  onNavigate={navigateTo}
-                  addToast={addToast}
-                />
+                <Navigate to="/login" replace />
               ) : (
                 <AccountPage
                   initialTab="profile"
@@ -872,14 +886,14 @@ export default function App() {
         </Routes>
       </main>
 
-      {/* Chỉ hiển thị Footer khách hàng khi KHÔNG PHẢI trang admin */}
-      {!isAdminRoute && <Footer />}
+      {/* Chỉ hiển thị Footer khách hàng khi KHÔNG PHẢI trang admin và KHÔNG PHẢI trang xác thực (login/register) */}
+      {!isAdminRoute && !isAuthRoute && <Footer />}
 
       {/* Toast Notifications */}
       <Toast toasts={toasts} />
 
       {/* Floating Scroll To Top Button (chỉ ở trang khách hàng) */}
-      {!isAdminRoute && <ScrollToTop />}
+      {!isAdminRoute && !isAuthRoute && <ScrollToTop />}
     </div>
   );
 }
