@@ -13,8 +13,11 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 
     List<Product> findByCategory(String category);
     java.util.Optional<Product> findByPublicId(String publicId);
+    List<Product> findByStatusNot(String status);
+    List<Product> findByStatus(String status);
 
     @Query("SELECT p FROM Product p WHERE " +
+           "(p.status IS NULL OR p.status = 'ACTIVE') AND " +
            "(:category IS NULL OR :category = 'all' OR p.category = :category) AND " +
            "(:search IS NULL OR LOWER(p.name) LIKE CONCAT('%', LOWER(CAST(:search AS string)), '%') OR LOWER(p.scientificName) LIKE CONCAT('%', LOWER(CAST(:search AS string)), '%')) AND " +
            "(:light IS NULL OR :light = 'all' OR p.lightType = :light) AND " +

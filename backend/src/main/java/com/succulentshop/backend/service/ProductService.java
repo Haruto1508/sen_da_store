@@ -3,6 +3,7 @@ package com.succulentshop.backend.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.succulentshop.backend.entity.Product;
+import com.succulentshop.backend.exception.AppException;
 import com.succulentshop.backend.exception.ErrorCode;
 import com.succulentshop.backend.exception.InsufficientStockException;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
@@ -35,7 +36,10 @@ public class ProductService {
                     (light != null && !light.isBlank() && !"all".equalsIgnoreCase(light)) ? light.trim() : null,
                     (difficulty != null && !difficulty.isBlank() && !"all".equalsIgnoreCase(difficulty)) ? difficulty.trim() : null
                 )
-                : productRepository.findAll();
+                : productRepository.findByStatusNot("DELETED");
+
+        // Filter out any non-active products just in case
+        products = new ArrayList<>(products.stream().filter(Product::isActive).toList());
 
         if ("price-asc".equalsIgnoreCase(sort)) {
             products.sort(Comparator.comparingInt(Product::getPrice));
@@ -62,10 +66,28 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND, "Không tìm thấy sen đá với mã: " + id));
     }
 
+    /**
+     * Tìm kiếm sản phẩm bắt buộc phải ở trạng thái ACTIVE (dùng cho Cart và Checkout)
+     */
+    public Product findActiveByIdOrThrow(String id) {
+        Product p = findByIdOrThrow(id);
+        if (!p.isActive()) {
+            throw new AppException(ErrorCode.PRODUCT_UNAVAILABLE,
+                    String.format("Sản phẩm \"%s\" không còn được bán hoặc đã ngừng kinh doanh", p.getName()));
+        }
+        return p;
+    }
+
     @Transactional
     public void deductStock(String productId, int quantity) {
-        Product p = findByIdOrThrow(productId);
+        Product p = findActiveByIdOrThrow(productId);
         int currentStock = p.getInStock() != null ? p.getInStock() : 0;
+        if (currentStock <= 0) {
+            throw new InsufficientStockException(
+                ErrorCode.INSUFFICIENT_STOCK,
+                String.format("Sản phẩm \"%s\" hiện đã hết hàng trong kho", p.getName())
+            );
+        }
         if (currentStock < quantity) {
             throw new InsufficientStockException(
                 ErrorCode.INSUFFICIENT_STOCK,
@@ -137,6 +159,8 @@ public class ProductService {
         map.put("inStock", p.getInStock());
         map.put("description", p.getDescription());
         map.put("meaning", p.getMeaning());
+        map.put("status", p.getStatus());
+        map.put("available", p.isActive());
 
         List<String> tips = Collections.emptyList();
         if (p.getCareTips() != null && !p.getCareTips().isBlank()) {

@@ -924,6 +924,68 @@ export async function simulateBankTransferPayment(orderCode) {
   }
 }
 
+/**
+ * Kiểm tra tính khả dụng của danh sách sản phẩm trong giỏ hàng (Cart Validation)
+ * Không bao giờ làm crash 500 nếu sản phẩm bị xóa hoặc hết hàng
+ */
+export async function validateCartItems(items) {
+  if (!items || items.length === 0) {
+    return { valid: true, items: [], hasUnavailableItems: false, hasOutOfStockItems: false };
+  }
+
+  if (USE_MOCK_DATA) {
+    const products = getStoredProducts();
+    const validated = items.map((it) => {
+      const p = products.find((prod) => prod.id === it.id);
+      if (!p || p.status === 'DELETED' || p.status === 'INACTIVE') {
+        return {
+          productId: it.id,
+          productName: it.name,
+          available: false,
+          status: 'DELETED',
+          message: 'Sản phẩm không còn được bán hoặc đã ngừng kinh doanh',
+          inStock: 0
+        };
+      }
+      if ((p.inStock || 0) <= 0) {
+        return {
+          productId: it.id,
+          productName: p.name,
+          available: false,
+          status: 'OUT_OF_STOCK',
+          message: 'Sản phẩm hiện đang tạm hết hàng trong kho',
+          inStock: 0
+        };
+      }
+      return {
+        productId: it.id,
+        productName: p.name,
+        available: true,
+        status: 'ACTIVE',
+        message: 'Sẵn sàng đặt hàng',
+        inStock: p.inStock
+      };
+    });
+    const hasUnavailable = validated.some((v) => !v.available);
+    return { valid: !hasUnavailable, items: validated, hasUnavailableItems: hasUnavailable };
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/cart/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: items.map((it) => ({ productId: it.id, quantity: it.quantity }))
+      })
+    });
+    const data = await res.json();
+    return data.data || { valid: true, items: [] };
+  } catch (err) {
+    console.warn('Lỗi kiểm tra giỏ hàng:', err);
+    return { valid: true, items: [] };
+  }
+}
+
 // ==============================================================================
 // AUTHENTICATION APIs (Login, Register, Password Reset)
 /**

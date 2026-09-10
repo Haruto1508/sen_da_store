@@ -176,7 +176,7 @@ public class AdminController {
 
     @GetMapping("/products")
     public ResponseEntity<ApiResult<List<Map<String, Object>>>> getAllProducts() {
-        List<Product> products = productRepository.findAll();
+        List<Product> products = productRepository.findByStatusNot("DELETED");
         List<Map<String, Object>> list = new ArrayList<>();
         for (Product p : products) {
             list.add(convertProductToMap(p));
@@ -249,12 +249,15 @@ public class AdminController {
 
     @DeleteMapping("/products/{id}")
     public ResponseEntity<ApiResult<Void>> deleteProduct(@PathVariable String id) {
-        if (!productRepository.existsById(id)) {
+        Optional<Product> optionalProduct = productRepository.findById(id);
+        if (optionalProduct.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error("Không tìm thấy sản phẩm"));
         }
 
-        productRepository.deleteById(id);
-        return ResponseEntity.ok(ApiResult.ok("Đã xóa sản phẩm thành công", null));
+        Product p = optionalProduct.get();
+        p.setStatus("DELETED");
+        productRepository.save(p);
+        return ResponseEntity.ok(ApiResult.ok("Đã xóa sản phẩm thành công (Soft Delete)", null));
     }
 
     // ==========================================
@@ -435,6 +438,8 @@ public class AdminController {
         map.put("inStock", p.getInStock());
         map.put("description", p.getDescription());
         map.put("meaning", p.getMeaning());
+        map.put("status", p.getStatus());
+        map.put("available", p.isActive());
 
         List<String> tips = Collections.emptyList();
         if (p.getCareTips() != null && !p.getCareTips().isBlank()) {

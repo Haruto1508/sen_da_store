@@ -50,9 +50,12 @@ export default function CartPage({
   const remainingForFreeShip = Math.max(0, freeShippingThreshold - subtotal);
   const totalItemCount = cartItems.reduce((cnt, it) => cnt + it.quantity, 0);
 
-  // Kiểm tra xem có sản phẩm nào trong giỏ bị hết hàng không
+  // Kiểm tra xem có sản phẩm nào trong giỏ bị ngừng kinh doanh hoặc hết hàng không
+  const hasUnavailableItem = cartItems.some(
+    (item) => item.available === false || item.status === 'DELETED' || item.status === 'INACTIVE'
+  );
   const hasOutOfStockItem = cartItems.some(
-    (item) => item.inStock !== undefined && item.inStock <= 0
+    (item) => (item.available !== false && item.status !== 'DELETED') && item.inStock !== undefined && item.inStock <= 0
   );
 
   const handleApplyCouponSubmit = async (e) => {
@@ -190,8 +193,9 @@ export default function CartPage({
 
               <div className="cart-items-list">
                 {cartItems.map((item) => {
-                  const isOutOfStock = item.inStock !== undefined && item.inStock <= 0;
-                  const isLowStock = item.inStock !== undefined && item.inStock > 0 && item.inStock <= 5;
+                  const isUnavailable = item.available === false || item.status === 'DELETED' || item.status === 'INACTIVE';
+                  const isOutOfStock = !isUnavailable && item.inStock !== undefined && item.inStock <= 0;
+                  const isLowStock = !isUnavailable && item.inStock !== undefined && item.inStock > 0 && item.inStock <= 5;
                   const maxAllowed = item.inStock !== undefined ? item.inStock : 999;
                   const isMaxReached = item.quantity >= maxAllowed;
 
@@ -199,10 +203,16 @@ export default function CartPage({
                     <div
                       key={item.id}
                       className="cart-item-row"
-                      style={isOutOfStock ? { opacity: 0.75, background: '#FFF8F8', borderColor: '#FECACA' } : {}}
+                      style={
+                        isUnavailable
+                          ? { opacity: 0.85, background: '#FFF5F5', borderColor: '#FCA5A5' }
+                          : isOutOfStock
+                          ? { opacity: 0.75, background: '#FFF8F8', borderColor: '#FECACA' }
+                          : {}
+                      }
                     >
                       {/* Item info */}
-                      <div className="cart-item-info" onClick={() => onOpenProductDetail && onOpenProductDetail(item.id)}>
+                      <div className="cart-item-info" onClick={() => !isUnavailable && onOpenProductDetail && onOpenProductDetail(item.id)}>
                         <img src={item.image} alt={item.name} className="cart-item-thumb" />
                         <div>
                           <h3 className="cart-item-name">{item.name}</h3>
@@ -218,8 +228,34 @@ export default function CartPage({
                             )}
                           </div>
 
-                          {/* Live stock indicator */}
-                          {item.inStock !== undefined && (
+                          {/* Live stock & availability indicator */}
+                          {isUnavailable ? (
+                            <div style={{ marginTop: '6px' }}>
+                              <span style={{ fontSize: '0.78rem', color: '#B91C1C', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FEE2E2', padding: '3px 8px', borderRadius: '4px', border: '1px solid #FCA5A5' }}>
+                                <AlertTriangle size={13} /> {item.message || 'Sản phẩm không còn được bán'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRemoveItem && onRemoveItem(item.id);
+                                }}
+                                style={{
+                                  display: 'inline-block',
+                                  marginLeft: '8px',
+                                  fontSize: '0.78rem',
+                                  color: '#DC2626',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  textDecoration: 'underline',
+                                  cursor: 'pointer',
+                                  fontWeight: 600
+                                }}
+                              >
+                                [Xóa khỏi giỏ hàng]
+                              </button>
+                            </div>
+                          ) : item.inStock !== undefined && (
                             <div style={{ marginTop: '4px' }}>
                               {isOutOfStock ? (
                                 <span style={{ fontSize: '0.78rem', color: '#DC2626', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -255,7 +291,7 @@ export default function CartPage({
                           <button
                             className="qty-btn"
                             onClick={() => onUpdateQty && onUpdateQty(item.id, item.quantity - 1)}
-                            disabled={item.quantity <= 1 || isOutOfStock}
+                            disabled={item.quantity <= 1 || isOutOfStock || isUnavailable}
                             title="Giảm số lượng"
                             aria-label="Giảm"
                           >
@@ -265,7 +301,7 @@ export default function CartPage({
                           <button
                             className="qty-btn"
                             onClick={() => onUpdateQty && onUpdateQty(item.id, item.quantity + 1)}
-                            disabled={isMaxReached || isOutOfStock}
+                            disabled={isMaxReached || isOutOfStock || isUnavailable}
                             title={isMaxReached ? `Đã đạt giới hạn tối đa có trong kho (${maxAllowed} cây)` : 'Tăng số lượng'}
                             aria-label="Tăng"
                           >
@@ -391,8 +427,16 @@ export default function CartPage({
                   </p>
                 </div>
 
+                {/* Warning if any item is unavailable */}
+                {hasUnavailableItem && (
+                  <div style={{ marginTop: '16px', padding: '10px 14px', background: '#FEE2E2', border: '1px solid #F87171', borderRadius: 'var(--radius-sm)', color: '#991B1B', fontSize: '0.85rem', lineHeight: 1.4 }}>
+                    <AlertTriangle size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} />
+                    Trong giỏ có sản phẩm không còn kinh doanh. Vui lòng xóa khỏi giỏ trước khi thanh toán.
+                  </div>
+                )}
+
                 {/* Warning if any item is out of stock */}
-                {hasOutOfStockItem && (
+                {!hasUnavailableItem && hasOutOfStockItem && (
                   <div style={{ marginTop: '16px', padding: '10px 14px', background: '#FEE2E2', border: '1px solid #F87171', borderRadius: 'var(--radius-sm)', color: '#991B1B', fontSize: '0.85rem' }}>
                     <AlertTriangle size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} />
                     Có sản phẩm trong giỏ đã hết hàng. Vui lòng xóa trước khi thanh toán.
@@ -403,15 +447,15 @@ export default function CartPage({
                 <button
                   className="btn-primary"
                   onClick={onNavigateCheckout}
-                  disabled={hasOutOfStockItem || cartItems.length === 0}
+                  disabled={hasUnavailableItem || hasOutOfStockItem || cartItems.length === 0}
                   style={{
                     width: '100%',
                     padding: '16px 20px',
                     fontSize: '1.05rem',
                     fontWeight: 700,
                     marginTop: '20px',
-                    opacity: hasOutOfStockItem ? 0.6 : 1,
-                    cursor: hasOutOfStockItem ? 'not-allowed' : 'pointer'
+                    opacity: (hasUnavailableItem || hasOutOfStockItem) ? 0.6 : 1,
+                    cursor: (hasUnavailableItem || hasOutOfStockItem) ? 'not-allowed' : 'pointer'
                   }}
                 >
                   <span>Tiến Hành Đặt Hàng & Thanh Toán</span>

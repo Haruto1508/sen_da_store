@@ -8,6 +8,7 @@ import com.succulentshop.backend.entity.Product;
 import com.succulentshop.backend.entity.User;
 import com.succulentshop.backend.exception.AppException;
 import com.succulentshop.backend.exception.ErrorCode;
+import com.succulentshop.backend.exception.InsufficientStockException;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.repository.UserRepository;
@@ -59,8 +60,25 @@ public class OrderService {
         List<Map<String, Object>> itemResponses = new ArrayList<>();
 
         for (CreateOrderRequest.OrderItemDto itemDto : request.getItems()) {
-            Product p = productService.findByIdOrThrow(itemDto.getId());
+            Product p = productService.findActiveByIdOrThrow(itemDto.getId());
             int qty = Math.max(1, itemDto.getQuantity() != null ? itemDto.getQuantity() : 1);
+            int currentStock = p.getInStock() != null ? p.getInStock() : 0;
+
+            if (currentStock <= 0) {
+                throw new InsufficientStockException(
+                    ErrorCode.INSUFFICIENT_STOCK,
+                    String.format("Sản phẩm \"%s\" trong giỏ hàng hiện đã hết hàng trong kho", p.getName())
+                );
+            }
+            if (currentStock < qty) {
+                throw new InsufficientStockException(
+                    ErrorCode.INSUFFICIENT_STOCK,
+                    String.format("Cây \"%s\" hiện chỉ còn %d cây trong kho, không đủ số lượng %d bạn yêu cầu",
+                            p.getName(), currentStock, qty)
+                );
+            }
+
+            // Lấy giá chuẩn từ Database snapshot tại thời điểm mua
             int price = p.getPrice() != null ? p.getPrice() : (itemDto.getPrice() != null ? itemDto.getPrice() : 0);
 
             // Deduct stock

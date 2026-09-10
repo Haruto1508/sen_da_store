@@ -45,8 +45,12 @@ public class Product {
     @Column(length = 2000)
     private String careTips; // stored as JSON string or delimited list
 
+    @Column(length = 50)
+    private String status = "ACTIVE"; // 'ACTIVE' | 'INACTIVE' | 'DELETED'
+
     public Product() {
         this.publicId = UUID.randomUUID().toString();
+        this.status = "ACTIVE";
     }
 
     public Product(String id, String name, String scientificName, String category, Integer price, Integer originalPrice,
@@ -75,6 +79,7 @@ public class Product {
         this.description = description;
         this.meaning = meaning;
         this.careTips = careTips;
+        this.status = "ACTIVE";
         this.publicId = UUID.randomUUID().toString();
     }
 
@@ -147,4 +152,20 @@ public class Product {
 
     public String getCareTips() { return careTips; }
     public void setCareTips(String careTips) { this.careTips = careTips; }
+
+    public String getStatus() {
+        return status != null ? status : "ACTIVE";
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public boolean isActive() {
+        return "ACTIVE".equalsIgnoreCase(this.status);
+    }
+
+    public boolean isDeleted() {
+        return "DELETED".equalsIgnoreCase(this.status);
+    }
 }

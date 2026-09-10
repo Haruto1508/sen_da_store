@@ -27,6 +27,7 @@ public enum ErrorCode {
     INSUFFICIENT_STOCK("PROD_002", "Số lượng sản phẩm trong kho không đủ", HttpStatus.BAD_REQUEST),
     PRODUCT_NAME_REQUIRED("PROD_003", "Tên sen đá không được để trống", HttpStatus.BAD_REQUEST),
     INVALID_RATING("PROD_004", "Số sao đánh giá phải từ 1 đến 5 sao", HttpStatus.BAD_REQUEST),
+    PRODUCT_UNAVAILABLE("PROD_005", "Sản phẩm không còn được bán hoặc đã ngừng kinh doanh", HttpStatus.BAD_REQUEST),
 
     // Order Codes
     ORDER_NOT_FOUND("ORD_001", "Không tìm thấy thông tin đơn hàng", HttpStatus.NOT_FOUND),

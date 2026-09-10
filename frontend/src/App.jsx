@@ -267,25 +267,25 @@ export default function App() {
     setCartItems((prevItems) => {
       if (!prevItems || prevItems.length === 0) return prevItems;
 
-      // Khi tắt mock data (!USE_MOCK_DATA): loại bỏ bất kỳ sản phẩm nào không tồn tại trong Database thực tế
-      let filtered = prevItems;
-      if (!USE_MOCK_DATA) {
-        filtered = prevItems.filter((item) =>
-          productList.some((p) => p.id === item.id || (p.publicId && p.publicId === item.id))
-        );
-      }
-
-      let hasChanges = filtered.length !== prevItems.length;
+      let hasChanges = false;
       let adjustedCount = 0;
 
-      const updatedItems = filtered.map((item) => {
+      const updatedItems = prevItems.map((item) => {
         // Tìm sản phẩm tương ứng từ Database API
         const liveProduct = productList.find(
           (p) => p.id === item.id || (p.publicId && p.publicId === item.id)
         );
 
-        if (!liveProduct) {
-          return item;
+        if (!liveProduct || liveProduct.status === 'DELETED' || liveProduct.status === 'INACTIVE') {
+          if (item.available !== false || item.status !== 'DELETED') {
+            hasChanges = true;
+          }
+          return {
+            ...item,
+            available: false,
+            status: 'DELETED',
+            message: 'Sản phẩm không còn được bán hoặc đã ngừng kinh doanh'
+          };
         }
 
         const currentStock = liveProduct.inStock !== undefined ? liveProduct.inStock : 999;
@@ -294,6 +294,8 @@ export default function App() {
         if (stockExceeded) adjustedCount++;
 
         const isModified =
+          item.available === false ||
+          item.status === 'DELETED' ||
           liveProduct.price !== item.price ||
           liveProduct.originalPrice !== item.originalPrice ||
           liveProduct.name !== item.name ||
@@ -305,6 +307,8 @@ export default function App() {
           hasChanges = true;
           return {
             ...item,
+            available: true,
+            status: 'ACTIVE',
             name: liveProduct.name || item.name,
             scientificName: liveProduct.scientificName || item.scientificName,
             price: liveProduct.price !== undefined ? liveProduct.price : item.price,
