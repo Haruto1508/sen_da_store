@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
     avatar VARCHAR(1000),
     points INT DEFAULT 0,
     reset_otp VARCHAR(20),
+    status VARCHAR(50) DEFAULT 'ACTIVE',       -- 'ACTIVE', 'BANNED', 'DELETED'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -45,7 +46,8 @@ CREATE TABLE IF NOT EXISTS products (
     in_stock INT,
     description VARCHAR(2000),
     meaning VARCHAR(255),
-    care_tips VARCHAR(2000)
+    care_tips VARCHAR(2000),
+    status VARCHAR(50) DEFAULT 'ACTIVE'
 );
 
 -- 3. Table: coupons
@@ -114,7 +116,9 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_public_id ON users(public_id);
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
 CREATE INDEX IF NOT EXISTS idx_orders_public_id ON orders(public_id);
 CREATE INDEX IF NOT EXISTS idx_products_public_id ON products(public_id);
+CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
 CREATE INDEX IF NOT EXISTS idx_refresh_token ON refresh_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_social_provider_id ON social_accounts(provider_id);

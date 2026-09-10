@@ -806,7 +806,45 @@ export async function updateCustomerRole(userId, newRole) {
     body: JSON.stringify({ role: newRole })
   });
   const data = await res.json();
-  if (!res.ok) throw new Error('Lỗi cập nhật vai trò');
+  if (!res.ok) throw new Error(data.message || 'Lỗi cập nhật vai trò');
+  return data;
+}
+
+export async function updateCustomerStatus(userId, newStatus) {
+  if (USE_MOCK_DATA) {
+    const users = getStoredUsers();
+    const updated = users.map((u) =>
+      String(u.id) === String(userId) ? { ...u, status: newStatus } : u
+    );
+    saveStoredUsers(updated);
+    return { success: true, message: 'Cập nhật trạng thái thành công', status: newStatus };
+  }
+
+  const res = await fetch(`${API_BASE}/admin/customers/${userId}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: newStatus })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Lỗi cập nhật trạng thái');
+  return data;
+}
+
+export async function deleteAdminCustomer(userId) {
+  if (USE_MOCK_DATA) {
+    const users = getStoredUsers();
+    const updated = users.map((u) =>
+      String(u.id) === String(userId) ? { ...u, status: 'DELETED' } : u
+    );
+    saveStoredUsers(updated);
+    return { success: true, message: 'Đã vô hiệu hóa tài khoản thành công' };
+  }
+
+  const res = await fetch(`${API_BASE}/admin/customers/${userId}`, {
+    method: 'DELETE'
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Lỗi xóa tài khoản');
   return data;
 }
 

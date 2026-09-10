@@ -38,6 +38,9 @@ public class User {
 
     private String resetOtp;
 
+    @Column(length = 50)
+    private String status = "ACTIVE"; // "ACTIVE", "BANNED", "DELETED"
+
     private LocalDateTime createdAt;
 
     public User() {
@@ -45,6 +48,7 @@ public class User {
         this.createdAt = LocalDateTime.now();
         this.points = 0;
         this.authProvider = "LOCAL";
+        this.status = "ACTIVE";
     }
 
     public User(String name, String email, String phone, String password, String address, String role, String avatar, Integer points) {
@@ -100,4 +104,19 @@ public class User {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public boolean isActive() {
+        return status == null || "ACTIVE".equalsIgnoreCase(this.status);
+    }
+
+    public boolean isBanned() {
+        return "BANNED".equalsIgnoreCase(this.status);
+    }
+
+    public boolean isDeleted() {
+        return "DELETED".equalsIgnoreCase(this.status);
+    }
 }

@@ -60,7 +60,7 @@ public class AdminController {
                 .sum();
 
         long totalProducts = productRepository.count();
-        long totalCustomers = userRepository.count();
+        long totalCustomers = userRepository.countByStatusNot("DELETED");
         long totalCoupons = couponRepository.count();
 
         Map<String, Object> stats = Map.of(
@@ -345,6 +345,7 @@ public class AdminController {
             map.put("role", u.getRole());
             map.put("avatar", u.getAvatar());
             map.put("points", u.getPoints());
+            map.put("status", u.getStatus() != null ? u.getStatus() : "ACTIVE");
             map.put("createdAt", u.getCreatedAt() != null ? u.getCreatedAt().toString() : null);
             safeUsers.add(map);
         }
@@ -374,6 +375,49 @@ public class AdminController {
         return ResponseEntity.ok(ApiResult.ok(
             "Cập nhật phân quyền khách hàng thành công",
             Map.of("newRole", newRole)
+        ));
+    }
+
+    @PatchMapping("/customers/{id}/status")
+    public ResponseEntity<ApiResult<Map<String, Object>>> updateCustomerStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body
+    ) {
+        String newStatus = body.get("status");
+        if (newStatus == null || newStatus.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResult.error("Trạng thái không được để trống"));
+        }
+
+        Optional<User> userOpt = userRepository.findById(id);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error("Không tìm thấy khách hàng"));
+        }
+
+        User user = userOpt.get();
+        user.setStatus(newStatus.trim().toUpperCase());
+        userRepository.save(user);
+
+        return ResponseEntity.ok(ApiResult.ok(
+            "Cập nhật trạng thái khách hàng thành công",
+            Map.of("id", user.getId(), "status", user.getStatus())
+        ));
+    }
+
+    @DeleteMapping("/customers/{id}")
+    public ResponseEntity<ApiResult<Map<String, Object>>> deleteCustomer(@PathVariable Long id) {
+        Optional<User> userOpt = userRepository.findById(id);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error("Không tìm thấy khách hàng"));
+        }
+
+        User user = userOpt.get();
+        // Soft delete: Đổi trạng thái sang DELETED, không xóa vật lý khỏi DB
+        user.setStatus("DELETED");
+        userRepository.save(user);
+
+        return ResponseEntity.ok(ApiResult.ok(
+            "Đã vô hiệu hóa (xóa mềm) tài khoản khách hàng thành công",
+            Map.of("id", user.getId(), "status", "DELETED")
         ));
     }
 

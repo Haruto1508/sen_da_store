@@ -73,6 +73,11 @@ public class AuthService {
 
         User user = userOpt.get();
 
+        // Kiểm tra trạng thái tài khoản
+        if (user.isBanned() || user.isDeleted()) {
+            throw new AppException(ErrorCode.ACCOUNT_DISABLED);
+        }
+
         // Case 2: Tài khoản được tạo từ Google OAuth và chưa thiết lập mật khẩu local
         if (user.getPassword() == null || user.getPassword().isBlank()) {
             throw new AppException(
@@ -229,6 +234,11 @@ public class AuthService {
             }
         }
 
+        // Kiểm tra trạng thái tài khoản
+        if (user.isBanned() || user.isDeleted()) {
+            throw new AppException(ErrorCode.ACCOUNT_DISABLED);
+        }
+
         return Map.of(
             "user", sanitizeUser(user),
             "token", "bearer_google_" + user.getId() + "_" + System.currentTimeMillis()
@@ -244,6 +254,7 @@ public class AuthService {
         }
 
         String cleanEmail = email.trim().toLowerCase();
+
         Optional<User> userOpt = userRepository.findByEmail(cleanEmail);
         if (userOpt.isEmpty()) {
             userOpt = userRepository.findByPhone(email.trim());
@@ -464,6 +475,7 @@ public class AuthService {
         map.put("avatar", user.getAvatar());
         map.put("points", user.getPoints());
         map.put("authProvider", user.getAuthProvider());
+        map.put("status", user.getStatus() != null ? user.getStatus() : "ACTIVE");
 
         // Kiểm tra xem user đã có mật khẩu local hay chưa
         boolean hasPassword = user.getPassword() != null && !user.getPassword().isBlank();

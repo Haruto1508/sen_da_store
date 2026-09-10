@@ -15,7 +15,9 @@ import {
   toggleAdminCoupon,
   deleteAdminCoupon,
   getAdminCustomers,
-  updateCustomerRole
+  updateCustomerRole,
+  updateCustomerStatus,
+  deleteAdminCustomer
 } from '../services/api';
 
 import { ORDER_STATUS_LABELS, SAMPLE_IMAGES } from '../components/admin/adminConstants';
@@ -432,6 +434,37 @@ export default function AdminPage({
     }
   };
 
+  const handleCustomerStatusChange = async (userId, newStatus) => {
+    try {
+      await updateCustomerStatus(userId, newStatus);
+      if (addToast) {
+        addToast(
+          `Đã đổi trạng thái tài khoản sang ${newStatus === 'ACTIVE' ? 'Hoạt động' : newStatus === 'BANNED' ? 'Bị khóa' : 'Đã xóa'}`,
+          'success'
+        );
+      }
+      setCustomers((prev) =>
+        prev.map((c) => (String(c.id) === String(userId) ? { ...c, status: newStatus } : c))
+      );
+    } catch (err) {
+      showModal('error', 'Không thể cập nhật trạng thái người dùng');
+    }
+  };
+
+  const handleDeleteCustomer = async (cust) => {
+    if (window.confirm(`Xác nhận vô hiệu hóa (xóa mềm) tài khoản khách hàng "${cust.name}"? Lịch sử đơn hàng của khách vẫn được lưu trữ an toàn.`)) {
+      try {
+        await deleteAdminCustomer(cust.id);
+        if (addToast) addToast(`Đã vô hiệu hóa tài khoản ${cust.name}`, 'info');
+        setCustomers((prev) =>
+          prev.map((c) => (String(c.id) === String(cust.id) ? { ...c, status: 'DELETED' } : c))
+        );
+      } catch (err) {
+        showModal('error', 'Không thể xóa tài khoản');
+      }
+    }
+  };
+
   // Unauthenticated Admin Gatekeeper
   if (!isAdmin) {
     return (
@@ -555,6 +588,8 @@ export default function AdminPage({
                   getCustomerOrdersCountAndSpent={getCustomerOrdersCountAndSpent}
                   onOpenCustomerOrders={handleOpenCustomerOrders}
                   onRoleChange={handleRoleChange}
+                  onStatusChange={handleCustomerStatusChange}
+                  onDeleteCustomer={handleDeleteCustomer}
                 />
               )}
             </React.Fragment>

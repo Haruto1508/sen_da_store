@@ -2,7 +2,10 @@ import React, { useMemo } from 'react';
 import {
   Search,
   ShoppingBag,
-  ChevronRight
+  ChevronRight,
+  Trash2,
+  Lock,
+  CheckCircle2
 } from 'lucide-react';
 import Pagination from '../Pagination';
 import { formatPrice } from './adminConstants';
@@ -16,7 +19,9 @@ export default function CustomersTab({
   itemsPerPage = 10,
   getCustomerOrdersCountAndSpent,
   onOpenCustomerOrders,
-  onRoleChange
+  onRoleChange,
+  onStatusChange,
+  onDeleteCustomer
 }) {
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
@@ -63,12 +68,13 @@ export default function CustomersTab({
                 <th>Điểm Sen Thưởng</th>
                 <th>Lịch Sử Mua Hàng</th>
                 <th>Vai Trò & Phân Quyền</th>
+                <th>Trạng Thái Tài Khoản</th>
               </tr>
             </thead>
             <tbody>
               {pagedCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-light)' }}>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-light)' }}>
                     Chưa có khách hàng nào phù hợp với bộ lọc tìm kiếm
                   </td>
                 </tr>
@@ -171,6 +177,48 @@ export default function CustomersTab({
                           <option value="Thành viên thân thiết">Thành viên thân thiết</option>
                           <option value="Thành viên mới">Thành viên mới</option>
                         </select>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <select
+                            value={cust.status || 'ACTIVE'}
+                            onChange={(e) => onStatusChange && onStatusChange(cust.id, e.target.value)}
+                            className="select-filter"
+                            style={{
+                              padding: '5px 28px 5px 8px',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              borderRadius: '6px',
+                              color: cust.status === 'BANNED' ? '#B45309' : cust.status === 'DELETED' ? '#B91C1C' : '#047857',
+                              borderColor: cust.status === 'BANNED' ? '#FDE68A' : cust.status === 'DELETED' ? '#FECACA' : '#A7F3D0',
+                              background: cust.status === 'BANNED' ? '#FFFBEB' : cust.status === 'DELETED' ? '#FEF2F2' : '#ECFDF5'
+                            }}
+                          >
+                            <option value="ACTIVE">Hoạt động</option>
+                            <option value="BANNED">Khóa tài khoản</option>
+                            <option value="DELETED">Đã xóa (Vô hiệu)</option>
+                          </select>
+                          {cust.status !== 'DELETED' && onDeleteCustomer && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteCustomer(cust)}
+                              title="Xóa mềm (vô hiệu hóa) tài khoản người dùng"
+                              style={{
+                                background: '#FEF2F2',
+                                border: '1px solid #FECACA',
+                                color: '#DC2626',
+                                borderRadius: '6px',
+                                padding: '5px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
