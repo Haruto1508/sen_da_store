@@ -415,7 +415,7 @@ export default function App() {
         console.error(err);
       }
     }
-    navigateTo('account');
+    navigateTo('home');
   };
 
   const handleRegisterSuccess = (userData) => {
@@ -425,7 +425,7 @@ export default function App() {
     } catch (err) {
       console.error(err);
     }
-    navigateTo('account');
+    navigateTo('home');
   };
 
   const handleLogout = () => {

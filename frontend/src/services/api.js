@@ -873,22 +873,40 @@ export async function loginUser(email, password) {
   if (USE_MOCK_DATA) {
     const users = getStoredUsers();
     const cleanEmail = (email || '').trim().toLowerCase();
-    const matched = users.find(
-      (u) =>
-        (u.email.toLowerCase() === cleanEmail || u.phone === cleanEmail) &&
-        (u.password === password ||
-          (cleanEmail === 'admin@senxinh.vn' && (password === 'admin' || password === 'admin123')) ||
-          (cleanEmail === 'long.senxinh@gmail.com' && (password === '123' || password === '123456')))
+    const existingUser = users.find(
+      (u) => (u.email && u.email.toLowerCase() === cleanEmail) || u.phone === cleanEmail
     );
 
-    if (matched) {
-      const { password: _, ...userSafe } = matched;
-      return {
-        success: true,
-        message: 'Đăng nhập thành công! (Chế độ Mock Data)',
-        data: userSafe,
-        token: `mock_token_${Date.now()}`
-      };
+    if (existingUser) {
+      // Case 2: Tài khoản tồn tại nhưng chưa có password local (tạo qua Google)
+      if (!existingUser.password) {
+        const error = new Error(
+          'Tài khoản của bạn được tạo qua Google và chưa thiết lập mật khẩu. Vui lòng thiết lập mật khẩu trước khi đăng nhập bằng Email/Password hoặc tiếp tục Đăng nhập bằng Google.'
+        );
+        error.code = 'AUTH_008';
+        error.email = existingUser.email;
+        throw error;
+      }
+
+      const isMatch =
+        existingUser.password === password ||
+        (cleanEmail === 'admin@senxinh.vn' && (password === 'admin' || password === 'admin123')) ||
+        (cleanEmail === 'long.senxinh@gmail.com' && (password === '123' || password === '123456'));
+
+      if (isMatch) {
+        const { password: _, ...userSafe } = existingUser;
+        userSafe.hasPassword = true;
+        userSafe.linkedProviders = ['LOCAL'];
+        if (existingUser.authProvider === 'GOOGLE') {
+          userSafe.linkedProviders.push('GOOGLE');
+        }
+        return {
+          success: true,
+          message: 'Đăng nhập thành công! (Chế độ Mock Data)',
+          data: userSafe,
+          token: `mock_token_${Date.now()}`
+        };
+      }
     }
 
     throw new Error('Email hoặc mật khẩu không chính xác. Hãy kiểm tra lại!');
@@ -901,7 +919,10 @@ export async function loginUser(email, password) {
   });
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.message || 'Đăng nhập không thành công');
+    const error = new Error(data.message || 'Đăng nhập không thành công');
+    error.code = data.code;
+    error.data = data.data;
+    throw error;
   }
   return data;
 }
@@ -942,6 +963,7 @@ export async function loginWithGoogle({ idToken, accessToken, profile = null } =
     let matched = users.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
 
     if (!matched) {
+      // Case 1: User mới đăng nhập Google -> password = null
       matched = {
         id: `user_google_${Date.now()}`,
         publicId: `google-uuid-${Date.now()}`,
@@ -957,6 +979,7 @@ export async function loginWithGoogle({ idToken, accessToken, profile = null } =
       users.push(matched);
       saveStoredUsers(users);
     } else {
+      // Case 3 & 4: User đã tồn tại (đăng ký local trước đó hoặc đã liên kết), không tạo user thứ hai!
       if (userAvatar && (!matched.avatar || matched.avatar.includes('unsplash'))) {
         matched.avatar = userAvatar;
         saveStoredUsers(users);
@@ -964,6 +987,12 @@ export async function loginWithGoogle({ idToken, accessToken, profile = null } =
     }
 
     const { password: _, ...userSafe } = matched;
+    userSafe.hasPassword = !!matched.password;
+    userSafe.linkedProviders = ['GOOGLE'];
+    if (matched.password) {
+      userSafe.linkedProviders.push('LOCAL');
+    }
+
     return {
       success: true,
       message: 'Đăng nhập Google thành công!',
@@ -980,7 +1009,54 @@ export async function loginWithGoogle({ idToken, accessToken, profile = null } =
   });
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.message || 'Đăng nhập Google không thành công');
+    const error = new Error(data.message || 'Đăng nhập Google không thành công');
+    error.code = data.code;
+    throw error;
+  }
+  return data;
+}
+
+/**
+ * Thiết lập mật khẩu cho tài khoản Google chưa có mật khẩu local
+ */
+export async function setPassword({ email, password, otp } = {}) {
+  if (USE_MOCK_DATA) {
+    const users = getStoredUsers();
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const target = users.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
+    if (!target) {
+      throw new Error('Không tìm thấy tài khoản người dùng để thiết lập mật khẩu!');
+    }
+    target.password = password;
+    saveStoredUsers(users);
+
+    const { password: _, ...userSafe } = target;
+    userSafe.hasPassword = true;
+    userSafe.linkedProviders = ['GOOGLE', 'LOCAL'];
+    return {
+      success: true,
+      message: 'Thiết lập mật khẩu thành công! Bạn có thể đăng nhập bằng Email và Mật khẩu.',
+      data: userSafe,
+      token: `mock_token_${Date.now()}`
+    };
+  }
+
+  const token = localStorage.getItem('senxinh_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/auth/set-password`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ email, password, otp })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const err = new Error(data.message || 'Thiết lập mật khẩu thất bại');
+    err.code = data.code;
+    throw err;
   }
   return data;
 }

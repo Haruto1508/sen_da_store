@@ -28,7 +28,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import { getAdminOrders, updateOrderStatus, getAdminStats, getCustomerOrders, cancelCustomerOrder, changePassword } from '../services/api';
+import { getAdminOrders, updateOrderStatus, getAdminStats, getCustomerOrders, cancelCustomerOrder, changePassword, setPassword } from '../services/api';
 import NotificationModal from '../components/NotificationModal';
 import useModal from '../components/useModal';
 
@@ -115,8 +115,14 @@ export default function AccountPage({
 
   const handlePasswordChangeSubmit = async (e) => {
     e.preventDefault();
-    if (!pwdData.currentPassword || !pwdData.newPassword) {
-      setPwdError('Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới!');
+    const isSettingInitial = user && user.hasPassword === false;
+
+    if (!isSettingInitial && !pwdData.currentPassword) {
+      setPwdError('Vui lòng nhập mật khẩu hiện tại!');
+      return;
+    }
+    if (!pwdData.newPassword) {
+      setPwdError('Vui lòng nhập mật khẩu mới!');
       return;
     }
     if (pwdData.newPassword.length < 6) {
@@ -132,19 +138,35 @@ export default function AccountPage({
     setPwdError('');
 
     try {
-      const res = await changePassword({
-        email: formData.email,
-        currentPassword: pwdData.currentPassword,
-        newPassword: pwdData.newPassword
-      });
+      if (isSettingInitial) {
+        const res = await setPassword({
+          email: formData.email,
+          password: pwdData.newPassword
+        });
 
-      if (res.success) {
-        setPwdSuccess(true);
-        setPwdData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setTimeout(() => setPwdSuccess(false), 4000);
+        if (res.success) {
+          setPwdSuccess(true);
+          setPwdData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+          if (onUpdateUser) {
+            onUpdateUser({ hasPassword: true });
+          }
+          setTimeout(() => setPwdSuccess(false), 4000);
+        }
+      } else {
+        const res = await changePassword({
+          email: formData.email,
+          currentPassword: pwdData.currentPassword,
+          newPassword: pwdData.newPassword
+        });
+
+        if (res.success) {
+          setPwdSuccess(true);
+          setPwdData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+          setTimeout(() => setPwdSuccess(false), 4000);
+        }
       }
     } catch (err) {
-      setPwdError(err.message || 'Không thể đổi mật khẩu. Vui lòng kiểm tra lại!');
+      setPwdError(err.message || 'Không thể cập nhật mật khẩu. Vui lòng kiểm tra lại!');
     } finally {
       setPwdLoading(false);
     }
@@ -1153,9 +1175,13 @@ export default function AccountPage({
               <div className="account-card">
                 <div className="account-card-header">
                   <div>
-                    <h3 style={{ fontSize: '1.35rem', fontWeight: 700 }}>Đổi Mật Khẩu Tài Khoản</h3>
+                    <h3 style={{ fontSize: '1.35rem', fontWeight: 700 }}>
+                      {user?.hasPassword === false ? 'Thiết Lập Mật Khẩu (Tài Khoản Google)' : 'Đổi Mật Khẩu Tài Khoản'}
+                    </h3>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: '2px' }}>
-                      Để bảo vệ tài khoản, bạn nên sử dụng mật khẩu mạnh có chữ, số và ký tự đặc biệt
+                      {user?.hasPassword === false
+                        ? 'Tài khoản của bạn đăng nhập qua Google và chưa có mật khẩu local. Thiết lập mật khẩu để bạn có thể đăng nhập bằng cả Email/Mật khẩu.'
+                        : 'Để bảo vệ tài khoản, bạn nên sử dụng mật khẩu mạnh có chữ, số và ký tự đặc biệt'}
                     </p>
                   </div>
                 </div>
@@ -1164,7 +1190,7 @@ export default function AccountPage({
                   <div style={{ padding: '14px 18px', background: '#D1FAE5', border: '1px solid #10B981', borderRadius: '10px', color: '#065F46', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <CheckCircle2 size={20} color="#059669" />
                     <div>
-                      <strong>Thành công!</strong> Mật khẩu của bạn đã được cập nhật thành công.
+                      <strong>Thành công!</strong> {user?.hasPassword === false ? 'Mật khẩu đã được thiết lập thành công. Giờ đây bạn có thể đăng nhập bằng Email và Mật khẩu mới!' : 'Mật khẩu của bạn đã được cập nhật thành công.'}
                     </div>
                   </div>
                 )}
@@ -1179,31 +1205,33 @@ export default function AccountPage({
                 )}
 
                 <form onSubmit={handlePasswordChangeSubmit} style={{ maxWidth: '540px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                  {/* Current Password */}
-                  <div className="auth-field">
-                    <label>Mật khẩu hiện tại</label>
-                    <div className="auth-input-wrap">
-                      <span className="auth-input-icon">
-                        <Lock size={18} />
-                      </span>
-                      <input
-                        type={showCurrentPwd ? 'text' : 'password'}
-                        className="auth-input"
-                        placeholder="Nhập mật khẩu bạn đang dùng"
-                        value={pwdData.currentPassword}
-                        onChange={(e) => setPwdData({ ...pwdData, currentPassword: e.target.value })}
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="auth-input-toggle"
-                        onClick={() => setShowCurrentPwd(!showCurrentPwd)}
-                        tabIndex="-1"
-                      >
-                        {showCurrentPwd ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
+                  {/* Current Password - Chỉ hiển thị nếu tài khoản đã có mật khẩu */}
+                  {user?.hasPassword !== false && (
+                    <div className="auth-field">
+                      <label>Mật khẩu hiện tại</label>
+                      <div className="auth-input-wrap">
+                        <span className="auth-input-icon">
+                          <Lock size={18} />
+                        </span>
+                        <input
+                          type={showCurrentPwd ? 'text' : 'password'}
+                          className="auth-input"
+                          placeholder="Nhập mật khẩu bạn đang dùng"
+                          value={pwdData.currentPassword}
+                          onChange={(e) => setPwdData({ ...pwdData, currentPassword: e.target.value })}
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="auth-input-toggle"
+                          onClick={() => setShowCurrentPwd(!showCurrentPwd)}
+                          tabIndex="-1"
+                        >
+                          {showCurrentPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* New Password */}
                   <div className="auth-field">
@@ -1280,7 +1308,7 @@ export default function AccountPage({
                     style={{ padding: '12px 24px', alignSelf: 'flex-start', marginTop: '4px' }}
                   >
                     <KeyRound size={16} />
-                    <span>{pwdLoading ? 'Đang cập nhật...' : 'Cập Nhật Mật Khẩu'}</span>
+                    <span>{pwdLoading ? 'Đang xử lý...' : (user?.hasPassword === false ? 'Thiết Lập Mật Khẩu' : 'Cập Nhật Mật Khẩu')}</span>
                   </button>
                 </form>
               </div>

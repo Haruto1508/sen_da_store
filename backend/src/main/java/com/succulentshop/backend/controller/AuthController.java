@@ -112,4 +112,19 @@ public class AuthController {
             null
         ));
     }
+
+    /**
+     * Thiết lập mật khẩu cho tài khoản Google chưa có mật khẩu
+     */
+    @PostMapping("/set-password")
+    public ResponseEntity<ApiResult<Map<String, Object>>> setPassword(
+            @RequestBody com.succulentshop.backend.dto.SetPasswordRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        Map<String, Object> result = authService.setPassword(request, authHeader);
+        return ResponseEntity.ok(ApiResult.ok(
+            "Thiết lập mật khẩu thành công! Giờ đây bạn có thể đăng nhập bằng Email và Mật khẩu.",
+            result
+        ));
+    }
 }

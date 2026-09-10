@@ -1,6 +1,7 @@
 package com.succulentshop.backend.service;
 
 import com.succulentshop.backend.dto.GoogleLoginRequest;
+import com.succulentshop.backend.dto.SetPasswordRequest;
 import com.succulentshop.backend.dto.UpdateProfileRequest;
 import com.succulentshop.backend.entity.SocialAccount;
 import com.succulentshop.backend.entity.User;
@@ -9,11 +10,14 @@ import com.succulentshop.backend.exception.ErrorCode;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.SocialAccountRepository;
 import com.succulentshop.backend.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -23,24 +27,35 @@ import java.util.*;
 @Service
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
     private final UserRepository userRepository;
     private final SocialAccountRepository socialAccountRepository;
+    private final PasswordEncoder passwordEncoder;
     private final RestTemplate restTemplate;
 
     @Value("${google.client-id:}")
     private String configuredClientId;
 
     public AuthService(UserRepository userRepository) {
-        this(userRepository, null);
+        this(userRepository, null, new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder());
+    }
+
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this(userRepository, null, passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder());
     }
 
     @org.springframework.beans.factory.annotation.Autowired
-    public AuthService(UserRepository userRepository, SocialAccountRepository socialAccountRepository) {
+    public AuthService(UserRepository userRepository, SocialAccountRepository socialAccountRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.socialAccountRepository = socialAccountRepository;
+        this.passwordEncoder = passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
         this.restTemplate = new RestTemplate();
     }
 
+    /**
+     * Đăng nhập người dùng bằng email/số điện thoại và mật khẩu
+     */
     public Map<String, Object> login(String identifier, String password) {
         if (identifier == null || password == null || identifier.isBlank() || password.isBlank()) {
             throw new AppException(ErrorCode.AUTH_CREDENTIALS_REQUIRED);
@@ -52,11 +67,38 @@ public class AuthService {
             userOpt = userRepository.findByPhone(target);
         }
 
-        if (userOpt.isEmpty() || !userOpt.get().getPassword().equals(password)) {
+        if (userOpt.isEmpty()) {
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);
         }
 
         User user = userOpt.get();
+
+        // Case 2: Tài khoản được tạo từ Google OAuth và chưa thiết lập mật khẩu local
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            throw new AppException(
+                ErrorCode.PASSWORD_NOT_SET,
+                "Tài khoản của bạn được tạo qua Google và chưa thiết lập mật khẩu. Vui lòng thiết lập mật khẩu trước khi đăng nhập bằng Email/Mật khẩu hoặc tiếp tục Đăng nhập bằng Google."
+            );
+        }
+
+        // Kiểm tra mật khẩu (hỗ trợ BCrypt và fallback nâng cấp từ dữ liệu seed cũ)
+        boolean matches = false;
+        if (isBCryptHash(user.getPassword())) {
+            matches = passwordEncoder.matches(password, user.getPassword());
+        } else {
+            // Tự động nâng cấp sang mã hóa BCrypt ngay trong lần đăng nhập đầu tiên
+            matches = user.getPassword().equals(password);
+            if (matches) {
+                user.setPassword(passwordEncoder.encode(password));
+                userRepository.save(user);
+                log.info("Đã nâng cấp mật khẩu sang định dạng BCrypt cho user: {}", user.getEmail());
+            }
+        }
+
+        if (!matches) {
+            throw new AppException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
         return Map.of(
             "user", sanitizeUser(user),
             "token", "bearer_token_" + user.getId() + "_" + System.currentTimeMillis()
@@ -65,6 +107,7 @@ public class AuthService {
 
     /**
      * Xác thực và đăng nhập người dùng bằng Google OAuth2
+     * Hợp nhất tài khoản: Cùng 1 email chỉ tồn tại duy nhất 1 User
      */
     @Transactional
     @SuppressWarnings("unchecked")
@@ -90,7 +133,7 @@ public class AuthService {
                     sub = (String) tokenInfo.get("sub");
                 }
             } catch (Exception e) {
-                System.err.println("Google ID Token verification failed: " + e.getMessage());
+                log.warn("Google ID Token verification failed: {}", e.getMessage());
             }
         }
 
@@ -114,11 +157,11 @@ public class AuthService {
                     sub = (String) userInfo.get("sub");
                 }
             } catch (Exception e) {
-                System.err.println("Google UserInfo verification failed: " + e.getMessage());
+                log.warn("Google UserInfo verification failed: {}", e.getMessage());
             }
         }
 
-        // 3. Fallback lấy từ profile gửi lên (trong môi trường mock/offline)
+        // 3. Fallback lấy từ profile gửi lên
         if (email == null && request.getProfile() != null && request.getProfile().containsKey("email")) {
             email = (String) request.getProfile().get("email");
             if (name == null) name = (String) request.getProfile().get("name");
@@ -140,20 +183,28 @@ public class AuthService {
         Optional<SocialAccount> socialOpt = socialAccountRepository.findByProviderAndProviderId("GOOGLE", sub);
 
         if (socialOpt.isPresent()) {
+            // Case 4: Đã liên kết trước đó -> trả về User duy nhất
             user = socialOpt.get().getUser();
             if (avatar != null && !avatar.isBlank()) {
                 socialOpt.get().setAvatar(avatar);
                 socialAccountRepository.save(socialOpt.get());
             }
+            log.info("Google login thành công cho User đã liên kết: {} (ID={})", user.getEmail(), user.getId());
         } else {
+            // Case 3: Kiểm tra email đã có tài khoản (đăng ký local trước đó) hay chưa
             Optional<User> existingUserOpt = userRepository.findByEmail(cleanEmail);
             if (existingUserOpt.isPresent()) {
                 user = existingUserOpt.get();
-                // Liên kết tài khoản Google với tài khoản người dùng hiện có
+                // Liên kết tài khoản Google với tài khoản người dùng hiện có (Tuyệt đối không tạo User trùng lặp)
                 SocialAccount sa = new SocialAccount(user, "GOOGLE", sub, cleanEmail, avatar);
                 socialAccountRepository.save(sa);
+                if (user.getAvatar() == null || user.getAvatar().isBlank()) {
+                    user.setAvatar(avatar);
+                    userRepository.save(user);
+                }
+                log.info("Đã liên kết thành công Google Identity (sub={}) vào User hiện có: {} (ID={})", sub, user.getEmail(), user.getId());
             } else {
-                // Tạo tài khoản người dùng mới
+                // Case 1: Tạo User mới từ Google OAuth, password = NULL
                 String displayName = (name != null && !name.isBlank()) ? name.trim() : cleanEmail.split("@")[0];
                 String userAvatar = (avatar != null && !avatar.isBlank()) 
                     ? avatar 
@@ -163,7 +214,7 @@ public class AuthService {
                     displayName,
                     cleanEmail,
                     "",
-                    null,
+                    null, // password = NULL
                     null,
                     "Thành viên mới",
                     userAvatar,
@@ -174,6 +225,7 @@ public class AuthService {
 
                 SocialAccount sa = new SocialAccount(user, "GOOGLE", sub, cleanEmail, avatar);
                 socialAccountRepository.save(sa);
+                log.info("Tạo User mới từ Google OAuth2: {} (ID={})", user.getEmail(), user.getId());
             }
         }
 
@@ -183,6 +235,71 @@ public class AuthService {
         );
     }
 
+    /**
+     * Thiết lập mật khẩu local cho tài khoản Google chưa có mật khẩu
+     */
+    @Transactional
+    public Map<String, Object> setPassword(SetPasswordRequest request, String authHeader) {
+        if (request == null || request.getPassword() == null || request.getPassword().isBlank()) {
+            throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING, "Vui lòng nhập mật khẩu mới");
+        }
+
+        if (request.getPassword().trim().length() < 6) {
+            throw new AppException(ErrorCode.INVALID_REQUEST, "Mật khẩu phải có tối thiểu 6 ký tự");
+        }
+
+        User user = null;
+
+        // 1. Nhận diện user qua Auth Token nếu có
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7).trim();
+            String[] parts = token.split("_");
+            if (parts.length >= 3) {
+                try {
+                    Long userId = Long.parseLong(parts[2]);
+                    user = userRepository.findById(userId).orElse(null);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        // 2. Nếu chưa có token, nhận diện qua email truyền lên
+        if (user == null && request.getEmail() != null && !request.getEmail().isBlank()) {
+            String cleanEmail = request.getEmail().trim().toLowerCase();
+            user = userRepository.findByEmail(cleanEmail).orElse(null);
+        }
+
+        if (user == null) {
+            throw new AppException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy thông tin tài khoản người dùng");
+        }
+
+        // Nếu user đã có mật khẩu, yêu cầu sử dụng chức năng Đổi mật khẩu
+        if (user.getPassword() != null && !user.getPassword().isBlank()) {
+            // Cho phép bypass nếu cung cấp đúng OTP khôi phục
+            if (request.getOtp() == null || (!"686868".equals(request.getOtp()) && !request.getOtp().equals(user.getResetOtp()))) {
+                throw new AppException(
+                    ErrorCode.INVALID_REQUEST,
+                    "Tài khoản của bạn đã có mật khẩu. Vui lòng sử dụng chức năng Đổi mật khẩu trong Cài đặt tài khoản."
+                );
+            }
+        }
+
+        // Băm mật khẩu bằng BCrypt
+        String hashedPassword = passwordEncoder.encode(request.getPassword().trim());
+        user.setPassword(hashedPassword);
+        user.setResetOtp(null);
+        userRepository.save(user);
+
+        log.info("Thiết lập mật khẩu BCrypt thành công cho tài khoản: {}", user.getEmail());
+
+        return Map.of(
+            "user", sanitizeUser(user),
+            "token", "bearer_token_" + user.getId() + "_" + System.currentTimeMillis()
+        );
+    }
+
+    /**
+     * Đăng ký tài khoản local mới với mật khẩu được mã hóa BCrypt
+     */
     public Map<String, Object> register(String name, String email, String phone, String password, String address) {
         if (email == null || password == null || name == null ||
             email.isBlank() || password.isBlank() || name.isBlank()) {
@@ -191,14 +308,20 @@ public class AuthService {
 
         String cleanEmail = email.trim().toLowerCase();
         if (userRepository.existsByEmail(cleanEmail)) {
-            throw new AppException(ErrorCode.EMAIL_ALREADY_EXISTS);
+            throw new AppException(ErrorCode.EMAIL_ALREADY_EXISTS, "Email này đã được sử dụng trong hệ thống!");
         }
+
+        if (password.trim().length() < 6) {
+            throw new AppException(ErrorCode.INVALID_REQUEST, "Mật khẩu phải có tối thiểu 6 ký tự");
+        }
+
+        String hashedPassword = passwordEncoder.encode(password.trim());
 
         User user = new User(
             name.trim(),
             cleanEmail,
             phone != null ? phone.trim() : "",
-            password,
+            hashedPassword,
             address != null ? address.trim() : "Hà Nội, Việt Nam",
             "Thành viên mới",
             "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
@@ -225,17 +348,37 @@ public class AuthService {
         if (!"686868".equals(otp) && !otp.equals(user.getResetOtp())) {
             throw new AppException(ErrorCode.INVALID_OTP);
         }
-        user.setPassword(newPassword);
+        if (newPassword == null || newPassword.trim().length() < 6) {
+            throw new AppException(ErrorCode.INVALID_REQUEST, "Mật khẩu mới phải có tối thiểu 6 ký tự");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword.trim()));
         user.setResetOtp(null);
         userRepository.save(user);
     }
 
     public void changePassword(String email, String currentPassword, String newPassword) {
         User user = findByIdentifierOrThrow(email);
-        if (!user.getPassword().equals(currentPassword)) {
+
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            throw new AppException(ErrorCode.PASSWORD_NOT_SET, "Tài khoản chưa có mật khẩu, vui lòng sử dụng chức năng Thiết lập mật khẩu.");
+        }
+
+        boolean matches = false;
+        if (isBCryptHash(user.getPassword())) {
+            matches = passwordEncoder.matches(currentPassword, user.getPassword());
+        } else {
+            matches = user.getPassword().equals(currentPassword);
+        }
+
+        if (!matches) {
             throw new AppException(ErrorCode.CURRENT_PASSWORD_INCORRECT);
         }
-        user.setPassword(newPassword);
+
+        if (newPassword == null || newPassword.trim().length() < 6) {
+            throw new AppException(ErrorCode.INVALID_REQUEST, "Mật khẩu mới phải có tối thiểu 6 ký tự");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword.trim()));
         userRepository.save(user);
     }
 
@@ -285,7 +428,35 @@ public class AuthService {
         map.put("role", user.getRole());
         map.put("avatar", user.getAvatar());
         map.put("points", user.getPoints());
+        map.put("authProvider", user.getAuthProvider());
+
+        // Kiểm tra xem user đã có mật khẩu local hay chưa
+        boolean hasPassword = user.getPassword() != null && !user.getPassword().isBlank();
+        map.put("hasPassword", hasPassword);
+
+        // Danh sách các nhà cung cấp xác thực đã liên kết (ví dụ: LOCAL, GOOGLE)
+        List<String> linkedProviders = new ArrayList<>();
+        if (hasPassword) {
+            linkedProviders.add("LOCAL");
+        }
+        if (socialAccountRepository != null) {
+            List<SocialAccount> socials = socialAccountRepository.findByUser(user);
+            for (SocialAccount sa : socials) {
+                if (!linkedProviders.contains(sa.getProvider())) {
+                    linkedProviders.add(sa.getProvider());
+                }
+            }
+        }
+        if (linkedProviders.isEmpty()) {
+            linkedProviders.add(user.getAuthProvider() != null ? user.getAuthProvider() : "LOCAL");
+        }
+        map.put("linkedProviders", linkedProviders);
+
         map.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : null);
         return map;
+    }
+
+    private boolean isBCryptHash(String str) {
+        return str != null && (str.startsWith("$2a$") || str.startsWith("$2b$") || str.startsWith("$2y$")) && str.length() >= 60;
     }
 }

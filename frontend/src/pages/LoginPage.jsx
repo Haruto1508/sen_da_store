@@ -11,9 +11,12 @@ import {
   LogIn, 
   Gift,
   HelpCircle,
-  Loader2
+  Loader2,
+  KeyRound,
+  AlertCircle,
+  X
 } from 'lucide-react';
-import { loginUser, loginWithGoogle } from '../services/api';
+import { loginUser, loginWithGoogle, setPassword as apiSetPassword } from '../services/api';
 
 export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
   const [email, setEmail] = useState('');
@@ -23,6 +26,15 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Trạng thái tài khoản Google chưa có mật khẩu local
+  const [isPasswordNotSet, setIsPasswordNotSet] = useState(false);
+  const [showSetPasswordModal, setShowSetPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [setPasswordLoading, setSetPasswordLoading] = useState(false);
+  const [setPasswordError, setSetPasswordError] = useState('');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email.trim() || !password) {
@@ -31,6 +43,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     }
 
     setErrorMsg('');
+    setIsPasswordNotSet(false);
     setLoading(true);
 
     try {
@@ -44,9 +57,51 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
         }
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Đăng nhập không thành công. Hãy thử lại!');
+      if (err.code === 'AUTH_008' || (err.message && err.message.includes('chưa thiết lập mật khẩu'))) {
+        setIsPasswordNotSet(true);
+        setErrorMsg('');
+      } else {
+        setIsPasswordNotSet(false);
+        setErrorMsg(err.message || 'Đăng nhập không thành công. Hãy thử lại!');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      setSetPasswordError('Mật khẩu mới phải có tối thiểu 6 ký tự!');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setSetPasswordError('Mật khẩu xác nhận không khớp với mật khẩu mới!');
+      return;
+    }
+
+    setSetPasswordLoading(true);
+    setSetPasswordError('');
+
+    try {
+      const res = await apiSetPassword({
+        email: email.trim(),
+        password: newPassword
+      });
+
+      if (res.success && res.data) {
+        if (addToast) {
+          addToast('Thiết lập mật khẩu thành công! Chào mừng bạn 🌿', 'info');
+        }
+        setShowSetPasswordModal(false);
+        if (onLoginSuccess) {
+          onLoginSuccess(res.data, rememberMe);
+        }
+      }
+    } catch (err) {
+      setSetPasswordError(err.message || 'Không thể thiết lập mật khẩu. Vui lòng thử lại!');
+    } finally {
+      setSetPasswordLoading(false);
     }
   };
 
@@ -244,6 +299,70 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
               </div>
             )}
 
+            {/* Google Account Without Password Notice Banner */}
+            {isPasswordNotSet && (
+              <div style={{
+                marginBottom: '18px',
+                padding: '14px 16px',
+                background: '#F0FDF4',
+                border: '1px solid #86EFAC',
+                borderRadius: '10px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <Sparkles size={18} color="#16A34A" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <strong style={{ fontSize: '0.9rem', color: '#166534', display: 'block' }}>
+                      Tài khoản liên kết Google
+                    </strong>
+                    <p style={{ margin: '4px 0 0', fontSize: '0.83rem', color: '#15803D', lineHeight: 1.45 }}>
+                      Tài khoản <b>{email}</b> được đăng nhập qua Google và chưa có mật khẩu local. Bạn có thể:
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '2px' }}>
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    style={{
+                      padding: '8px 14px',
+                      background: '#16A34A',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '0.84rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Đăng nhập nhanh qua Google
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSetPasswordError('');
+                      setShowSetPasswordModal(true);
+                    }}
+                    style={{
+                      padding: '8px 14px',
+                      background: '#ffffff',
+                      color: '#16A34A',
+                      border: '1px solid #16A34A',
+                      borderRadius: '6px',
+                      fontSize: '0.84rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Thiết lập mật khẩu ngay
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Login Form */}
             <form className="auth-form" onSubmit={handleSubmit}>
               {/* Email / Username Field */}
@@ -381,6 +500,155 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
           </div>
         </div>
       </div>
+
+      {/* Modal Thiết Lập Mật Khẩu Cho Tài Khoản Google */}
+      {showSetPasswordModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.55)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '440px',
+            padding: '26px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <KeyRound size={22} color="#059669" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-main)' }}>Thiết Lập Mật Khẩu</h3>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Tài khoản Google: <b>{email}</b></span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSetPasswordModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Tạo mật khẩu để có thể đăng nhập bằng cả <b>Email/Mật khẩu</b> và <b>Google</b> trên cùng một tài khoản này.
+            </p>
+
+            {setPasswordError && (
+              <div style={{ padding: '10px 14px', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: '8px', color: '#991B1B', fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={16} color="#DC2626" />
+                <span>{setPasswordError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSetPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="auth-field">
+                <label style={{ fontSize: '0.85rem' }}>Mật khẩu mới (tối thiểu 6 ký tự)</label>
+                <div className="auth-input-wrap">
+                  <span className="auth-input-icon">
+                    <Lock size={18} />
+                  </span>
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    className="auth-input"
+                    placeholder="Nhập mật khẩu mới"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    className="auth-input-toggle"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    tabIndex="-1"
+                  >
+                    {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="auth-field">
+                <label style={{ fontSize: '0.85rem' }}>Xác nhận mật khẩu mới</label>
+                <div className="auth-input-wrap">
+                  <span className="auth-input-icon">
+                    <Lock size={18} />
+                  </span>
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    className="auth-input"
+                    placeholder="Nhập lại mật khẩu mới"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowSetPasswordModal(false)}
+                  style={{
+                    flex: 1,
+                    padding: '11px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-light)',
+                    background: '#ffffff',
+                    color: 'var(--text-main)',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={setPasswordLoading}
+                  style={{
+                    flex: 1.5,
+                    padding: '11px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'var(--primary)',
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {setPasswordLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <span>Lưu Mật Khẩu</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
