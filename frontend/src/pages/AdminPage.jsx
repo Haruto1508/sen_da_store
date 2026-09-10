@@ -456,6 +456,7 @@ export default function AdminPage({
         setSidebarCollapsed={setSidebarCollapsed}
         mobileSidebarOpen={mobileSidebarOpen}
         setMobileSidebarOpen={setMobileSidebarOpen}
+        onNavigateHome={onNavigateHome}
       />
 
       {/* Right Content Area */}
@@ -477,6 +478,7 @@ export default function AdminPage({
             setActiveTab('coupons');
             handleOpenAddCoupon();
           }}
+          onNavigateHome={onNavigateHome}
         />
 
         {/* Content Body */}

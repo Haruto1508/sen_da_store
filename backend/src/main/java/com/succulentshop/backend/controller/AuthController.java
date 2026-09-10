@@ -127,4 +127,13 @@ public class AuthController {
             result
         ));
     }
+
+    /**
+     * Kiểm tra trạng thái email (kiểm tra tài khoản Google chưa có mật khẩu)
+     */
+    @GetMapping("/check-email")
+    public ResponseEntity<ApiResult<Map<String, Object>>> checkEmail(@RequestParam String email) {
+        Map<String, Object> result = authService.checkEmailStatus(email);
+        return ResponseEntity.ok(ApiResult.ok("Kiểm tra email thành công", result));
+    }
 }

@@ -4,7 +4,8 @@ import {
   Package,
   Tag,
   Users,
-  PanelLeft
+  PanelLeft,
+  Store
 } from 'lucide-react';
 import { USE_MOCK_DATA } from '../../services/api';
 
@@ -16,7 +17,8 @@ export default function AdminSidebar({
   sidebarCollapsed,
   setSidebarCollapsed,
   mobileSidebarOpen,
-  setMobileSidebarOpen
+  setMobileSidebarOpen,
+  onNavigateHome
 }) {
   return (
     <>
@@ -139,6 +141,25 @@ export default function AdminSidebar({
             <Users size={19} className="nav-icon" />
             {!sidebarCollapsed && (
               <span className="nav-text">Khách Hàng & Quyền</span>
+            )}
+          </button>
+
+          <div className="admin-nav-group-label">
+            {!sidebarCollapsed ? 'XEM CỬA HÀNG' : '•••'}
+          </div>
+
+          <button
+            type="button"
+            className="admin-nav-item store-link"
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              if (onNavigateHome) onNavigateHome();
+            }}
+            title="Quay về trang khách hàng (Cửa hàng Sen Xinh)"
+          >
+            <Store size={19} className="nav-icon" />
+            {!sidebarCollapsed && (
+              <span className="nav-text">Về Trang Cửa Hàng</span>
             )}
           </button>
         </nav>

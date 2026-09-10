@@ -236,6 +236,41 @@ public class AuthService {
     }
 
     /**
+     * Kiểm tra trạng thái tài khoản theo email (hỗ trợ phát hiện tài khoản Google chưa có mật khẩu)
+     */
+    public Map<String, Object> checkEmailStatus(String email) {
+        if (email == null || email.isBlank()) {
+            return Map.of("exists", false);
+        }
+
+        String cleanEmail = email.trim().toLowerCase();
+        Optional<User> userOpt = userRepository.findByEmail(cleanEmail);
+        if (userOpt.isEmpty()) {
+            userOpt = userRepository.findByPhone(email.trim());
+        }
+
+        if (userOpt.isEmpty()) {
+            return Map.of("exists", false);
+        }
+
+        User user = userOpt.get();
+        boolean hasPassword = user.getPassword() != null && !user.getPassword().isBlank();
+        boolean isGoogle = "GOOGLE".equalsIgnoreCase(user.getAuthProvider());
+        if (!isGoogle && socialAccountRepository != null) {
+            isGoogle = socialAccountRepository.findByUser(user).stream()
+                    .anyMatch(s -> "GOOGLE".equalsIgnoreCase(s.getProvider()));
+        }
+
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("exists", true);
+        res.put("hasPassword", hasPassword);
+        res.put("isGoogle", isGoogle);
+        res.put("email", user.getEmail());
+        res.put("name", user.getName());
+        return res;
+    }
+
+    /**
      * Thiết lập mật khẩu local cho tài khoản Google chưa có mật khẩu
      */
     @Transactional

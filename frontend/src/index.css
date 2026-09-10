@@ -5517,6 +5517,24 @@ html.modal-open {
   border-color: #38BDF8;
 }
 
+.admin-nav-item.store-link {
+  color: #38BDF8;
+  border: 1px dashed rgba(56, 189, 248, 0.28);
+  background: rgba(56, 189, 248, 0.05);
+  margin-top: 4px;
+}
+
+.admin-nav-item.store-link:hover {
+  background: rgba(56, 189, 248, 0.15);
+  color: #7DD3FC;
+  border-color: #38BDF8;
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.12);
+}
+
+.admin-nav-item.store-link .nav-icon {
+  color: #38BDF8;
+}
+
 .nav-badge.count {
   margin-left: auto;
   background: #1E293B;
@@ -5758,6 +5776,20 @@ html.modal-open {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.admin-view-store-btn {
+  border-color: #CBD5E1;
+  color: #334155;
+  background: #FFFFFF;
+  transition: all 0.2s ease;
+}
+
+.admin-view-store-btn:hover {
+  border-color: #0284C7;
+  color: #0284C7;
+  background: #F0F9FF;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.12);
 }
 
 .admin-content-body {

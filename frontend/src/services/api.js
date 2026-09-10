@@ -867,7 +867,40 @@ export async function simulateMoMoPayment(orderCode) {
 
 // ==============================================================================
 // AUTHENTICATION APIs (Login, Register, Password Reset)
-// ==============================================================================
+/**
+ * Kiểm tra trạng thái tài khoản theo email (phát hiện tài khoản Google chưa có mật khẩu)
+ */
+export async function checkEmailStatus(email) {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  if (!cleanEmail) return { exists: false };
+
+  if (USE_MOCK_DATA) {
+    const users = getStoredUsers();
+    const target = users.find(
+      (u) => (u.email && u.email.toLowerCase() === cleanEmail) || u.phone === cleanEmail
+    );
+    if (!target) return { exists: false };
+    const hasPassword = Boolean(target.password && target.password.trim() !== '');
+    const isGoogle = target.authProvider === 'GOOGLE' || 
+      (Array.isArray(target.linkedProviders) && target.linkedProviders.includes('GOOGLE'));
+    return {
+      exists: true,
+      hasPassword,
+      isGoogle,
+      email: target.email,
+      name: target.name
+    };
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/check-email?email=${encodeURIComponent(cleanEmail)}`);
+    if (!res.ok) return { exists: false };
+    const data = await res.json();
+    return data.data || { exists: false };
+  } catch {
+    return { exists: false };
+  }
+}
 
 export async function loginUser(email, password) {
   if (USE_MOCK_DATA) {

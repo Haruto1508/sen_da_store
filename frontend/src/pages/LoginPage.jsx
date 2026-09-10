@@ -16,7 +16,7 @@ import {
   AlertCircle,
   X
 } from 'lucide-react';
-import { loginUser, loginWithGoogle, setPassword as apiSetPassword } from '../services/api';
+import { loginUser, loginWithGoogle, setPassword as apiSetPassword, checkEmailStatus } from '../services/api';
 
 export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
   const [email, setEmail] = useState('');
@@ -35,10 +35,54 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
   const [setPasswordLoading, setSetPasswordLoading] = useState(false);
   const [setPasswordError, setSetPasswordError] = useState('');
 
+  // Tự động kiểm tra nếu email nhập vào là tài khoản Google chưa có mật khẩu
+  const handleCheckEmail = async (emailToCheck) => {
+    const cleanEmail = (emailToCheck || '').trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      return;
+    }
+
+    try {
+      const status = await checkEmailStatus(cleanEmail);
+      if (status && status.exists && !status.hasPassword) {
+        setIsPasswordNotSet(true);
+        setErrorMsg('');
+        setShowSetPasswordModal(true);
+      } else if (status && status.hasPassword) {
+        setIsPasswordNotSet(false);
+      }
+    } catch (e) {
+      console.debug('Kiểm tra email thất bại:', e);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !password) {
-      setErrorMsg('Vui lòng nhập đầy đủ Email và Mật khẩu!');
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setErrorMsg('Vui lòng nhập Email hoặc Số điện thoại!');
+      return;
+    }
+
+    // Nếu người dùng chưa nhập mật khẩu, tự động nhận diện tài khoản Google chưa có mật khẩu
+    if (!password) {
+      setLoading(true);
+      setErrorMsg('');
+      try {
+        const status = await checkEmailStatus(cleanEmail);
+        if (status && status.exists && !status.hasPassword) {
+          setIsPasswordNotSet(true);
+          setErrorMsg('');
+          setShowSetPasswordModal(true);
+          return;
+        }
+      } catch (e) {
+        // Fallback
+      } finally {
+        setLoading(false);
+      }
+
+      setErrorMsg('Vui lòng nhập mật khẩu của bạn để tiếp tục!');
       return;
     }
 
@@ -47,7 +91,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     setLoading(true);
 
     try {
-      const res = await loginUser(email.trim(), password);
+      const res = await loginUser(cleanEmail, password);
       if (res.success && res.data) {
         if (addToast) {
           addToast(`Chào mừng bạn trở lại, ${res.data.name}!`, 'info');
@@ -60,6 +104,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
       if (err.code === 'AUTH_008' || (err.message && err.message.includes('chưa thiết lập mật khẩu'))) {
         setIsPasswordNotSet(true);
         setErrorMsg('');
+        setShowSetPasswordModal(true);
       } else {
         setIsPasswordNotSet(false);
         setErrorMsg(err.message || 'Đăng nhập không thành công. Hãy thử lại!');
@@ -383,7 +428,12 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                     className={`auth-input ${errorMsg ? 'has-error' : ''}`}
                     placeholder="VD: long.senxinh@gmail.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (isPasswordNotSet) setIsPasswordNotSet(false);
+                      if (errorMsg) setErrorMsg('');
+                    }}
+                    onBlur={() => handleCheckEmail(email)}
                     required
                   />
                 </div>
@@ -413,10 +463,12 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                     id="login-password"
                     type={showPassword ? 'text' : 'password'}
                     className={`auth-input ${errorMsg ? 'has-error' : ''}`}
-                    placeholder="Nhập mật khẩu của bạn"
+                    placeholder="Nhập mật khẩu của bạn (để trống nếu tạo qua Google)"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (errorMsg) setErrorMsg('');
+                    }}
                   />
                   <button
                     type="button"
