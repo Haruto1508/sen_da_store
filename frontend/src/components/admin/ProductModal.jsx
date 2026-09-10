@@ -85,6 +85,17 @@ export default function ProductModal({
     }
   };
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (isUploading) {
+      setUploadError('Vui lòng đợi ảnh tải lên cloud hoàn tất trước khi lưu sản phẩm!');
+      return;
+    }
+    if (onSave) {
+      onSave(e);
+    }
+  };
+
   return (
     <div
       className="admin-modal-overlay"
@@ -114,7 +125,7 @@ export default function ProductModal({
           </button>
         </div>
 
-        <form onSubmit={onSave} style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
           <div className="admin-modal-body">
             {/* Basic info */}
             <div className="admin-form-row">
@@ -423,9 +434,24 @@ export default function ProductModal({
             >
               Hủy Bỏ
             </button>
-            <button type="submit" className="btn-primary">
-              <Check size={16} />
-              <span>{editingProduct ? 'Cập Nhật Sen Đá' : 'Lưu Vào Cửa Hàng'}</span>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={isUploading}
+              title={isUploading ? 'Vui lòng đợi ảnh tải lên cloud hoàn tất' : ''}
+              style={{ opacity: isUploading ? 0.7 : 1, cursor: isUploading ? 'not-allowed' : 'pointer' }}
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 size={16} className="spin" />
+                  <span>Đang Tải Ảnh Lên Cloud...</span>
+                </>
+              ) : (
+                <>
+                  <Check size={16} />
+                  <span>{editingProduct ? 'Cập Nhật Sen Đá' : 'Lưu Vào Cửa Hàng'}</span>
+                </>
+              )}
             </button>
           </div>
         </form>
