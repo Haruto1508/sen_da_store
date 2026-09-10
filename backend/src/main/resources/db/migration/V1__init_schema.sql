@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS orders (
     customer_name VARCHAR(255) NOT NULL,
     customer_phone VARCHAR(50) NOT NULL,
     customer_address VARCHAR(500) NOT NULL,
+    customer_email VARCHAR(255),
     note VARCHAR(1000),
     payment_method VARCHAR(50),
     subtotal INT,

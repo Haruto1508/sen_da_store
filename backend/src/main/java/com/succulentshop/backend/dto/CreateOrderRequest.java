@@ -7,6 +7,7 @@ public class CreateOrderRequest {
     private String customerName;
     private String customerPhone;
     private String customerAddress;
+    private String customerEmail;
     private String note;
     private String paymentMethod; // 'vietqr' | 'cod'
     private String discountCode;
@@ -44,6 +45,9 @@ public class CreateOrderRequest {
 
     public String getCustomerAddress() { return customerAddress; }
     public void setCustomerAddress(String customerAddress) { this.customerAddress = customerAddress; }
+
+    public String getCustomerEmail() { return customerEmail; }
+    public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
 
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }

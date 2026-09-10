@@ -13,14 +13,14 @@ import NewsPage from './pages/NewsPage';
 import NewsDetailPage from './pages/NewsDetailPage';
 import AdminPage from './pages/AdminPage';
 import CheckoutPage from './pages/CheckoutPage';
-import QuizPage from './pages/QuizPage';
 import AccountPage from './pages/AccountPage';
+import CartPage from './pages/CartPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 
 import { PRODUCTS } from './data/products';
-import { getProducts, validateCoupon } from './services/api';
+import { getProducts, validateCoupon, USE_MOCK_DATA } from './services/api';
 
 // Route Helper Wrappers to extract URL parameters via useParams()
 function ProductDetailRoute({ productList, onAddToCart, onBuyNow, wishlist, onToggleWishlist, navigateTo }) {
@@ -80,13 +80,23 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Products state (loaded from Java backend API or mockData.json)
-  const [productList, setProductList] = useState(PRODUCTS);
+  // Products state (loaded from Java backend API or fallback mockData.json)
+  const [productList, setProductList] = useState(USE_MOCK_DATA ? PRODUCTS : []);
+  const [loadingProducts, setLoadingProducts] = useState(!USE_MOCK_DATA);
 
-  // Cart state from LocalStorage
+  // Khóa lưu trữ giỏ hàng tách biệt rõ ràng giữa chế độ Mock Data và Live Database
+  const cartStorageKey = USE_MOCK_DATA ? 'senxinh_cart_mock' : 'senxinh_cart_live';
+
+  // Cart state from LocalStorage (không tải dữ liệu mock cũ khi đã tắt mock data)
   const [cartItems, setCartItems] = useState(() => {
     try {
-      const saved = localStorage.getItem('senxinh_cart');
+      if (!USE_MOCK_DATA) {
+        // Tắt mock data: Dọn dẹp key mock cũ và chỉ lấy giỏ hàng của Live Backend
+        localStorage.removeItem('senxinh_cart');
+        const liveSaved = localStorage.getItem(cartStorageKey);
+        return liveSaved ? JSON.parse(liveSaved) : [];
+      }
+      const saved = localStorage.getItem(cartStorageKey) || localStorage.getItem('senxinh_cart');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -115,7 +125,7 @@ export default function App() {
   const [discountCode, setDiscountCode] = useState('');
   const [discountPercent, setDiscountPercent] = useState(0);
 
-  // User state (Loaded from LocalStorage with fallback demo user)
+  // User state (Loaded from LocalStorage; defaults to null for unauthenticated guests)
   const [user, setUser] = useState(() => {
     try {
       const saved = localStorage.getItem('senxinh_user');
@@ -123,14 +133,7 @@ export default function App() {
     } catch (err) {
       console.error('Lỗi khi đọc tài khoản từ LocalStorage:', err);
     }
-    return {
-      name: 'Nguyễn Hoàng Long',
-      email: 'long.senxinh@gmail.com',
-      phone: '0988 123 456',
-      address: '123 Phố Trúc Bạch, Quận Ba Đình, Hà Nội',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-      role: 'Thành viên thân thiết'
-    };
+    return null;
   });
 
   // Toasts
@@ -197,7 +200,7 @@ export default function App() {
         navigate(param ? `/order-success/${param}` : '/order-success');
         break;
       case 'quiz':
-        navigate('/quiz');
+        navigate('/shop');
         break;
       case 'account':
         navigate('/account');
@@ -220,23 +223,109 @@ export default function App() {
 
   // Load products from API / Mock
   useEffect(() => {
+    setLoadingProducts(true);
     getProducts()
       .then((data) => {
-        if (data && data.length > 0) {
+        if (Array.isArray(data) && data.length > 0) {
           setProductList(data);
+        } else if (USE_MOCK_DATA) {
+          setProductList(PRODUCTS);
+        } else {
+          setProductList(data || []);
         }
       })
-      .catch((err) => console.error('Error loading products:', err));
+      .catch((err) => {
+        console.warn('Lỗi khi tải sản phẩm từ API:', err);
+        if (USE_MOCK_DATA) {
+          setProductList(PRODUCTS);
+        } else {
+          // Khi tắt mock data (USE_MOCK_DATA=false), không được fallback sang dữ liệu mock
+          setProductList([]);
+        }
+      })
+      .finally(() => {
+        setLoadingProducts(false);
+      });
   }, []);
 
   // Save Cart to LocalStorage
   useEffect(() => {
     try {
-      localStorage.setItem('senxinh_cart', JSON.stringify(cartItems));
+      localStorage.setItem(cartStorageKey, JSON.stringify(cartItems));
+      if (!USE_MOCK_DATA) {
+        localStorage.removeItem('senxinh_cart');
+      }
     } catch (err) {
       console.error(err);
     }
-  }, [cartItems]);
+  }, [cartItems, cartStorageKey]);
+
+  // Đồng bộ động giỏ hàng với dữ liệu sản phẩm mới nhất từ Database API
+  useEffect(() => {
+    if (!productList) return;
+
+    setCartItems((prevItems) => {
+      if (!prevItems || prevItems.length === 0) return prevItems;
+
+      // Khi tắt mock data (!USE_MOCK_DATA): loại bỏ bất kỳ sản phẩm nào không tồn tại trong Database thực tế
+      let filtered = prevItems;
+      if (!USE_MOCK_DATA) {
+        filtered = prevItems.filter((item) =>
+          productList.some((p) => p.id === item.id || (p.publicId && p.publicId === item.id))
+        );
+      }
+
+      let hasChanges = filtered.length !== prevItems.length;
+      let adjustedCount = 0;
+
+      const updatedItems = filtered.map((item) => {
+        // Tìm sản phẩm tương ứng từ Database API
+        const liveProduct = productList.find(
+          (p) => p.id === item.id || (p.publicId && p.publicId === item.id)
+        );
+
+        if (!liveProduct) {
+          return item;
+        }
+
+        const currentStock = liveProduct.inStock !== undefined ? liveProduct.inStock : 999;
+        const stockExceeded = currentStock > 0 && item.quantity > currentStock;
+        const newQty = stockExceeded ? currentStock : item.quantity;
+        if (stockExceeded) adjustedCount++;
+
+        const isModified =
+          liveProduct.price !== item.price ||
+          liveProduct.originalPrice !== item.originalPrice ||
+          liveProduct.name !== item.name ||
+          liveProduct.image !== item.image ||
+          liveProduct.inStock !== item.inStock ||
+          item.quantity !== newQty;
+
+        if (isModified) {
+          hasChanges = true;
+          return {
+            ...item,
+            name: liveProduct.name || item.name,
+            scientificName: liveProduct.scientificName || item.scientificName,
+            price: liveProduct.price !== undefined ? liveProduct.price : item.price,
+            originalPrice: liveProduct.originalPrice !== undefined ? liveProduct.originalPrice : item.originalPrice,
+            image: liveProduct.image || item.image,
+            inStock: liveProduct.inStock !== undefined ? liveProduct.inStock : item.inStock,
+            category: liveProduct.category || item.category,
+            quantity: newQty
+          };
+        }
+
+        return item;
+      });
+
+      if (adjustedCount > 0) {
+        addToast(`Số lượng một số sản phẩm trong giỏ đã được tự động điều chỉnh theo tồn kho thực tế.`, 'info');
+      }
+
+      return hasChanges ? updatedItems : prevItems;
+    });
+  }, [productList]);
 
   // Save Wishlist to LocalStorage
   useEffect(() => {
@@ -256,19 +345,64 @@ export default function App() {
     }, 3500);
   };
 
-  // Cart operations
+  // Cart operations (Đồng bộ tồn kho động từ Database)
   const handleAddToCart = (product, qty = 1, showToast = true) => {
+    const liveProduct =
+      productList.find((p) => p.id === product.id || (p.publicId && p.publicId === product.id)) || product;
+    const availableStock = liveProduct.inStock !== undefined ? liveProduct.inStock : 999;
+
+    if (availableStock <= 0) {
+      addToast(`Cây "${liveProduct.name}" hiện đang tạm hết hàng trong kho.`, 'error');
+      return;
+    }
+
+    let reachedMax = false;
     setCartItems((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
+      const existing = prev.find((item) => item.id === liveProduct.id);
       if (existing) {
+        const targetQty = existing.quantity + qty;
+        if (targetQty > availableStock) {
+          reachedMax = true;
+          return prev.map((item) =>
+            item.id === liveProduct.id
+              ? {
+                  ...item,
+                  ...liveProduct,
+                  quantity: availableStock,
+                  inStock: availableStock
+                }
+              : item
+          );
+        }
         return prev.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + qty } : item
+          item.id === liveProduct.id
+            ? {
+                ...item,
+                ...liveProduct,
+                quantity: targetQty,
+                inStock: availableStock
+              }
+            : item
         );
       }
-      return [...prev, { ...product, quantity: qty }];
+
+      const initialQty = Math.min(qty, availableStock);
+      return [
+        ...prev,
+        {
+          ...liveProduct,
+          quantity: initialQty,
+          inStock: availableStock
+        }
+      ];
     });
+
     if (showToast) {
-      addToast(`Đã thêm ${product.name} vào giỏ hàng!`, 'cart');
+      if (reachedMax) {
+        addToast(`Đã điều chỉnh về tối đa ${availableStock} cây có sẵn trong kho!`, 'info');
+      } else {
+        addToast(`Đã thêm ${liveProduct.name} vào giỏ hàng!`, 'cart');
+      }
     }
   };
 
@@ -315,8 +449,22 @@ export default function App() {
       handleRemoveItem(productId);
       return;
     }
+
+    const liveProduct = productList.find(
+      (p) => p.id === productId || (p.publicId && p.publicId === productId)
+    );
+    const availableStock = liveProduct?.inStock !== undefined ? liveProduct.inStock : 999;
+
+    if (newQty > availableStock) {
+      addToast(`Kho chỉ còn tối đa ${availableStock} cây cho sản phẩm này!`, 'info');
+      setCartItems((prev) =>
+        prev.map((item) => (item.id === productId ? { ...item, quantity: availableStock, inStock: availableStock } : item))
+      );
+      return;
+    }
+
     setCartItems((prev) =>
-      prev.map((item) => (item.id === productId ? { ...item, quantity: newQty } : item))
+      prev.map((item) => (item.id === productId ? { ...item, quantity: newQty, inStock: availableStock } : item))
     );
   };
 
@@ -338,20 +486,26 @@ export default function App() {
     });
   };
 
-  // Validate coupon
+  // Validate coupon (kết nối API Backend)
   const handleApplyCoupon = async (code) => {
     try {
       const result = await validateCoupon(code);
       if (result.valid) {
         setDiscountCode(result.code);
         setDiscountPercent(result.discountPercent);
-        addToast(`Áp dụng mã giảm ${result.discountPercent}% thành công!`, 'cart');
-        return true;
+        addToast(`Áp dụng mã ${result.code} (-${result.discountPercent}%) thành công!`, 'cart');
+        return { success: true, message: `Áp dụng mã ${result.code} thành công!` };
       }
-      return false;
-    } catch {
-      return false;
+      return { success: false, message: result.message || 'Mã ưu đãi không hợp lệ hoặc đã hết hạn' };
+    } catch (err) {
+      return { success: false, message: err.message || 'Lỗi khi kiểm tra mã ưu đãi' };
     }
+  };
+
+  const handleRemoveCoupon = () => {
+    setDiscountCode('');
+    setDiscountPercent(0);
+    addToast('Đã gỡ mã ưu đãi', 'info');
   };
 
   // Filter & Sort Logic for Shop Page
@@ -406,6 +560,21 @@ export default function App() {
           onLogout={handleLogout}
           onOpenWishlist={() => navigateTo('wishlist')}
           onNavigate={navigateTo}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          products={productList}
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+          selectedLight={selectedLight}
+          onSelectLight={setSelectedLight}
+          selectedDifficulty={selectedDifficulty}
+          onSelectDifficulty={setSelectedDifficulty}
+          onResetFilters={() => {
+            setSelectedCategory('all');
+            setSelectedLight('all');
+            setSelectedDifficulty('all');
+            setSearchQuery('');
+          }}
         />
       )}
 
@@ -425,7 +594,13 @@ export default function App() {
                 onNavigateShop={() => navigateTo('shop')}
                 onNavigateNews={() => navigateTo('news')}
                 onSelectArticle={(id) => navigateTo('news-detail', id)}
-                onOpenQuiz={() => navigateTo('quiz')}
+                onApplyFilters={(filterObj) => {
+                  if (filterObj.category !== undefined) setSelectedCategory(filterObj.category);
+                  if (filterObj.searchQuery !== undefined) setSearchQuery(filterObj.searchQuery);
+                  if (filterObj.light !== undefined) setSelectedLight(filterObj.light);
+                  if (filterObj.difficulty !== undefined) setSelectedDifficulty(filterObj.difficulty);
+                  navigateTo('shop');
+                }}
               />
             }
           />
@@ -437,6 +612,7 @@ export default function App() {
             element={
               <ShopPage
                 products={filteredProducts}
+                allProductsCount={productList.length}
                 selectedCategory={selectedCategory}
                 onSelectCategory={setSelectedCategory}
                 searchQuery={searchQuery}
@@ -536,18 +712,8 @@ export default function App() {
             }
           />
 
-          {/* Dedicated Quiz Page */}
-          <Route
-            path="/quiz"
-            element={
-              <QuizPage
-                onSelectProduct={(prod) => navigateTo('product-detail', prod.id)}
-                onAddToCart={handleAddToCart}
-                onNavigateHome={() => navigateTo('home')}
-                onNavigateShop={() => navigateTo('shop')}
-              />
-            }
-          />
+          {/* Quiz Route -> Redirects to Shop */}
+          <Route path="/quiz" element={<Navigate to="/shop" replace />} />
 
           {/* Dedicated Admin Console Route */}
           <Route
@@ -601,36 +767,26 @@ export default function App() {
           />
           <Route path="/password" element={<Navigate to="/forgot-password" replace />} />
 
-          {/* Dedicated Cart Route (Opens AccountPage with Cart Tab) */}
+          {/* Dedicated Cart Route (Opens CartPage directly) */}
           <Route
             path="/cart"
             element={
-              <AccountPage
-                initialTab="cart"
-                user={user}
-                wishlistCount={wishlist.length}
-                cartCount={cartTotalCount}
+              <CartPage
                 cartItems={cartItems}
-                products={productList}
-                wishlist={wishlist}
-                discountCode={discountCode}
-                discountPercent={discountPercent}
                 onUpdateQty={handleUpdateQty}
                 onRemoveItem={handleRemoveItem}
+                discountCode={discountCode}
+                discountPercent={discountPercent}
                 onApplyCoupon={handleApplyCoupon}
-                onToggleWishlist={handleToggleWishlist}
-                onAddToCart={handleAddToCart}
-                onOpenProductDetail={(id) => navigateTo('product-detail', id)}
-                onNavigateCheckout={() => navigateTo('checkout')}
-                onNavigateShop={() => navigateTo('shop')}
-                onNavigateCart={() => navigateTo('cart')}
-                onNavigateAdmin={() => navigateTo('admin')}
-                onNavigateHome={() => navigateTo('home')}
-                onLogout={handleLogout}
-                onUpdateUser={(updated) => {
-                  setUser((prev) => ({ ...prev, ...updated }));
-                  addToast('Đã cập nhật thông tin tài khoản thành công!', 'info');
+                onRemoveCoupon={handleRemoveCoupon}
+                onClearCart={() => {
+                  setCartItems([]);
+                  addToast('Đã xóa sạch giỏ hàng!', 'info');
                 }}
+                onNavigateShop={() => navigateTo('shop')}
+                onNavigateCheckout={() => navigateTo('checkout')}
+                onNavigateHome={() => navigateTo('home')}
+                onOpenProductDetail={(id) => navigateTo('product-detail', id)}
               />
             }
           />

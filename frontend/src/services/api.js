@@ -5,12 +5,35 @@ import mockData from '../data/mockData.json';
 // Có thể bật / tắt chế độ Mock Data từ biến môi trường: VITE_USE_MOCK_DATA
 // ==============================================================================
 
-export const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+export const getUseMockData = () => {
+  if (typeof window !== 'undefined') {
+    const localOverride = localStorage.getItem('senxinh_use_mock_data');
+    if (localOverride === 'true') return true;
+    if (localOverride === 'false') return false;
+  }
+  return import.meta.env.VITE_USE_MOCK_DATA === 'true';
+};
+
+export const USE_MOCK_DATA = getUseMockData();
 export const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+
+/**
+ * Hàm hỗ trợ bật/tắt Mock Data ngay trong console hoặc giao diện
+ */
+export function setUseMockData(enable) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('senxinh_use_mock_data', enable ? 'true' : 'false');
+    window.location.reload();
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.setUseMockData = setUseMockData;
+}
 
 console.info(
   `%c🌿 [Sen Xinh Garden] Chế độ dữ liệu: ${
-    USE_MOCK_DATA ? 'MOCK DATA JSON (VITE_USE_MOCK_DATA=true)' : 'LIVE BACKEND POSTGRESQL (VITE_USE_MOCK_DATA=false)'
+    USE_MOCK_DATA ? 'MOCK DATA JSON (USE_MOCK_DATA=true)' : 'LIVE BACKEND POSTGRESQL (USE_MOCK_DATA=false)'
   }`,
   'color: #10b981; font-weight: bold; font-size: 13px;'
 );
@@ -19,16 +42,24 @@ console.info(
 // LOCAL STORAGE MOCK DB HELPERS (Sử dụng dữ liệu từ mockData.json làm gốc)
 // ==============================================================================
 
+export const DEFAULT_COUPONS = [
+  { code: 'SENXANH10', discountPercent: 10, isActive: true, description: 'Giảm 10% cho đơn hàng đầu tiên' },
+  { code: 'SENXANH20', discountPercent: 20, isActive: true, description: 'Giảm 20% cho khách hàng thân thiết' },
+  { code: 'SENMOI50', discountPercent: 15, isActive: true, description: 'Voucher chào mừng thành viên mới' },
+  { code: 'FREESHIP', discountPercent: 5, isActive: true, description: 'Hỗ trợ 5% phí giao vận toàn quốc' }
+];
+
 export function getStoredCoupons() {
   try {
     const saved = localStorage.getItem('senxinh_admin_coupons');
     if (!saved) {
-      localStorage.setItem('senxinh_admin_coupons', JSON.stringify(mockData.coupons));
-      return mockData.coupons;
+      const initial = (mockData && mockData.coupons) || DEFAULT_COUPONS;
+      localStorage.setItem('senxinh_admin_coupons', JSON.stringify(initial));
+      return initial;
     }
     return JSON.parse(saved);
   } catch {
-    return mockData.coupons;
+    return (mockData && mockData.coupons) || DEFAULT_COUPONS;
   }
 }
 
@@ -112,122 +143,27 @@ export function saveStoredUsers(users) {
   }
 }
 
-export const SEED_MOCK_ORDERS = [
-  {
-    id: 1718000001,
-    orderCode: 'SX-HL8812',
-    customerName: 'Nguyễn Hoàng Long',
-    customerEmail: 'long.senxinh@gmail.com',
-    customerPhone: '0988123456',
-    shippingAddress: '123 Phố Trúc Bạch, Quận Ba Đình, Hà Nội',
-    status: 'COMPLETED',
-    paymentMethod: 'VIETQR',
-    createdAt: '2026-08-28T09:15:00.000Z',
-    items: [
-      {
-        id: 'sen-da-kim-cuong',
-        name: 'Sen Đá Kim Cương Pha Lê (Haworthia Cooperi)',
-        price: 85000,
-        quantity: 2,
-        image: 'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=800&q=80'
-      },
-      {
-        id: 'sen-da-chuoi-ngoc',
-        name: 'Sen Đá Chuỗi Ngọc Bi Rủ',
-        price: 65000,
-        quantity: 1,
-        image: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=800&q=80'
-      },
-      {
-        id: 'dat-trong-sen-da',
-        name: 'Đất Trồng Sen Đá Chuyên Dụng Soil Mix (1kg)',
-        price: 35000,
-        quantity: 1,
-        image: 'https://images.unsplash.com/photo-1520302630591-fd1c66edc19d?auto=format&fit=crop&w=800&q=80'
-      }
-    ],
-    subtotal: 270000,
-    discountAmount: 20000,
-    shippingFee: 15000,
-    totalAmount: 265000,
-    note: 'Giao giờ hành chính, bọc kỹ chậu giúp mình nhé shop.'
-  },
-  {
-    id: 1718000002,
-    orderCode: 'SX-HL9941',
-    customerName: 'Nguyễn Hoàng Long',
-    customerEmail: 'long.senxinh@gmail.com',
-    customerPhone: '0988123456',
-    shippingAddress: '123 Phố Trúc Bạch, Quận Ba Đình, Hà Nội',
-    status: 'SHIPPING',
-    paymentMethod: 'COD',
-    createdAt: '2026-09-02T14:30:00.000Z',
-    items: [
-      {
-        id: 'sen-da-mong-rong',
-        name: 'Sen Đá Móng Rồng Xanh Viền Trắng',
-        price: 55000,
-        quantity: 2,
-        image: 'https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?auto=format&fit=crop&w=800&q=80'
-      },
-      {
-        id: 'chau-dat-nung-mini',
-        name: 'Bộ 2 Chậu Đất Nung Thấm Nước Size M',
-        price: 45000,
-        quantity: 1,
-        image: 'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=800&q=80'
-      }
-    ],
-    subtotal: 155000,
-    discountAmount: 0,
-    shippingFee: 20000,
-    totalAmount: 175000,
-    note: 'Gọi trước khi giao 15 phút.'
-  },
-  {
-    id: 1718000003,
-    orderCode: 'SX-AD1002',
-    customerName: 'Quản Trị Viên Sen Xinh',
-    customerEmail: 'admin@senxinh.vn',
-    customerPhone: '0901234567',
-    shippingAddress: 'Vườn Sen Xinh, Tây Hồ, Hà Nội',
-    status: 'PAID',
-    paymentMethod: 'MOMO',
-    createdAt: '2026-09-04T10:00:00.000Z',
-    items: [
-      {
-        id: 'sen-da-hoa-hong-xanh',
-        name: 'Sen Đá Hoa Hồng Xanh Cổ Thụ',
-        price: 150000,
-        quantity: 2,
-        image: 'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=800&q=80'
-      },
-      {
-        id: 'sen-da-do-la-hong',
-        name: 'Sen Đá Đô La Hồng Cẩm Thạch',
-        price: 120000,
-        quantity: 1,
-        image: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=800&q=80'
-      }
-    ],
-    subtotal: 420000,
-    discountAmount: 40000,
-    shippingFee: 0,
-    totalAmount: 380000,
-    note: 'Đơn đặt kiểm tra cây giống nhập khẩu'
-  }
-];
+export const SEED_MOCK_ORDERS = mockData.orders || [];
 
 export function getStoredOrders() {
   try {
     const raw = localStorage.getItem('senxinh_mock_orders');
-    if (!raw || JSON.parse(raw).length === 0) {
-      localStorage.setItem('senxinh_mock_orders', JSON.stringify(SEED_MOCK_ORDERS));
-      return SEED_MOCK_ORDERS;
+    if (raw !== null) {
+      return JSON.parse(raw);
     }
-    return JSON.parse(raw);
+    const initialOrders = mockData.orders || [];
+    localStorage.setItem('senxinh_mock_orders', JSON.stringify(initialOrders));
+    return initialOrders;
   } catch {
-    return SEED_MOCK_ORDERS;
+    return mockData.orders || [];
+  }
+}
+
+export function saveStoredOrders(orders) {
+  try {
+    localStorage.setItem('senxinh_mock_orders', JSON.stringify(orders));
+  } catch (err) {
+    console.error('Không thể lưu orders:', err);
   }
 }
 
@@ -281,21 +217,37 @@ export async function getProductById(id) {
  */
 export async function createOrder(orderPayload) {
   if (USE_MOCK_DATA) {
+    const subtotal = orderPayload.items?.reduce((sum, it) => sum + (it.price || 0) * (it.quantity || 1), 0) || 0;
+    const discountAmount = orderPayload.discountAmount || 0;
+    const shippingFee = orderPayload.shippingFee !== undefined ? orderPayload.shippingFee : (subtotal >= 200000 || subtotal === 0 ? 0 : 30000);
+    const totalAmount = orderPayload.totalAmount || Math.max(0, subtotal - discountAmount + shippingFee);
+
     const mockOrder = {
       id: Date.now(),
       orderCode: orderPayload.orderCode || `SX-${Date.now().toString(36).toUpperCase()}`,
       status: 'PENDING',
-      ...orderPayload,
+      customerName: orderPayload.customerName || 'Khách hàng',
+      customerPhone: orderPayload.customerPhone || '',
+      customerEmail: orderPayload.customerEmail || '',
+      shippingAddress: orderPayload.customerAddress || orderPayload.shippingAddress || '',
+      customerAddress: orderPayload.customerAddress || orderPayload.shippingAddress || '',
+      paymentMethod: orderPayload.paymentMethod || 'vietqr',
+      items: orderPayload.items || [],
+      subtotal,
+      discountAmount,
+      shippingFee,
+      totalAmount,
+      note: orderPayload.note || '',
       createdAt: new Date().toISOString()
     };
     try {
-      const existing = JSON.parse(localStorage.getItem('senxinh_mock_orders') || '[]');
+      const existing = getStoredOrders();
       existing.unshift(mockOrder);
-      localStorage.setItem('senxinh_mock_orders', JSON.stringify(existing));
+      saveStoredOrders(existing);
     } catch (e) {
       console.error('Lỗi lưu đơn hàng mock:', e);
     }
-    return { success: true, data: mockOrder };
+    return { success: true, data: mockOrder, order: mockOrder };
   }
 
   const res = await fetch(`${API_BASE}/orders`, {
@@ -321,7 +273,7 @@ export async function createOrder(orderPayload) {
  */
 export async function lookupOrder(orderCode) {
   if (USE_MOCK_DATA) {
-    const existing = JSON.parse(localStorage.getItem('senxinh_mock_orders') || '[]');
+    const existing = getStoredOrders();
     const found = existing.find((o) => o.orderCode === orderCode);
     if (found) return found;
     throw new Error('Không tìm thấy đơn hàng trong Mock Data');
@@ -365,23 +317,64 @@ export async function submitReview(productId, reviewData) {
 /**
  * Lấy lịch sử đơn hàng của người dùng theo số điện thoại
  */
-export async function getCustomerOrders(identifier) {
+export async function getCustomerOrders(identifier, email) {
   if (USE_MOCK_DATA) {
     const mockOrders = getStoredOrders();
-    if (!identifier) return mockOrders;
-    const query = String(identifier).toLowerCase();
+    if (!identifier && !email) return mockOrders;
+    const qId = identifier ? String(identifier).toLowerCase().trim() : '';
+    const qEmail = email ? String(email).toLowerCase().trim() : '';
     return mockOrders.filter(
       (o) =>
-        (o.customerPhone && o.customerPhone.includes(query)) ||
-        (o.customerEmail && o.customerEmail.toLowerCase() === query) ||
-        (o.customerName && o.customerName.toLowerCase().includes(query))
+        (qId && o.customerPhone && o.customerPhone.toLowerCase().includes(qId)) ||
+        (qId && o.customerEmail && o.customerEmail.toLowerCase().includes(qId)) ||
+        (qId && o.customerName && o.customerName.toLowerCase().includes(qId)) ||
+        (qEmail && o.customerEmail && o.customerEmail.toLowerCase().includes(qEmail))
     );
   }
 
-  const res = await fetch(`${API_BASE}/users/my-orders?phone=${encodeURIComponent(identifier)}`);
+  try {
+    const params = new URLSearchParams();
+    if (identifier) params.append('phone', identifier);
+    if (email) params.append('email', email);
+
+    const res = await fetch(`${API_BASE}/users/my-orders?${params.toString()}`);
+    if (!res.ok) {
+      console.warn(`Lỗi API lịch sử đơn hàng: HTTP ${res.status}`);
+      return [];
+    }
+    const data = await res.json();
+    return data.data || [];
+  } catch (err) {
+    console.warn('Lỗi kết nối API đơn hàng:', err);
+    // Khi chạy Backend thực tế, trả về mảng rỗng để hiển thị Empty State sạch sẽ thay vì data cứng
+    return [];
+  }
+}
+
+/**
+ * Khách hàng hủy đơn hàng (khi đang PENDING)
+ */
+export async function cancelCustomerOrder(orderId) {
+  if (USE_MOCK_DATA) {
+    const orders = getStoredOrders();
+    const target = orders.find((o) => o.id === orderId || o.orderCode === orderId);
+    if (!target) throw new Error('Không tìm thấy đơn hàng để hủy');
+    if (target.status !== 'PENDING') {
+      throw new Error('Đơn hàng đã được xử lý, không thể tự hủy');
+    }
+    target.status = 'CANCELLED';
+    saveStoredOrders(orders);
+    return { success: true, message: 'Đã hủy đơn hàng thành công', data: target };
+  }
+
+  const res = await fetch(`${API_BASE}/orders/${orderId}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'CANCELLED' })
+  });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || 'Không thể lấy lịch sử đơn hàng');
-  return data.data || [];
+  if (!res.ok) throw new Error(data.message || 'Không thể hủy đơn hàng');
+  return data;
 }
 
 /**
@@ -412,8 +405,9 @@ export async function updateUserProfile(profileData) {
  * Kiểm tra mã ưu đãi / voucher
  */
 export async function validateCoupon(code) {
+  const cleanCode = (code || '').trim().toUpperCase();
+
   if (USE_MOCK_DATA) {
-    const cleanCode = (code || '').trim().toUpperCase();
     const coupons = getStoredCoupons();
     const found = coupons.find((c) => c.code === cleanCode && c.isActive);
     if (found) {
@@ -427,23 +421,38 @@ export async function validateCoupon(code) {
     return { valid: false, message: 'Mã giảm giá không hợp lệ hoặc đã hết hạn' };
   }
 
-  const res = await fetch(`${API_BASE}/coupons/validate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code })
-  });
+  try {
+    const res = await fetch(`${API_BASE}/coupons/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: cleanCode })
+    });
 
-  const json = await res.json();
-  if (!res.ok || !json.success) {
-    return { valid: false, message: json.message || 'Mã không hợp lệ' };
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { valid: false, message: json.message || 'Mã không hợp lệ' };
+    }
+    const payload = json.data || json;
+    return {
+      valid: payload.valid !== false,
+      code: payload.code,
+      discountPercent: payload.discountPercent,
+      description: payload.description
+    };
+  } catch (err) {
+    console.warn('Backend API kiểm tra coupon không khả dụng, kiểm tra qua danh mục voucher hệ thống:', err);
+    const coupons = getStoredCoupons();
+    const found = coupons.find((c) => c.code === cleanCode && c.isActive);
+    if (found) {
+      return {
+        valid: true,
+        discountPercent: found.discountPercent,
+        code: found.code,
+        description: found.description
+      };
+    }
+    return { valid: false, message: 'Mã giảm giá không hợp lệ hoặc đã hết hạn' };
   }
-  const payload = json.data || json;
-  return {
-    valid: payload.valid !== false,
-    code: payload.code,
-    discountPercent: payload.discountPercent,
-    description: payload.description
-  };
 }
 
 // ==============================================================================
@@ -462,13 +471,22 @@ export async function getAdminOrders(status = 'all') {
     return mockOrders;
   }
 
-  const url =
-    status && status !== 'all'
-      ? `${API_BASE}/admin/orders?status=${status}`
-      : `${API_BASE}/admin/orders`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data.data || [];
+  try {
+    const url =
+      status && status !== 'all'
+        ? `${API_BASE}/admin/orders?status=${status}`
+        : `${API_BASE}/admin/orders`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn(`Lỗi lấy danh sách đơn Admin: HTTP ${res.status}`);
+      return [];
+    }
+    const data = await res.json();
+    return data.data || [];
+  } catch (err) {
+    console.warn('Lỗi kết nối admin orders:', err);
+    return [];
+  }
 }
 
 /**
@@ -505,16 +523,15 @@ export async function getAdminStats() {
     const paidOrders = orders.filter((o) => o.status === 'PAID' || o.status === 'COMPLETED').length;
     const pendingOrders = orders.filter((o) => o.status === 'PENDING').length;
     const completedOrders = orders.filter((o) => o.status === 'COMPLETED').length;
-    const totalRevenue =
-      orders
-        .filter((o) => o.status === 'PAID' || o.status === 'COMPLETED')
-        .reduce((sum, o) => sum + (o.totalAmount || 0), 0) || 3850000;
+    const totalRevenue = orders
+      .filter((o) => o.status === 'PAID' || o.status === 'COMPLETED')
+      .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
     return {
-      totalOrders: Math.max(orders.length, 6),
-      pendingOrders: Math.max(pendingOrders, 1),
-      paidOrders: Math.max(paidOrders, 4),
-      completedOrders: Math.max(completedOrders, 1),
+      totalOrders: orders.length,
+      pendingOrders,
+      paidOrders,
+      completedOrders,
       totalRevenue,
       totalProducts: products.length,
       totalCustomers: users.length,
@@ -522,9 +539,35 @@ export async function getAdminStats() {
     };
   }
 
-  const res = await fetch(`${API_BASE}/admin/stats`);
-  const data = await res.json();
-  return data.data;
+  try {
+    const res = await fetch(`${API_BASE}/admin/stats`);
+    if (!res.ok) {
+      return {
+        totalOrders: 0,
+        pendingOrders: 0,
+        paidOrders: 0,
+        completedOrders: 0,
+        totalRevenue: 0,
+        totalProducts: 0,
+        totalCustomers: 0,
+        totalCoupons: 0
+      };
+    }
+    const data = await res.json();
+    return data.data;
+  } catch (err) {
+    console.warn('Lỗi kết nối admin stats:', err);
+    return {
+      totalOrders: 0,
+      pendingOrders: 0,
+      paidOrders: 0,
+      completedOrders: 0,
+      totalRevenue: 0,
+      totalProducts: 0,
+      totalCustomers: 0,
+      totalCoupons: 0
+    };
+  }
 }
 
 /**
@@ -539,6 +582,37 @@ export async function getAdminProducts() {
   if (!res.ok) throw new Error('Không thể tải danh sách sản phẩm');
   const data = await res.json();
   return data.data || [];
+}
+
+/**
+ * Admin: Tải ảnh sản phẩm lên Cloud (Cloudinary / Fallback)
+ */
+export async function uploadProductImage(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch(`${API_BASE}/admin/upload-product-image`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Không thể tải ảnh lên cloud');
+    }
+    return data.data; // { url, publicId, storage, ... }
+  } catch (err) {
+    if (USE_MOCK_DATA) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve({ url: reader.result, publicId: `mock-img-${Date.now()}`, storage: 'MOCK_PREVIEW' });
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    throw err;
+  }
 }
 
 export async function createAdminProduct(productData) {
@@ -740,13 +814,14 @@ export async function updateCustomerRole(userId, newRole) {
 // MOMO PAYMENT APIs
 // ==============================================================================
 
-export async function createMoMoPayment(orderCode) {
+export async function createMoMoPayment(orderCode, amount = 0) {
+  const payAmount = Number(amount) > 0 ? Number(amount) : 150000;
   if (USE_MOCK_DATA) {
     return {
       success: true,
       data: {
         payUrl: 'https://test-payment.momo.vn',
-        qrCodeUrl: `https://img.vietqr.io/image/970422-0988123456-compact2.png?amount=150000&addInfo=${orderCode}&accountName=MOMO%20SEN%20XINH%20GARDEN`,
+        qrCodeUrl: `https://img.vietqr.io/image/970422-0988123456-compact2.png?amount=${payAmount}&addInfo=${orderCode}&accountName=MOMO%20SEN%20XINH%20GARDEN`,
         deeplink: `momo://payment?orderId=${orderCode}`
       }
     };
@@ -756,7 +831,7 @@ export async function createMoMoPayment(orderCode) {
     const res = await fetch(`${API_BASE}/payment/momo/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderCode })
+      body: JSON.stringify({ orderCode, amount: payAmount })
     });
     return await res.json();
   } catch (error) {
@@ -765,7 +840,7 @@ export async function createMoMoPayment(orderCode) {
       success: true,
       data: {
         payUrl: 'https://test-payment.momo.vn',
-        qrCodeUrl: `https://img.vietqr.io/image/970422-0988123456-compact2.png?amount=150000&addInfo=${orderCode}&accountName=MOMO%20SEN%20XINH%20GARDEN`,
+        qrCodeUrl: `https://img.vietqr.io/image/970422-0988123456-compact2.png?amount=${payAmount}&addInfo=${orderCode}&accountName=MOMO%20SEN%20XINH%20GARDEN`,
         deeplink: `momo://payment?orderId=${orderCode}`
       }
     };
@@ -802,8 +877,8 @@ export async function loginUser(email, password) {
       (u) =>
         (u.email.toLowerCase() === cleanEmail || u.phone === cleanEmail) &&
         (u.password === password ||
-          (cleanEmail === 'admin@senxinh.vn' && password === 'admin123') ||
-          (cleanEmail === 'long.senxinh@gmail.com' && password === '123456'))
+          (cleanEmail === 'admin@senxinh.vn' && (password === 'admin' || password === 'admin123')) ||
+          (cleanEmail === 'long.senxinh@gmail.com' && (password === '123' || password === '123456')))
     );
 
     if (matched) {

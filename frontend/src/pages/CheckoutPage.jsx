@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   CreditCard, 
   Truck, 
@@ -14,7 +15,8 @@ import {
   Smartphone,
   ExternalLink,
   Zap,
-  Loader2
+  Loader2,
+  Package
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { createOrder, createMoMoPayment, simulateMoMoPayment, lookupOrder } from '../services/api';
@@ -34,6 +36,11 @@ export default function CheckoutPage({
   onNavigateAdmin,
   initialOrderCode = null
 }) {
+  const navigate = useNavigate();
+  const isAdmin = Boolean(
+    user && (user.role?.toLowerCase().includes('admin') || user.email === 'admin@senxinh.vn')
+  );
+
   // Notification Modal
   const { modalProps, showModal } = useModal();
   const detectCity = (addr) => {
@@ -133,7 +140,7 @@ export default function CheckoutPage({
     bankName: 'Vietcombank',
     bankCode: 'VCB',
     accountNumber: '1028889999',
-    accountName: 'NGUYEN HOANG LONG',
+    accountName: 'SEN XINH GARDEN',
     branch: 'Chi nhánh Ba Đình - Hà Nội'
   };
 
@@ -161,6 +168,7 @@ export default function CheckoutPage({
         customerName: formData.name,
         customerPhone: formData.phone,
         customerAddress: formData.address,
+        customerEmail: user?.email || formData.email || '',
         note: formData.note,
         paymentMethod: formData.paymentMethod,
         discountCode: discountCode || '',
@@ -182,6 +190,7 @@ export default function CheckoutPage({
         paymentMethod: formData.paymentMethod,
         customerName: formData.name,
         customerPhone: formData.phone,
+        customerEmail: user?.email || formData.email || '',
         customerAddress: formData.address,
         status: 'PENDING'
       });
@@ -189,7 +198,7 @@ export default function CheckoutPage({
       // Nếu chọn MoMo, khởi tạo cổng thanh toán MoMo ngay
       if (formData.paymentMethod === 'momo') {
         try {
-          const momoRes = await createMoMoPayment(code);
+          const momoRes = await createMoMoPayment(code, total);
           if (momoRes && momoRes.data) {
             setMomoData(momoRes.data);
           }
@@ -217,10 +226,7 @@ export default function CheckoutPage({
       }
     } catch (err) {
       console.error('Lỗi khi tạo đơn hàng:', err);
-      // Fallback local completion
-      setOrderCode(currentCode);
-      setIsCompleted(true);
-      if (onClearCart) onClearCart();
+      showModal('error', err.message || 'Không thể tạo đơn hàng. Vui lòng kiểm tra lại kết nối máy chủ!');
     } finally {
       setSubmitting(false);
     }
@@ -531,10 +537,21 @@ export default function CheckoutPage({
                 <span>Tiếp Tục Khám Phá Cửa Hàng</span>
               </button>
 
-              <button className="btn-secondary" onClick={onNavigateAdmin} style={{ padding: '14px 24px' }}>
-                <ShieldCheck size={18} color="var(--primary)" />
-                <span>Xem Đơn Trên Trang Quản Trị</span>
-              </button>
+              {isAdmin ? (
+                <button className="btn-secondary" onClick={onNavigateAdmin} style={{ padding: '14px 24px' }}>
+                  <ShieldCheck size={18} color="var(--primary)" />
+                  <span>Xem Đơn Trên Trang Quản Trị</span>
+                </button>
+              ) : (
+                <button
+                  className="btn-secondary"
+                  onClick={() => navigate('/account', { state: { tab: 'orders' } })}
+                  style={{ padding: '14px 24px' }}
+                >
+                  <Package size={18} color="var(--primary)" />
+                  <span>Theo Dõi Đơn Hàng Của Tôi</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import FilterBar from '../components/FilterBar';
 import ProductCard from '../components/ProductCard';
 import Pagination from '../components/Pagination';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles, Sprout } from 'lucide-react';
 
 export default function ShopPage({
   products,
+  allProductsCount = products.length,
   selectedCategory,
   onSelectCategory,
   searchQuery,
@@ -146,6 +147,23 @@ export default function ShopPage({
               onPageChange={handlePageChange}
             />
           </>
+        ) : allProductsCount === 0 ? (
+          <div style={{ textAlign: 'center', padding: '70px 20px', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-light)' }}>
+            <Sprout size={50} style={{ color: 'var(--primary)', opacity: 0.7, marginBottom: '14px' }} />
+            <h3 style={{ fontSize: '1.35rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-main)' }}>
+              Hiện chưa có sản phẩm nào trong cửa hàng
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.94rem', maxWidth: '500px', margin: '0 auto 22px', lineHeight: 1.6 }}>
+              Cửa hàng đang trong quá trình cập nhật thêm các loại sen đá mới. Quý khách vui lòng quay lại sau hoặc tải lại trang!
+            </p>
+            <button 
+              className="btn-primary" 
+              onClick={() => window.location.reload()} 
+              style={{ padding: '12px 26px' }}
+            >
+              Tải Lại Trang
+            </button>
+          </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '70px 20px', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-light)' }}>
             <Sparkles size={40} style={{ color: 'var(--accent)', opacity: 0.5, marginBottom: '12px' }} />

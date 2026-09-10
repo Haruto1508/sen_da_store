@@ -29,6 +29,9 @@ public class Order {
     @Column(nullable = false)
     private String customerAddress;
 
+    @Column(name = "customer_email")
+    private String customerEmail;
+
     private String note;
     private String paymentMethod; // 'vietqr' | 'cod'
 
@@ -74,6 +77,9 @@ public class Order {
 
     public String getCustomerAddress() { return customerAddress; }
     public void setCustomerAddress(String customerAddress) { this.customerAddress = customerAddress; }
+
+    public String getCustomerEmail() { return customerEmail; }
+    public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
 
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }

@@ -19,6 +19,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByCustomerPhoneOrderByCreatedAtDesc(String customerPhone);
 
+    List<Order> findByCustomerEmailOrderByCreatedAtDesc(String customerEmail);
+
+    List<Order> findByCustomerPhoneOrCustomerEmailOrderByCreatedAtDesc(String customerPhone, String customerEmail);
+
     List<Order> findByCustomerPhoneContainingOrCustomerNameContainingOrderByCreatedAtDesc(String phone, String name);
 
     long countByStatus(String status);

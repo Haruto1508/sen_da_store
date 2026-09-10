@@ -37,7 +37,11 @@ public enum ErrorCode {
     COUPON_CODE_REQUIRED("CPN_001", "Vui lòng nhập mã giảm giá", HttpStatus.BAD_REQUEST),
     COUPON_NOT_FOUND("CPN_002", "Không tìm thấy mã giảm giá", HttpStatus.NOT_FOUND),
     COUPON_INVALID_OR_EXPIRED("CPN_003", "Mã giảm giá không hợp lệ hoặc đã hết hạn", HttpStatus.BAD_REQUEST),
-    COUPON_ALREADY_EXISTS("CPN_004", "Mã giảm giá này đã tồn tại trong hệ thống", HttpStatus.BAD_REQUEST);
+    COUPON_ALREADY_EXISTS("CPN_004", "Mã giảm giá này đã tồn tại trong hệ thống", HttpStatus.BAD_REQUEST),
+
+    // Upload Codes
+    FILE_TOO_LARGE("UPLOAD_001", "Dung lượng ảnh vượt quá giới hạn cho phép", HttpStatus.BAD_REQUEST),
+    FILE_TYPE_NOT_SUPPORTED("UPLOAD_002", "Định dạng file không được hỗ trợ", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

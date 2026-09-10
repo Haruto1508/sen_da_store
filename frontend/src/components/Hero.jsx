@@ -1,7 +1,7 @@
 import React from 'react';
-import { ArrowRight, Sparkles, ShieldCheck, Truck, HeartHandshake } from 'lucide-react';
+import { ArrowRight, Sparkles, ShieldCheck, Truck, HeartHandshake, SlidersHorizontal } from 'lucide-react';
 
-export default function Hero({ onExploreCatalog, onOpenQuiz }) {
+export default function Hero({ onExploreCatalog, onOpenFilter }) {
   return (
     <section className="hero">
       <div className="container">
@@ -30,9 +30,13 @@ export default function Hero({ onExploreCatalog, onOpenQuiz }) {
                 <ArrowRight size={18} />
               </button>
 
-              <button className="btn-secondary" onClick={onOpenQuiz}>
-                <Sparkles size={18} color="var(--accent)" />
-                <span>Trắc Nghiệm Chọn Cây</span>
+              <button 
+                className="btn-secondary" 
+                onClick={onOpenFilter || onExploreCatalog}
+                title="Lọc cây theo ánh sáng, vị trí và mức độ chăm sóc"
+              >
+                <SlidersHorizontal size={18} color="var(--primary)" />
+                <span>Tìm Cây & Lọc Nhanh</span>
               </button>
             </div>
 

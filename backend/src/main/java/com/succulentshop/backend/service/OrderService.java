@@ -103,6 +103,9 @@ public class OrderService {
         order.setCustomerName(request.getCustomerName().trim());
         order.setCustomerPhone(request.getCustomerPhone().trim());
         order.setCustomerAddress(request.getCustomerAddress().trim());
+        if (request.getCustomerEmail() != null && !request.getCustomerEmail().isBlank()) {
+            order.setCustomerEmail(request.getCustomerEmail().trim());
+        }
         order.setNote(request.getNote());
         order.setPaymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "vietqr");
         order.setSubtotal(subtotal);
@@ -159,14 +162,30 @@ public class OrderService {
         return convertOrderToMap(o);
     }
 
-    public List<Map<String, Object>> getOrdersByCustomer(String phone) {
-        if (phone == null || phone.isBlank()) return Collections.emptyList();
-        List<Order> list = orderRepository.findByCustomerPhoneOrderByCreatedAtDesc(phone.trim());
+    public List<Map<String, Object>> getOrdersByCustomer(String phone, String email) {
+        String cleanPhone = (phone != null && !phone.isBlank()) ? phone.trim() : null;
+        String cleanEmail = (email != null && !email.isBlank()) ? email.trim().toLowerCase() : null;
+
+        if (cleanPhone == null && cleanEmail == null) return Collections.emptyList();
+
+        List<Order> list;
+        if (cleanPhone != null && cleanEmail != null) {
+            list = orderRepository.findByCustomerPhoneOrCustomerEmailOrderByCreatedAtDesc(cleanPhone, cleanEmail);
+        } else if (cleanPhone != null) {
+            list = orderRepository.findByCustomerPhoneOrderByCreatedAtDesc(cleanPhone);
+        } else {
+            list = orderRepository.findByCustomerEmailOrderByCreatedAtDesc(cleanEmail);
+        }
+
         List<Map<String, Object>> result = new ArrayList<>();
         for (Order o : list) {
             result.add(convertOrderToMap(o));
         }
         return result;
+    }
+
+    public List<Map<String, Object>> getOrdersByCustomer(String phone) {
+        return getOrdersByCustomer(phone, null);
     }
 
     @Transactional
@@ -210,6 +229,7 @@ public class OrderService {
         map.put("customerName", o.getCustomerName());
         map.put("customerPhone", o.getCustomerPhone());
         map.put("customerAddress", o.getCustomerAddress());
+        map.put("customerEmail", o.getCustomerEmail() != null ? o.getCustomerEmail() : "");
         map.put("note", o.getNote());
         map.put("paymentMethod", o.getPaymentMethod());
         map.put("items", items);

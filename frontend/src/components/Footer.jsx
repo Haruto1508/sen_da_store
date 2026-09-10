@@ -58,7 +58,6 @@ export default function Footer() {
               <li><a href="#/news">Hướng dẫn xả bầu & thuần nắng</a></li>
               <li><a href="#/news">Chính sách giao hàng toàn quốc</a></li>
               <li><a href="#/news">Câu hỏi thường gặp (FAQ)</a></li>
-              <li><a href="#/admin" style={{ color: 'var(--secondary)', fontWeight: 600 }}>🌿 Quản trị nhà vườn (Admin)</a></li>
             </ul>
           </div>
 

@@ -34,6 +34,7 @@ public class AuthService {
         this(userRepository, null);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
     public AuthService(UserRepository userRepository, SocialAccountRepository socialAccountRepository) {
         this.userRepository = userRepository;
         this.socialAccountRepository = socialAccountRepository;
@@ -163,7 +164,7 @@ public class AuthService {
                     cleanEmail,
                     "",
                     null,
-                    "Hà Nội, Việt Nam",
+                    null,
                     "Thành viên mới",
                     userAvatar,
                     50

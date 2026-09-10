@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   User, 
   Mail, 
@@ -27,7 +28,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import { getAdminOrders, updateOrderStatus, getAdminStats, changePassword } from '../services/api';
+import { getAdminOrders, updateOrderStatus, getAdminStats, getCustomerOrders, cancelCustomerOrder, changePassword } from '../services/api';
 import NotificationModal from '../components/NotificationModal';
 import useModal from '../components/useModal';
 
@@ -70,16 +71,28 @@ export default function AccountPage({
   onLogout,
   onUpdateUser
 }) {
-  const [activeTab, setActiveTab] = useState(initialTab || 'profile');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.tab || initialTab || 'profile');
   // Notification Modal
   const { modalProps, showModal } = useModal();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: user?.name || 'Nguyễn Hoàng Long',
-    email: user?.email || 'long.senxinh@gmail.com',
-    phone: user?.phone || '0988 123 456',
-    address: user?.address || '123 Phố Trúc Bạch, Quận Ba Đình, Hà Nội'
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    address: user?.address || ''
   });
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        address: user.address || ''
+      });
+    }
+  }, [user]);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   // Coupon state in Cart Tab
@@ -143,22 +156,53 @@ export default function AccountPage({
   const [filterStatus, setFilterStatus] = useState('all');
   const [ordersLoading, setOrdersLoading] = useState(false);
 
-  // Sync tab if initialTab changes from parent
+  // Sync tab if initialTab or location.state.tab changes
   useEffect(() => {
-    if (initialTab) {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab);
+    } else if (initialTab) {
       setActiveTab(initialTab);
     }
-  }, [initialTab]);
+  }, [initialTab, location.state]);
+
+  const isAdmin = Boolean(user?.role?.toLowerCase().includes('admin') || user?.email === 'admin@senxinh.vn');
 
   const loadOrders = async () => {
+    if (!user) {
+      setOrders([]);
+      setStats(null);
+      return;
+    }
+
     setOrdersLoading(true);
     try {
-      const [orderList, statsData] = await Promise.all([
-        getAdminOrders(filterStatus),
-        getAdminStats()
-      ]);
+      let orderList = [];
+      let allUserOrders = [];
+
+      if (isAdmin) {
+        orderList = await getAdminOrders(filterStatus);
+        allUserOrders = (filterStatus === 'all') ? orderList : (await getAdminOrders('all') || []);
+      } else {
+        const identifier = user.phone || user.email || user.name;
+        const email = user.email || '';
+        allUserOrders = await getCustomerOrders(identifier, email);
+        if (filterStatus && filterStatus !== 'all') {
+          orderList = allUserOrders.filter((o) => o.status === filterStatus);
+        } else {
+          orderList = allUserOrders;
+        }
+      }
+
       setOrders(orderList || []);
-      setStats(statsData || null);
+
+      // Calculate user-centric order stats
+      const listForStats = allUserOrders || [];
+      setStats({
+        totalOrders: listForStats.length,
+        pendingOrders: listForStats.filter(o => o.status === 'PENDING').length,
+        paidOrders: listForStats.filter(o => o.status === 'PAID' || o.status === 'SHIPPING').length,
+        completedOrders: listForStats.filter(o => o.status === 'COMPLETED').length
+      });
     } catch (err) {
       console.error('Lỗi tải danh sách đơn hàng:', err);
     } finally {
@@ -170,7 +214,7 @@ export default function AccountPage({
     if (activeTab === 'orders') {
       loadOrders();
     }
-  }, [activeTab, filterStatus]);
+  }, [activeTab, filterStatus, user]);
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {
@@ -178,6 +222,17 @@ export default function AccountPage({
       loadOrders();
     } catch (err) {
       showModal('error', 'Không thể cập nhật trạng thái đơn hàng');
+    }
+  };
+
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) return;
+    try {
+      await cancelCustomerOrder(orderId);
+      showModal('success', 'Đã hủy đơn hàng thành công!');
+      loadOrders();
+    } catch (err) {
+      showModal('error', err.message || 'Không thể hủy đơn hàng');
     }
   };
 
@@ -291,28 +346,19 @@ export default function AccountPage({
           {/* Left Column: User Profile Sidebar (STAYS ALWAYS VISIBLE) */}
           <aside className="account-sidebar">
             <div className="profile-card">
-              <div className="profile-avatar-wrap">
-                <img 
-                  src={user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80"} 
-                  alt={formData.name} 
-                  className="profile-avatar-img" 
-                />
-                <span className="profile-online-badge" />
-              </div>
-
               <h2 className="profile-name">{formData.name}</h2>
               <p className="profile-email">{formData.email}</p>
 
               <div className="profile-membership-pill">
                 <Sparkles size={15} color="#D97757" />
-                <span>Thành Viên Thân Thiết</span>
+                <span>{user?.role || (user ? 'Thành Viên Mới' : 'Khách Ghé Thăm')}</span>
               </div>
 
               {/* Interactive Quick Stats (Clickable to switch tabs) */}
               <div className="profile-stats">
                 <div 
                   className={`profile-stat-item ${activeTab === 'cart' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('cart')}
+                  onClick={() => (onNavigateCart ? onNavigateCart() : setActiveTab('cart'))}
                   style={{ cursor: 'pointer' }}
                   title="Nhấn để xem giỏ hàng"
                 >
@@ -335,10 +381,25 @@ export default function AccountPage({
                 <div className="profile-stat-divider" />
 
                 <div className="profile-stat-item" title="Điểm tích lũy thành viên">
-                  <strong>240</strong>
+                  <strong>{user?.points ?? 0}</strong>
                   <span>Điểm Sen</span>
                 </div>
               </div>
+
+              {!user && (
+                <div style={{ padding: '12px 14px', background: '#FEF3C7', borderRadius: 'var(--radius-md)', margin: '14px 0', border: '1px solid #FDE68A', textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.82rem', color: '#92400E', marginBottom: '8px' }}>
+                    Đăng nhập để tích Điểm Sen và quản lý đơn hàng!
+                  </p>
+                  <button 
+                    className="btn-primary" 
+                    onClick={onLogout}
+                    style={{ padding: '6px 14px', fontSize: '0.82rem', width: '100%' }}
+                  >
+                    Đăng Nhập Ngay
+                  </button>
+                </div>
+              )}
 
               {/* Sidebar Navigation Links */}
               <div className="profile-nav-list">
@@ -376,7 +437,7 @@ export default function AccountPage({
 
                 <button 
                   className={`profile-nav-btn ${activeTab === 'cart' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('cart')}
+                  onClick={() => (onNavigateCart ? onNavigateCart() : setActiveTab('cart'))}
                 >
                   <ShoppingBag size={18} />
                   <span>Xem Giỏ Hàng</span>
@@ -410,9 +471,22 @@ export default function AccountPage({
           <main className="account-main">
             {/* 1. TAB: PROFILE INFO */}
             {activeTab === 'profile' && (
-              <>
-                <div className="account-card">
-                  <div className="account-card-header">
+              !user ? (
+                <div className="account-card" style={{ textAlign: 'center', padding: '60px 24px' }}>
+                  <User size={48} style={{ opacity: 0.35, color: 'var(--primary)', marginBottom: '16px' }} />
+                  <h3 style={{ fontSize: '1.3rem', marginBottom: '8px' }}>Bạn Chưa Đăng Nhập Tài Khoản</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', maxWidth: '480px', margin: '0 auto 24px' }}>
+                    Vui lòng đăng nhập để xem và cập nhật thông tin cá nhân, địa chỉ nhận cây mặc định và tích lũy Điểm Sen thưởng.
+                  </p>
+                  <button className="btn-primary" onClick={onLogout} style={{ padding: '12px 28px' }}>
+                    <span>Đăng Nhập Ngay</span>
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="account-card">
+                    <div className="account-card-header">
                     <div>
                       <h3 style={{ fontSize: '1.35rem', fontWeight: 700 }}>Thông Tin Người Dùng</h3>
                       <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: '2px' }}>
@@ -562,12 +636,26 @@ export default function AccountPage({
                   </div>
                 </div>
               </>
-            )}
+            )
+          )}
 
             {/* 2. TAB: ORDERS & SHIPPING HISTORY */}
             {activeTab === 'orders' && (
-              <div className="account-card">
-                <div className="account-card-header" style={{ marginBottom: '20px' }}>
+              !user ? (
+                <div className="account-card" style={{ textAlign: 'center', padding: '60px 24px' }}>
+                  <Package size={48} style={{ opacity: 0.35, color: 'var(--primary)', marginBottom: '16px' }} />
+                  <h3 style={{ fontSize: '1.3rem', marginBottom: '8px' }}>Tra Cứu Lịch Sử Đơn Hàng</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', maxWidth: '480px', margin: '0 auto 24px' }}>
+                    Vui lòng đăng nhập để theo dõi trạng thái vận chuyển, kiểm tra lộ trình giao hàng và hóa đơn các chậu cây của bạn.
+                  </p>
+                  <button className="btn-primary" onClick={onLogout} style={{ padding: '12px 28px' }}>
+                    <span>Đăng Nhập Ngay</span>
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div className="account-card">
+                  <div className="account-card-header" style={{ marginBottom: '20px' }}>
                   <div>
                     <h3 style={{ fontSize: '1.35rem', fontWeight: 700 }}>Danh Sách Đơn Hàng & Lịch Sử Giao Hàng</h3>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: '2px' }}>
@@ -660,16 +748,19 @@ export default function AccountPage({
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
                             <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                <strong style={{ color: 'var(--primary)', fontSize: '1.05rem', letterSpacing: '0.5px' }}>
+                                  #{order.orderCode || order.id}
+                                </strong>
                                 <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
-                                  {new Date(order.createdAt).toLocaleString('vi-VN')}
+                                  • {new Date(order.createdAt).toLocaleString('vi-VN')}
                                 </span>
                               </div>
                               <div style={{ fontSize: '0.92rem', fontWeight: 600, marginTop: '4px' }}>
                                 Người nhận: {order.customerName} - 📞 {order.customerPhone}
                               </div>
                               <div style={{ fontSize: '0.86rem', color: 'var(--text-muted)' }}>
-                                📍 Giao đến: {order.customerAddress}
+                                📍 Giao đến: {order.shippingAddress || order.customerAddress || 'Địa chỉ mặc định'}
                               </div>
                               {order.note && (
                                 <div style={{ fontSize: '0.84rem', color: 'var(--accent)', marginTop: '2px' }}>
@@ -678,7 +769,7 @@ export default function AccountPage({
                               )}
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                               <span 
                                 style={{
                                   background: statusCfg.bg,
@@ -696,19 +787,32 @@ export default function AccountPage({
                                 {statusCfg.label}
                               </span>
 
-                              <select
-                                value={order.status}
-                                onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                                className="select-filter"
-                                style={{ padding: '6px 30px 6px 12px', fontSize: '0.82rem' }}
-                                title="Cập nhật trạng thái đơn hàng (Java API)"
-                              >
-                                <option value="PENDING">Chờ Thanh Toán</option>
-                                <option value="PAID">Đã Thanh Toán</option>
-                                <option value="SHIPPING">Đang Giao Hàng</option>
-                                <option value="COMPLETED">Đã Hoàn Tất</option>
-                                <option value="CANCELLED">Hủy Đơn</option>
-                              </select>
+                              {isAdmin ? (
+                                <select
+                                  value={order.status}
+                                  onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                                  className="select-filter"
+                                  style={{ padding: '6px 30px 6px 12px', fontSize: '0.82rem' }}
+                                  title="Cập nhật trạng thái đơn hàng (Admin)"
+                                >
+                                  <option value="PENDING">Chờ Thanh Toán</option>
+                                  <option value="PAID">Đã Thanh Toán</option>
+                                  <option value="SHIPPING">Đang Giao Hàng</option>
+                                  <option value="COMPLETED">Đã Hoàn Tất</option>
+                                  <option value="CANCELLED">Hủy Đơn</option>
+                                </select>
+                              ) : (
+                                order.status === 'PENDING' && (
+                                  <button
+                                    className="btn-secondary"
+                                    onClick={() => handleCancelOrder(order.id)}
+                                    style={{ padding: '6px 14px', fontSize: '0.8rem', color: '#DC2626', borderColor: '#FCA5A5' }}
+                                    title="Hủy đơn hàng này"
+                                  >
+                                    Hủy Đơn
+                                  </button>
+                                )
+                              )}
                             </div>
                           </div>
 
@@ -755,7 +859,11 @@ export default function AccountPage({
 
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 700, paddingTop: '10px', borderTop: '1px dashed var(--border-light)' }}>
                               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                Phương thức: <strong>{order.paymentMethod === 'vietqr' ? 'Chuyển khoản VietQR' : 'Tiền mặt khi nhận (COD)'}</strong>
+                                Phương thức: <strong>{
+                                  order.paymentMethod?.toLowerCase() === 'vietqr' ? 'Chuyển khoản VietQR' :
+                                  order.paymentMethod?.toLowerCase() === 'momo' ? 'Ví điện tử MoMo' :
+                                  'Tiền mặt khi nhận (COD)'
+                                }</strong>
                               </span>
                               <div style={{ textAlign: 'right' }}>
                                 <span style={{ fontSize: '0.82rem', color: 'var(--text-light)', display: 'block' }}>Tổng thanh toán</span>
@@ -769,7 +877,8 @@ export default function AccountPage({
                   )}
                 </div>
               </div>
-            )}
+            )
+          )}
 
             {/* 3. TAB: WISHLIST (MỤC YÊU THÍCH) */}
             {activeTab === 'wishlist' && (
@@ -859,14 +968,23 @@ export default function AccountPage({
                     </p>
                   </div>
 
-                  <button 
-                    className="btn-secondary" 
-                    onClick={onNavigateShop}
-                    style={{ padding: '8px 16px', fontSize: '0.88rem' }}
-                  >
-                    <span>Chọn Thêm Cây</span>
-                    <ArrowRight size={15} />
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      className="btn-primary" 
+                      onClick={onNavigateCart}
+                      style={{ padding: '8px 16px', fontSize: '0.88rem' }}
+                    >
+                      <span>Trang Giỏ Hàng Đầy Đủ</span>
+                      <ArrowRight size={15} />
+                    </button>
+                    <button 
+                      className="btn-secondary" 
+                      onClick={onNavigateShop}
+                      style={{ padding: '8px 16px', fontSize: '0.88rem' }}
+                    >
+                      <span>Chọn Thêm Cây</span>
+                    </button>
+                  </div>
                 </div>
 
                 {cartItems.length === 0 ? (

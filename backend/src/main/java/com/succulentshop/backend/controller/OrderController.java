@@ -42,8 +42,20 @@ public class OrderController {
     }
 
     @GetMapping("/customer")
-    public ResponseEntity<ApiResult<List<Map<String, Object>>>> getOrdersByCustomer(@RequestParam String phone) {
-        List<Map<String, Object>> list = orderService.getOrdersByCustomer(phone);
+    public ResponseEntity<ApiResult<List<Map<String, Object>>>> getOrdersByCustomer(
+            @RequestParam(required = false) String phone,
+            @RequestParam(required = false) String email
+    ) {
+        List<Map<String, Object>> list;
+        if (email != null && !email.isBlank()) {
+            list = orderService.getOrdersByCustomer(phone, email);
+        } else {
+            list = orderService.getOrdersByCustomer(phone);
+        }
         return ResponseEntity.ok(ApiResult.ok("Tải danh sách đơn hàng thành công", list));
+    }
+
+    public ResponseEntity<ApiResult<List<Map<String, Object>>>> getOrdersByCustomer(String phone) {
+        return getOrdersByCustomer(phone, null);
     }
 }

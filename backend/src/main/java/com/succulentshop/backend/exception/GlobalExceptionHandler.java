@@ -45,6 +45,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResult.error(ErrorCode.INVALID_REQUEST.getCode(), ex.getMessage()));
     }
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResult<Void>> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResult.error(ErrorCode.FILE_TOO_LARGE.getCode(), "Dung lượng tệp tải lên vượt quá giới hạn tối đa cho phép của hệ thống (10MB)."));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResult<Void>> handleGeneralException(Exception ex) {
         return ResponseEntity

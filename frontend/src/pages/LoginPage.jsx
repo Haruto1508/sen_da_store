@@ -15,8 +15,17 @@ import {
   Loader2
 } from 'lucide-react';
 import { loginUser, loginWithGoogle } from '../services/api';
+import { USERS } from '../data/products';
 
 export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
+  const customerDemo = USERS.find((u) => u.email === 'long.senxinh@gmail.com') || USERS[0] || {
+    email: 'long.senxinh@gmail.com',
+    password: '123456'
+  };
+  const adminDemo = USERS.find((u) => u.email === 'admin@senxinh.vn') || USERS[1] || {
+    email: 'admin@senxinh.vn',
+    password: 'admin123'
+  };
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -354,8 +363,8 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                 <button
                   type="button"
                   className="auth-demo-btn"
-                  onClick={() => handleQuickLogin('long.senxinh@gmail.com', '123456')}
-                  title="Điền tài khoản Khách quen"
+                  onClick={() => handleQuickLogin(customerDemo.email, customerDemo.password || '123456')}
+                  title={`Điền tài khoản ${customerDemo.name || 'Khách Thân Thiết'}`}
                 >
                   <CheckCircle2 size={14} color="#059669" />
                   <span>Khách Thân Thiết</span>
@@ -363,8 +372,8 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                 <button
                   type="button"
                   className="auth-demo-btn"
-                  onClick={() => handleQuickLogin('admin@senxinh.vn', 'admin123')}
-                  title="Điền tài khoản Quản trị viên"
+                  onClick={() => handleQuickLogin(adminDemo.email, adminDemo.password || 'admin123')}
+                  title={`Điền tài khoản ${adminDemo.name || 'Quản Trị Viên'}`}
                 >
                   <ShieldCheck size={14} color="#2563EB" />
                   <span>Quản Trị Viên</span>

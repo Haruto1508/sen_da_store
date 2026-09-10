@@ -13,6 +13,7 @@ import {
 import { QUIZ_QUESTIONS, PRODUCTS } from '../data/products';
 
 export default function QuizPage({
+  products = [],
   onSelectProduct,
   onAddToCart,
   onNavigateHome,
@@ -40,8 +41,9 @@ export default function QuizPage({
   const calculateResult = (finalAnswers) => {
     const loc = finalAnswers[1]?.type || 'indoor';
     const style = finalAnswers[3]?.style || 'echeveria';
+    const sourceList = (products && products.length > 0) ? products : PRODUCTS;
 
-    let matched = PRODUCTS.filter(p => {
+    let matched = sourceList.filter(p => {
       if (loc === 'indoor') return p.lightType === 'indoor' || p.lightType === 'indirect';
       if (loc === 'full_sun') return p.lightType === 'full_sun';
       return true;

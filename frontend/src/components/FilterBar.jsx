@@ -7,7 +7,8 @@ import {
   Gift, 
   Layers, 
   Search,
-  SlidersHorizontal
+  SlidersHorizontal,
+  RotateCcw
 } from 'lucide-react';
 import { CATEGORIES } from '../data/products';
 
@@ -113,6 +114,38 @@ export default function FilterBar({
             <option value="price-desc">Giá: Cao đến Thấp</option>
             <option value="rating">Đánh giá cao nhất</option>
           </select>
+
+          {/* Quick Reset Filter Button */}
+          {(selectedCategory !== 'all' || searchQuery || selectedLight !== 'all' || selectedDifficulty !== 'all') && (
+            <button
+              type="button"
+              className="btn-filter-reset"
+              onClick={() => {
+                onSelectCategory('all');
+                onSearchChange('');
+                onSelectLight('all');
+                onSelectDifficulty('all');
+              }}
+              title="Xóa tất cả bộ lọc và từ khóa tìm kiếm"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px dashed var(--accent)',
+                background: 'rgba(217, 119, 87, 0.08)',
+                color: 'var(--accent)',
+                fontSize: '0.84rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <RotateCcw size={14} />
+              <span>Đặt Lại</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -370,7 +370,7 @@
       "name": "Nguyễn Hoàng Long",
       "email": "long.senxinh@gmail.com",
       "phone": "0988123456",
-      "password": "123",
+      "password": "123456",
       "address": "123 Phố Trúc Bạch, Quận Ba Đình, Hà Nội",
       "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
       "role": "Thành viên thân thiết",
@@ -382,7 +382,7 @@
       "name": "Quản Trị Viên Sen Xinh",
       "email": "admin@senxinh.vn",
       "phone": "0901234567",
-      "password": "admin",
+      "password": "admin123",
       "address": "Vườn Sen Xinh, Tây Hồ, Hà Nội",
       "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
       "role": "Quản trị viên (Admin)",
@@ -472,5 +472,6 @@
       "summary": "Xử lý ngay trong 24h đầu tiên để cứu sống gốc rễ.",
       "content": "Ngay khi thấy lá dưới gốc mềm nhũn, trong suốt: Hãy nhổ cây khỏi chậu ngay lập tức, giũ sạch đất ẩm. Dùng dao lam tiệt trùng cắt bỏ phần rễ/thân thối đến khi thấy mô xanh khỏe. Bôi vôi hoặc bột quế vào vết cắt, để nơi thoáng gió 3-5 ngày cho khô sẹo rồi mới đặt lên đất mới kích rễ."
     }
-  ]
+  ],
+  "orders": []
 }

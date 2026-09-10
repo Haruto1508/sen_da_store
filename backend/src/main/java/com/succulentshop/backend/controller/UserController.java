@@ -35,8 +35,20 @@ public class UserController {
     }
 
     @GetMapping("/my-orders")
-    public ResponseEntity<ApiResult<List<Map<String, Object>>>> getMyOrders(@RequestParam String phone) {
-        List<Map<String, Object>> orders = orderService.getOrdersByCustomer(phone);
+    public ResponseEntity<ApiResult<List<Map<String, Object>>>> getMyOrders(
+            @RequestParam(required = false) String phone,
+            @RequestParam(required = false) String email
+    ) {
+        List<Map<String, Object>> orders;
+        if (email != null && !email.isBlank()) {
+            orders = orderService.getOrdersByCustomer(phone, email);
+        } else {
+            orders = orderService.getOrdersByCustomer(phone);
+        }
         return ResponseEntity.ok(ApiResult.ok("Tải danh sách đơn hàng thành công", orders));
+    }
+
+    public ResponseEntity<ApiResult<List<Map<String, Object>>>> getMyOrders(String phone) {
+        return getMyOrders(phone, null);
     }
 }

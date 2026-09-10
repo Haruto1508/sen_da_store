@@ -1,17 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Sprout, 
   ShoppingBag, 
   Heart, 
-  Sparkles, 
+  Search,
+  SlidersHorizontal,
+  X,
+  ArrowRight,
   ShieldCheck, 
   User, 
   Package, 
   LogOut, 
-  ChevronDown,
-  KeyRound,
-  LogIn
+  ChevronDown, 
+  LogIn,
+  Sun,
+  Layers
 } from 'lucide-react';
+import { CATEGORIES } from '../data/products';
 
 export default function Navbar({ 
   currentRoute,
@@ -19,25 +24,110 @@ export default function Navbar({
   wishlistCount, 
   user,
   onLogout,
-  onOpenWishlist,
-  onNavigate 
+  onOpenWishlist, 
+  onNavigate,
+  searchQuery = '',
+  onSearchChange,
+  products = [],
+  selectedCategory = 'all',
+  onSelectCategory,
+  selectedLight = 'all',
+  onSelectLight,
+  selectedDifficulty = 'all',
+  onSelectDifficulty,
+  onResetFilters
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+
   const menuRef = useRef(null);
+  const searchRef = useRef(null);
+  const filterRef = useRef(null);
 
   const currentUser = user;
 
-  // Close dropdown on click outside
+  // Sync local search with external prop when it changes externally
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
+
+  // Close dropdowns on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setIsMenuOpen(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setIsSearchFocused(false);
+      }
+      if (filterRef.current && !filterRef.current.contains(e.target)) {
+        setIsFilterOpen(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Matching products for live instant search suggestions
+  const matchingSuggestions = useMemo(() => {
+    if (!localSearch || !localSearch.trim()) return [];
+    const q = localSearch.toLowerCase().trim();
+    return products.filter((p) => {
+      const matchName = (p.name || '').toLowerCase().includes(q);
+      const matchSci = (p.scientificName || '').toLowerCase().includes(q);
+      return matchName || matchSci;
+    }).slice(0, 5);
+  }, [localSearch, products]);
+
+  // Calculate number of active filters
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (selectedCategory && selectedCategory !== 'all') count++;
+    if (selectedLight && selectedLight !== 'all') count++;
+    if (selectedDifficulty && selectedDifficulty !== 'all') count++;
+    return count;
+  }, [selectedCategory, selectedLight, selectedDifficulty]);
+
+  const handleSearchSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (onSearchChange) onSearchChange(localSearch);
+    setIsSearchFocused(false);
+    onNavigate('shop');
+  };
+
+  const handleClearSearch = () => {
+    setLocalSearch('');
+    if (onSearchChange) onSearchChange('');
+  };
+
+  const handleSelectSuggestion = (productId) => {
+    setIsSearchFocused(false);
+    onNavigate('product-detail', productId);
+  };
+
+  const handleFilterSelect = (type, val) => {
+    if (type === 'category' && onSelectCategory) onSelectCategory(val);
+    if (type === 'light' && onSelectLight) onSelectLight(val);
+    if (type === 'difficulty' && onSelectDifficulty) onSelectDifficulty(val);
+  };
+
+  const handleApplyFilterAndGo = () => {
+    setIsFilterOpen(false);
+    onNavigate('shop');
+  };
+
+  const handleResetQuickFilter = () => {
+    if (onResetFilters) {
+      onResetFilters();
+    } else {
+      if (onSelectCategory) onSelectCategory('all');
+      if (onSelectLight) onSelectLight('all');
+      if (onSelectDifficulty) onSelectDifficulty('all');
+    }
+  };
 
   const handleMenuItemClick = (route) => {
     setIsMenuOpen(false);
@@ -101,18 +191,165 @@ export default function Navbar({
             </li>
           </ul>
 
+          {/* Plant Search & Quick Filter Box */}
+          <div className="navbar-search-wrapper" ref={searchRef}>
+            <form className="navbar-search-bar" onSubmit={handleSearchSubmit}>
+              <Search size={16} className="navbar-search-icon" />
+              <input
+                type="text"
+                placeholder="Tìm sen đá, tiểu cảnh..."
+                value={localSearch}
+                onChange={(e) => {
+                  setLocalSearch(e.target.value);
+                  if (onSearchChange) onSearchChange(e.target.value);
+                }}
+                onFocus={() => setIsSearchFocused(true)}
+                aria-label="Tìm kiếm cây sen đá"
+              />
+              {localSearch && (
+                <button
+                  type="button"
+                  className="navbar-search-clear-btn"
+                  onClick={handleClearSearch}
+                  title="Xóa từ khóa"
+                >
+                  <X size={14} />
+                </button>
+              )}
+
+              {/* Quick Filter Button in search bar */}
+              <div className="navbar-filter-wrapper" ref={filterRef}>
+                <button
+                  type="button"
+                  className={`navbar-filter-btn ${isFilterOpen || activeFiltersCount > 0 ? 'active' : ''}`}
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  title="Bộ lọc nhanh theo ánh sáng, độ khó, danh mục"
+                  aria-label="Bộ lọc cây"
+                >
+                  <SlidersHorizontal size={15} />
+                  {activeFiltersCount > 0 && (
+                    <span className="navbar-filter-badge">{activeFiltersCount}</span>
+                  )}
+                </button>
+
+                {/* Filter Popover Dropdown */}
+                {isFilterOpen && (
+                  <div className="navbar-filter-popover">
+                    <div className="filter-popover-header">
+                      <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <SlidersHorizontal size={14} color="var(--primary)" />
+                        Bộ Lọc Cây Nhanh
+                      </span>
+                      {activeFiltersCount > 0 && (
+                        <button type="button" className="filter-popover-reset" onClick={handleResetQuickFilter}>
+                          Đặt lại ({activeFiltersCount})
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="filter-popover-body">
+                      {/* Category */}
+                      <div className="popover-group">
+                        <label>Danh mục</label>
+                        <select 
+                          value={selectedCategory} 
+                          onChange={(e) => handleFilterSelect('category', e.target.value)}
+                        >
+                          {CATEGORIES.map((cat) => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Light */}
+                      <div className="popover-group">
+                        <label>Ánh sáng & Vị trí</label>
+                        <select 
+                          value={selectedLight} 
+                          onChange={(e) => handleFilterSelect('light', e.target.value)}
+                        >
+                          <option value="all">Mọi loại ánh sáng</option>
+                          <option value="indoor">Bàn làm việc / Trong nhà</option>
+                          <option value="indirect">Nắng tán xạ / Nắng dịu</option>
+                          <option value="full_sun">Full nắng trực tiếp</option>
+                        </select>
+                      </div>
+
+                      {/* Difficulty */}
+                      <div className="popover-group">
+                        <label>Độ khó chăm sóc</label>
+                        <select 
+                          value={selectedDifficulty} 
+                          onChange={(e) => handleFilterSelect('difficulty', e.target.value)}
+                        >
+                          <option value="all">Mọi cấp độ</option>
+                          <option value="easy">Cực dễ cho người mới</option>
+                          <option value="medium">Cần chú ý một chút</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="filter-popover-footer">
+                      <button 
+                        type="button" 
+                        className="btn-primary" 
+                        style={{ width: '100%', padding: '10px', fontSize: '0.88rem', justifyContent: 'center' }}
+                        onClick={handleApplyFilterAndGo}
+                      >
+                        Áp Dụng & Đến Cửa Hàng
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </form>
+
+            {/* Instant Search Suggestions Dropdown */}
+            {isSearchFocused && localSearch.trim().length > 0 && (
+              <div className="navbar-search-dropdown">
+                {matchingSuggestions.length > 0 ? (
+                  <>
+                    <div className="search-dropdown-header">
+                      <span>Gợi ý sen đá ({matchingSuggestions.length})</span>
+                    </div>
+                    <div className="search-dropdown-list">
+                      {matchingSuggestions.map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="search-dropdown-item"
+                          onClick={() => handleSelectSuggestion(item.id)}
+                        >
+                          <img src={item.image} alt={item.name} className="search-item-thumb" />
+                          <div className="search-item-details">
+                            <span className="search-item-title">{item.name}</span>
+                            <div className="search-item-bottom">
+                              <span className="search-item-price">{(item.price || 0).toLocaleString('vi-VN')}₫</span>
+                              <span className="search-item-tag">{item.category}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button 
+                      type="button" 
+                      className="search-dropdown-footer-btn"
+                      onClick={handleSearchSubmit}
+                    >
+                      <span>Xem tất cả kết quả trong Cửa Hàng</span>
+                      <ArrowRight size={14} />
+                    </button>
+                  </>
+                ) : (
+                  <div className="search-dropdown-empty">
+                    <span>Không tìm thấy sen đá phù hợp với "{localSearch}"</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Actions */}
           <div className="nav-actions">
-            {/* Quiz shortcut */}
-            <button 
-              className={`btn-quiz ${currentRoute === 'quiz' ? 'active' : ''}`} 
-              onClick={() => onNavigate('quiz')} 
-              title="Trắc nghiệm chọn cây"
-            >
-              <Sparkles size={16} />
-              <span>Tìm Cây Hợp Bạn</span>
-            </button>
-
             {/* Wishlist Button */}
             <button 
               className="icon-btn" 
@@ -164,12 +401,9 @@ export default function Navbar({
                   aria-label="Menu tài khoản"
                   aria-expanded={isMenuOpen}
                 >
-                  <img 
-                    src={currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'} 
-                    alt={currentUser.name} 
-                    className="navbar-avatar-img" 
-                  />
-                  <span className="navbar-avatar-status" />
+                  <div className="navbar-account-icon">
+                    <User size={18} />
+                  </div>
                   <ChevronDown size={14} className={`navbar-avatar-chevron ${isMenuOpen ? 'open' : ''}`} />
                 </button>
 
@@ -202,17 +436,7 @@ export default function Navbar({
                         </button>
                       )}
 
-                      {/* Item 1: Lịch sử đơn hàng */}
-                      <button 
-                        id="menu-orders-btn"
-                        className="user-menu-item"
-                        onClick={() => handleMenuItemClick('account')}
-                      >
-                        <div className="menu-item-icon"><Package size={17} /></div>
-                        <span className="menu-item-label">Lịch Sử Đơn Hàng</span>
-                      </button>
-
-                      {/* Item 2: Xem giỏ hàng */}
+                      {/* Item 1: Xem giỏ hàng */}
                       <button 
                         id="menu-cart-btn"
                         className={`user-menu-item ${currentRoute === 'cart' ? 'active' : ''}`}
@@ -225,22 +449,7 @@ export default function Navbar({
                         )}
                       </button>
 
-                      {/* Item 3: Mục yêu thích */}
-                      <button 
-                        id="menu-wishlist-btn"
-                        className={`user-menu-item ${currentRoute === 'wishlist' ? 'active' : ''}`}
-                        onClick={() => handleMenuItemClick('wishlist')}
-                      >
-                        <div className="menu-item-icon"><Heart size={17} /></div>
-                        <span className="menu-item-label">Mục Yêu Thích</span>
-                        {wishlistCount > 0 && (
-                          <span className="menu-item-count" style={{ background: '#FEE2E2', color: '#DC2626' }}>
-                            {wishlistCount}
-                          </span>
-                        )}
-                      </button>
-
-                      {/* Item 4: Tài khoản */}
+                      {/* Item 2: Tài khoản */}
                       <button 
                         id="menu-account-btn"
                         className={`user-menu-item ${currentRoute === 'account' ? 'active' : ''}`}
@@ -249,24 +458,11 @@ export default function Navbar({
                         <div className="menu-item-icon"><User size={17} /></div>
                         <span className="menu-item-label">Thông Tin Tài Khoản</span>
                       </button>
-
-                      {/* Item 5: Đổi mật khẩu */}
-                      <button 
-                        id="menu-password-btn"
-                        className="user-menu-item"
-                        onClick={() => {
-                          setIsMenuOpen(false);
-                          onNavigate('password');
-                        }}
-                      >
-                        <div className="menu-item-icon"><KeyRound size={17} /></div>
-                        <span className="menu-item-label">Đổi Mật Khẩu</span>
-                      </button>
                     </div>
 
                     <div className="menu-divider" />
 
-                    {/* Item 6: Đăng xuất */}
+                    {/* Item 3: Đăng xuất */}
                     <div className="user-menu-footer">
                       <button 
                         id="menu-logout-btn"

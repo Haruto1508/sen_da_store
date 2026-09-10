@@ -23,7 +23,19 @@ public class ProductService {
     }
 
     public List<Map<String, Object>> getFilteredProducts(String category, String search, String light, String difficulty, String sort) {
-        List<Product> products = productRepository.filterProducts(category, search, light, difficulty);
+        boolean hasFilter = (category != null && !category.isBlank() && !"all".equalsIgnoreCase(category))
+                || (search != null && !search.isBlank())
+                || (light != null && !light.isBlank() && !"all".equalsIgnoreCase(light))
+                || (difficulty != null && !difficulty.isBlank() && !"all".equalsIgnoreCase(difficulty));
+
+        List<Product> products = hasFilter
+                ? productRepository.filterProducts(
+                    (category != null && !category.isBlank() && !"all".equalsIgnoreCase(category)) ? category.trim() : null,
+                    (search != null && !search.isBlank()) ? search.trim() : null,
+                    (light != null && !light.isBlank() && !"all".equalsIgnoreCase(light)) ? light.trim() : null,
+                    (difficulty != null && !difficulty.isBlank() && !"all".equalsIgnoreCase(difficulty)) ? difficulty.trim() : null
+                )
+                : productRepository.findAll();
 
         if ("price-asc".equalsIgnoreCase(sort)) {
             products.sort(Comparator.comparingInt(Product::getPrice));

@@ -109,6 +109,7 @@ public class AdminController {
             map.put("customerName", o.getCustomerName());
             map.put("customerPhone", o.getCustomerPhone());
             map.put("customerAddress", o.getCustomerAddress());
+            map.put("customerEmail", o.getCustomerEmail() != null ? o.getCustomerEmail() : "");
             map.put("note", o.getNote());
             map.put("paymentMethod", o.getPaymentMethod());
             map.put("items", items);
