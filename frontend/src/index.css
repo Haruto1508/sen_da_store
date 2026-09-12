@@ -1732,6 +1732,118 @@ input::-webkit-contacts-auto-fill-button {
   flex-wrap: wrap;
 }
 
+/* Nút Thêm Vào Giỏ Hàng */
+.btn-add-cart {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #EBF4EE;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+  padding: 15px 22px;
+  border-radius: var(--radius-full);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  flex: 1;
+  min-width: 190px;
+}
+
+.btn-add-cart:hover {
+  background: #DCEDE0;
+  border-color: var(--primary-dark);
+  color: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(45, 90, 63, 0.15);
+}
+
+.btn-add-cart:active {
+  transform: translateY(0);
+}
+
+/* Nút Mua Ngay Nổi Bật Siêu Bắt Mắt (Hero CTA) */
+.btn-buy-now {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: linear-gradient(135deg, #FF6B4A 0%, #E0532B 52%, #BA3814 100%);
+  color: #ffffff;
+  padding: 16px 28px;
+  border-radius: var(--radius-full);
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: 0.3px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(224, 83, 43, 0.42), 0 2px 6px rgba(0, 0, 0, 0.08), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  flex: 1.1;
+  min-width: 160px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.btn-buy-now .zap-icon {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+  transition: transform 0.25s ease;
+}
+
+/* Hiệu ứng ánh sáng quét nhẹ (Shine effect) kích thích bấm mua */
+.btn-buy-now::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -70%;
+  width: 45%;
+  height: 200%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.32) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: rotate(25deg);
+  animation: buyNowShine 4.5s infinite ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes buyNowShine {
+  0% { left: -70%; }
+  25% { left: 140%; }
+  100% { left: 140%; }
+}
+
+.btn-buy-now:hover {
+  background: linear-gradient(135deg, #FF7B5C 0%, #EA5D35 52%, #C7401C 100%);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 12px 32px rgba(224, 83, 43, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+  color: #ffffff;
+}
+
+.btn-buy-now:hover .zap-icon {
+  transform: scale(1.25) rotate(-8deg);
+}
+
+.btn-buy-now:active {
+  transform: translateY(-1px) scale(0.99);
+  box-shadow: 0 4px 14px rgba(224, 83, 43, 0.4);
+}
+
+@media (max-width: 640px) {
+  .detail-action-bar {
+    gap: 10px;
+  }
+  .btn-add-cart,
+  .btn-buy-now {
+    width: 100%;
+    flex: none;
+  }
+}
+
 /* News Grid & Cards */
 .news-grid {
   display: grid;

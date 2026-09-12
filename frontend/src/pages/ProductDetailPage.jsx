@@ -11,7 +11,8 @@ import {
   ShieldCheck,
   Truck,
   CheckCircle2,
-  Share2
+  Share2,
+  Zap
 } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 
@@ -260,19 +261,20 @@ export default function ProductDetailPage({
               </div>
 
               <button 
-                className="btn-primary"
-                style={{ flexGrow: 1, padding: '16px 24px', fontSize: '1.05rem' }}
+                className="btn-add-cart"
                 onClick={() => onAddToCart(product, qty)}
+                title="Thêm vào giỏ hàng để tiếp tục chọn thêm cây khác"
               >
                 <ShoppingBag size={20} />
                 <span>Thêm Vào Giỏ ({formatPrice(product.price * qty)})</span>
               </button>
 
               <button 
-                className="btn-secondary"
-                style={{ padding: '16px 20px', fontSize: '1rem', fontWeight: 700 }}
+                className="btn-buy-now"
                 onClick={() => onBuyNow(product, qty)}
+                title="Đặt mua ngay chậu sen đá này"
               >
+                <Zap size={19} fill="#FFE082" color="#FFE082" className="zap-icon" />
                 <span>Mua Ngay</span>
               </button>
 
