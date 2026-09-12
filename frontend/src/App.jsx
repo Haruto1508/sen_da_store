@@ -20,7 +20,7 @@ import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 
 import { PRODUCTS } from './data/products';
-import { getProducts, validateCoupon, USE_MOCK_DATA } from './services/api';
+import { getProducts, validateCoupon, USE_MOCK_DATA, isMockUser } from './services/api';
 
 // Route Helper Wrappers to extract URL parameters via useParams()
 function ProductDetailRoute({ productList, onAddToCart, onBuyNow, wishlist, onToggleWishlist, navigateTo }) {
@@ -125,11 +125,58 @@ export default function App() {
   const [discountCode, setDiscountCode] = useState('');
   const [discountPercent, setDiscountPercent] = useState(0);
 
+  // Khóa lưu trữ tài khoản tách biệt rõ ràng giữa chế độ Mock Data và Live Database
+  const userStorageKey = USE_MOCK_DATA ? 'senxinh_user_mock' : 'senxinh_user_live';
+
   // User state (Loaded from LocalStorage; defaults to null for unauthenticated guests)
   const [user, setUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('senxinh_user');
-      if (saved) return JSON.parse(saved);
+      // 1. Kiểm tra session riêng biệt của chế độ hiện tại
+      const savedInCurrentMode = localStorage.getItem(userStorageKey);
+      if (savedInCurrentMode) {
+        const parsed = JSON.parse(savedInCurrentMode);
+        if (USE_MOCK_DATA) {
+          if (isMockUser(parsed)) {
+            parsed.isMockUser = true;
+            return parsed;
+          }
+          localStorage.removeItem(userStorageKey);
+          return null;
+        } else {
+          // Chế độ Live: không chấp nhận mock user
+          if (isMockUser(parsed)) {
+            localStorage.removeItem(userStorageKey);
+            return null;
+          }
+          return parsed;
+        }
+      }
+
+      // 2. Xử lý khóa cũ (senxinh_user legacy) nếu người dùng vừa chuyển chế độ
+      const legacySaved = localStorage.getItem('senxinh_user');
+      if (legacySaved) {
+        const parsedLegacy = JSON.parse(legacySaved);
+        if (USE_MOCK_DATA) {
+          // Đang ở Mock Data: Nếu user cũ từ Live Backend -> KHÔNG giữ đăng nhập, dọn dẹp key cũ
+          if (!isMockUser(parsedLegacy)) {
+            localStorage.removeItem('senxinh_user');
+            return null;
+          }
+          parsedLegacy.isMockUser = true;
+          localStorage.setItem(userStorageKey, JSON.stringify(parsedLegacy));
+          localStorage.removeItem('senxinh_user');
+          return parsedLegacy;
+        } else {
+          // Đang ở Live Database: Nếu user cũ là Mock -> dọn dẹp key cũ, không đăng nhập
+          if (isMockUser(parsedLegacy)) {
+            localStorage.removeItem('senxinh_user');
+            return null;
+          }
+          localStorage.setItem(userStorageKey, JSON.stringify(parsedLegacy));
+          localStorage.removeItem('senxinh_user');
+          return parsedLegacy;
+        }
+      }
     } catch (err) {
       console.error('Lỗi khi đọc tài khoản từ LocalStorage:', err);
     }
@@ -411,10 +458,12 @@ export default function App() {
   };
 
   const handleLoginSuccess = (userData, remember = true) => {
-    setUser(userData);
+    const userToSave = USE_MOCK_DATA ? { ...userData, isMockUser: true } : userData;
+    setUser(userToSave);
     if (remember) {
       try {
-        localStorage.setItem('senxinh_user', JSON.stringify(userData));
+        localStorage.setItem(userStorageKey, JSON.stringify(userToSave));
+        localStorage.removeItem('senxinh_user');
       } catch (err) {
         console.error(err);
       }
@@ -423,18 +472,22 @@ export default function App() {
   };
 
   const handleAdminLoginSuccess = (userData) => {
-    setUser(userData);
+    const userToSave = USE_MOCK_DATA ? { ...userData, isMockUser: true } : userData;
+    setUser(userToSave);
     try {
-      localStorage.setItem('senxinh_user', JSON.stringify(userData));
+      localStorage.setItem(userStorageKey, JSON.stringify(userToSave));
+      localStorage.removeItem('senxinh_user');
     } catch (err) {
       console.error(err);
     }
   };
 
   const handleRegisterSuccess = (userData) => {
-    setUser(userData);
+    const userToSave = USE_MOCK_DATA ? { ...userData, isMockUser: true } : userData;
+    setUser(userToSave);
     try {
-      localStorage.setItem('senxinh_user', JSON.stringify(userData));
+      localStorage.setItem(userStorageKey, JSON.stringify(userToSave));
+      localStorage.removeItem('senxinh_user');
     } catch (err) {
       console.error(err);
     }
@@ -444,6 +497,7 @@ export default function App() {
   const handleLogout = () => {
     setUser(null);
     try {
+      localStorage.removeItem(userStorageKey);
       localStorage.removeItem('senxinh_user');
     } catch (err) {
       console.error(err);

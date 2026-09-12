@@ -19,7 +19,16 @@ import {
   Package
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { createOrder, createMoMoPayment, simulateMoMoPayment, lookupOrder, simulateBankTransferPayment } from '../services/api';
+import { 
+  createOrder, 
+  createMoMoPayment, 
+  simulateMoMoPayment, 
+  lookupOrder, 
+  simulateBankTransferPayment,
+  checkOrderStatus,
+  getUseMockData,
+  isMockUser
+} from '../services/api';
 import useModal from '../components/useModal';
 
 export default function CheckoutPage({
@@ -39,6 +48,10 @@ export default function CheckoutPage({
   const isAdmin = Boolean(
     user && (user.role?.toLowerCase().includes('admin') || user.email === 'admin@senxinh.vn')
   );
+
+  // Chỉ hiển thị công cụ test thanh toán khi đang ở chế độ Mock Data VÀ user đăng nhập qua Mock Data
+  const isMockActive = getUseMockData();
+  const canShowPaymentSimulation = Boolean(isMockActive && user && isMockUser(user));
 
   // Notification Modal
   const { modalProps, showModal } = useModal();
@@ -470,19 +483,23 @@ export default function CheckoutPage({
                         </a>
                       )}
 
-                      <button 
-                        type="button" 
-                        className="btn-momo-simulate" 
-                        onClick={handleSimulateMoMo}
-                        disabled={isSimulating}
-                      >
-                        {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                        <span>{isSimulating ? 'Đang gửi tín hiệu Webhook...' : '⚡ Test Sandbox: Mô phỏng đã quét MoMo thành công'}</span>
-                      </button>
+                      {canShowPaymentSimulation && (
+                        <>
+                          <button 
+                            type="button" 
+                            className="btn-momo-simulate" 
+                            onClick={handleSimulateMoMo}
+                            disabled={isSimulating}
+                          >
+                            {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                            <span>{isSimulating ? 'Đang gửi tín hiệu Webhook...' : '⚡ Test Sandbox: Mô phỏng đã quét MoMo thành công'}</span>
+                          </button>
 
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        💡 <em>Hệ thống kết nối Webhook IPN trực tiếp: Ngay khi quét mã thành công, màn hình sẽ tự động kích hoạt thông báo thành công và chuyển trạng thái đơn sang PAID.</em>
-                      </span>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            💡 <em>Hệ thống kết nối Webhook IPN trực tiếp: Ngay khi quét mã thành công, màn hình sẽ tự động kích hoạt thông báo thành công và chuyển trạng thái đơn sang PAID.</em>
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -505,7 +522,7 @@ export default function CheckoutPage({
 
                   <div className="live-status-pill waiting" style={{ marginLeft: 'auto' }}>
                     <span className="pulsing-dot" />
-                    <span>Đang chờ chuyển khoản (Auto Webhook)...</span>
+                    <span>Đang chờ chuyển khoản (Tự động xác nhận)...</span>
                   </div>
                 </div>
 
@@ -555,22 +572,24 @@ export default function CheckoutPage({
                       </strong>
                     </div>
 
-                    <div style={{ marginTop: '12px' }}>
-                      <button 
-                        type="button" 
-                        className="btn-momo-simulate" 
-                        onClick={handleSimulateBankTransfer}
-                        disabled={isSimulating}
-                        style={{ width: '100%', borderColor: 'var(--primary)', color: 'var(--primary)', background: '#F4F8F5' }}
-                        title="Bấm để mô phỏng Webhook SePay bắt giao dịch và tự động duyệt đơn PAID"
-                      >
-                        {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                        <span>{isSimulating ? 'Đang kích hoạt Webhook...' : '⚡ Xác nhận chuyển khoản nhanh (Test Demo Webhook)'}</span>
-                      </button>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '8px', lineHeight: 1.4 }}>
-                        💡 Hệ thống tự động bắt biến động số dư qua <strong>SePay Webhook</strong> và cập nhật trạng thái đơn ngay khi tiền vào tài khoản.
+                    {canShowPaymentSimulation && (
+                      <div style={{ marginTop: '12px' }}>
+                        <button 
+                          type="button" 
+                          className="btn-momo-simulate" 
+                          onClick={handleSimulateBankTransfer}
+                          disabled={isSimulating}
+                          style={{ width: '100%', borderColor: 'var(--primary)', color: 'var(--primary)', background: '#F4F8F5' }}
+                          title="Bấm để mô phỏng Webhook SePay bắt giao dịch và tự động duyệt đơn PAID"
+                        >
+                          {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                          <span>{isSimulating ? 'Đang kích hoạt Webhook...' : '⚡ Xác nhận chuyển khoản nhanh (Test Demo Webhook)'}</span>
+                        </button>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '8px', lineHeight: 1.4 }}>
+                          💡 Hệ thống tự động bắt biến động số dư qua <strong>SePay Webhook</strong> và cập nhật trạng thái đơn ngay khi tiền vào tài khoản.
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

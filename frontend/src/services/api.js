@@ -18,6 +18,30 @@ export const USE_MOCK_DATA = getUseMockData();
 export const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 /**
+ * Kiểm tra xem user hiện tại có phải được đăng nhập từ nguồn Mock Data hay không
+ */
+export function isMockUser(user) {
+  if (!user) return false;
+  if (user.isMockUser === true) return true;
+  if (typeof user.token === 'string' && (user.token.startsWith('mock_token_') || user.token.startsWith('google_mock_token_'))) {
+    return true;
+  }
+  // Các tài khoản hoặc mẫu định danh của Mock Data
+  if (
+    user.id === '1' ||
+    user.id === '2' ||
+    user.id === 'u1' ||
+    user.id === 'u_admin' ||
+    (typeof user.id === 'string' && (user.id.startsWith('user_') || user.id.startsWith('mock_') || user.id.startsWith('user_google_')))
+  ) {
+    if (!user.token || !user.token.includes('.')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Hàm hỗ trợ bật/tắt Mock Data ngay trong console hoặc giao diện
  */
 export function setUseMockData(enable) {
@@ -1088,6 +1112,7 @@ export async function loginUser(email, password) {
       if (isMatch) {
         const { password: _, ...userSafe } = existingUser;
         userSafe.hasPassword = true;
+        userSafe.isMockUser = true;
         userSafe.linkedProviders = ['LOCAL'];
         if (existingUser.authProvider === 'GOOGLE') {
           userSafe.linkedProviders.push('GOOGLE');
@@ -1180,6 +1205,7 @@ export async function loginWithGoogle({ idToken, accessToken, profile = null } =
 
     const { password: _, ...userSafe } = matched;
     userSafe.hasPassword = !!matched.password;
+    userSafe.isMockUser = true;
     userSafe.linkedProviders = ['GOOGLE'];
     if (matched.password) {
       userSafe.linkedProviders.push('LOCAL');
@@ -1224,6 +1250,7 @@ export async function setPassword({ email, password, otp } = {}) {
 
     const { password: _, ...userSafe } = target;
     userSafe.hasPassword = true;
+    userSafe.isMockUser = true;
     userSafe.linkedProviders = ['GOOGLE', 'LOCAL'];
     return {
       success: true,
@@ -1279,6 +1306,7 @@ export async function registerUser(userData) {
     saveStoredUsers(users);
 
     const { password: _, ...userSafe } = newUser;
+    userSafe.isMockUser = true;
     return {
       success: true,
       message: 'Đăng ký thành công! Tặng bạn mã ưu đãi SENMOI50 cho đơn đầu tiên.',
