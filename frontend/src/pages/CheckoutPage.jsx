@@ -19,8 +19,7 @@ import {
   Package
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { createOrder, createMoMoPayment, simulateMoMoPayment, checkOrderStatus, simulateBankTransferPayment } from '../services/api';
-import NotificationModal from '../components/NotificationModal';
+import { createOrder, createMoMoPayment, simulateMoMoPayment, lookupOrder, simulateBankTransferPayment } from '../services/api';
 import useModal from '../components/useModal';
 
 export default function CheckoutPage({
@@ -81,6 +80,7 @@ export default function CheckoutPage({
   const [placedOrder, setPlacedOrder] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [momoData, setMomoData] = useState(null);
+  const [vietQrData, setVietQrData] = useState(null);
   const [orderStatus, setOrderStatus] = useState('PENDING');
   const [isSimulating, setIsSimulating] = useState(false);
 
@@ -144,13 +144,21 @@ export default function CheckoutPage({
     branch: 'Chi nhánh Ba Đình - Hà Nội'
   };
 
+  const activeBankInfo = {
+    bankName: vietQrData?.bankName || bankInfo.bankName,
+    bankCode: vietQrData?.bankCode || bankInfo.bankCode,
+    accountNumber: vietQrData?.accountNumber || bankInfo.accountNumber,
+    accountName: vietQrData?.accountName || bankInfo.accountName,
+    branch: bankInfo.branch
+  };
+
   const currentCode = orderCode || `SX${Math.floor(100000 + Math.random() * 900000)}`;
   const finalTotalAmount = placedOrder ? placedOrder.totalAmount : total;
 
-  const vietQrUrl = `https://img.vietqr.io/image/VCB-${bankInfo.accountNumber}-compact2.png?amount=${finalTotalAmount}&addInfo=${currentCode}&accountName=${encodeURIComponent(bankInfo.accountName)}`;
+  const vietQrUrl = vietQrData?.qrImageUrl || `https://img.vietqr.io/image/${activeBankInfo.bankCode}-${activeBankInfo.accountNumber}-compact2.png?amount=${finalTotalAmount}&addInfo=${currentCode}&accountName=${encodeURIComponent(activeBankInfo.accountName)}`;
 
   const handleCopyAccount = () => {
-    navigator.clipboard.writeText(bankInfo.accountNumber);
+    navigator.clipboard.writeText(activeBankInfo.accountNumber);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -184,6 +192,9 @@ export default function CheckoutPage({
       const result = await createOrder(payload);
       const code = result.order?.orderCode || currentCode;
       setOrderCode(code);
+      if (result.vietQr) {
+        setVietQrData(result.vietQr);
+      }
       setPlacedOrder(result.order || {
         orderCode: code,
         totalAmount: total,
@@ -518,19 +529,19 @@ export default function CheckoutPage({
                   <div className="vietqr-info-list">
                     <div className="qr-info-item">
                       <span className="qr-info-label">Ngân hàng thụ hưởng:</span>
-                      <strong className="qr-info-val">{bankInfo.bankName} ({bankInfo.bankCode})</strong>
+                      <strong className="qr-info-val">{activeBankInfo.bankName} ({activeBankInfo.bankCode})</strong>
                     </div>
 
                     <div className="qr-info-item">
                       <span className="qr-info-label">Chủ tài khoản:</span>
-                      <strong className="qr-info-val">{bankInfo.accountName}</strong>
+                      <strong className="qr-info-val">{activeBankInfo.accountName}</strong>
                     </div>
 
                     <div className="qr-info-item highlight">
                       <span className="qr-info-label">Số tài khoản:</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <strong className="qr-info-val" style={{ fontSize: '1.15rem', color: 'var(--primary)' }}>
-                          {bankInfo.accountNumber}
+                          {activeBankInfo.accountNumber}
                         </strong>
                         <button className="copy-btn" onClick={handleCopyAccount} title="Sao chép số tài khoản">
                           <Copy size={15} />

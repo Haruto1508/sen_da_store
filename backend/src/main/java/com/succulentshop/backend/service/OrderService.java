@@ -12,6 +12,8 @@ import com.succulentshop.backend.exception.InsufficientStockException;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.repository.UserRepository;
+import com.succulentshop.backend.config.BankTransferConfig;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,20 +28,31 @@ public class OrderService {
     private final ProductService productService;
     private final CouponService couponService;
     private final UserRepository userRepository;
+    private final BankTransferConfig bankTransferConfig;
 
     private static final String BANK_NAME = "Vietcombank";
     private static final String BANK_CODE = "VCB";
     private static final String ACCOUNT_NUMBER = "1028889999";
-    private static final String ACCOUNT_NAME = "NGUYEN HOANG LONG";
+    private static final String ACCOUNT_NAME = "SEN XINH GARDEN";
+
+    @Autowired
+    public OrderService(OrderRepository orderRepository,
+                        ProductService productService,
+                        CouponService couponService,
+                        UserRepository userRepository,
+                        @Autowired(required = false) BankTransferConfig bankTransferConfig) {
+        this.orderRepository = orderRepository;
+        this.productService = productService;
+        this.couponService = couponService;
+        this.userRepository = userRepository;
+        this.bankTransferConfig = bankTransferConfig;
+    }
 
     public OrderService(OrderRepository orderRepository,
                         ProductService productService,
                         CouponService couponService,
                         UserRepository userRepository) {
-        this.orderRepository = orderRepository;
-        this.productService = productService;
-        this.couponService = couponService;
-        this.userRepository = userRepository;
+        this(orderRepository, productService, couponService, userRepository, null);
     }
 
     @Transactional
@@ -151,14 +164,22 @@ public class OrderService {
         // 5. Generate VietQR if needed
         Map<String, Object> vietQrData = null;
         if ("vietqr".equalsIgnoreCase(saved.getPaymentMethod())) {
-            String encodedName = URLEncoder.encode(ACCOUNT_NAME, StandardCharsets.UTF_8);
+            String activeBankCode = (bankTransferConfig != null && bankTransferConfig.getBankCode() != null && !bankTransferConfig.getBankCode().isBlank())
+                    ? bankTransferConfig.getBankCode() : BANK_CODE;
+            String activeAccountNumber = (bankTransferConfig != null && bankTransferConfig.getAccountNumber() != null && !bankTransferConfig.getAccountNumber().isBlank())
+                    ? bankTransferConfig.getAccountNumber() : ACCOUNT_NUMBER;
+            String activeAccountName = (bankTransferConfig != null && bankTransferConfig.getAccountName() != null && !bankTransferConfig.getAccountName().isBlank())
+                    ? bankTransferConfig.getAccountName() : ACCOUNT_NAME;
+
+            String encodedName = URLEncoder.encode(activeAccountName, StandardCharsets.UTF_8);
             String qrUrl = String.format("https://img.vietqr.io/image/%s-%s-compact2.png?amount=%d&addInfo=%s&accountName=%s",
-                    BANK_CODE, ACCOUNT_NUMBER, totalAmount, orderCode, encodedName);
+                    activeBankCode, activeAccountNumber, totalAmount, orderCode, encodedName);
 
             vietQrData = Map.of(
                 "bankName", BANK_NAME,
-                "accountNumber", ACCOUNT_NUMBER,
-                "accountName", ACCOUNT_NAME,
+                "bankCode", activeBankCode,
+                "accountNumber", activeAccountNumber,
+                "accountName", activeAccountName,
                 "amount", totalAmount,
                 "orderCode", orderCode,
                 "qrImageUrl", qrUrl
