@@ -220,15 +220,6 @@ export default function CheckoutPage({
 
       setIsCompleted(true);
 
-      // Bắn pháo hoa chào mừng tạo đơn thành công
-      try {
-        confetti({
-          particleCount: 120,
-          spread: 80,
-          origin: { y: 0.6 }
-        });
-      } catch (err) {}
-
       if (onOrderSuccess) {
         onOrderSuccess(result.order);
       }
