@@ -63,6 +63,23 @@ button, input, select, textarea {
   font-family: inherit;
 }
 
+/* Ẩn nút xem mật khẩu mặc định của Microsoft Edge / IE để tránh bị hiển thị 2 con mắt */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+input::-webkit-credentials-auto-fill-button,
+input::-webkit-contacts-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -4416,6 +4433,13 @@ button, input, select, textarea {
   background: #FEF2F2;
 }
 
+.auth-input::-ms-reveal,
+.auth-input::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 .auth-input-toggle {
   position: absolute;
   right: 12px;
@@ -4427,6 +4451,7 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   transition: color 0.2s;
+  z-index: 2;
 }
 
 .auth-input-toggle:hover {
