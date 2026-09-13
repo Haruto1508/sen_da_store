@@ -30,10 +30,11 @@ import {
   isMockUser
 } from '../services/api';
 import useModal from '../components/useModal';
+import NotificationModal from '../components/NotificationModal';
 
 export default function CheckoutPage({
   user,
-  cartItems,
+  cartItems = [],
   discountCode = '',
   discountPercent = 0,
   onOrderSuccess,
@@ -142,7 +143,7 @@ export default function CheckoutPage({
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = (cartItems || []).reduce((sum, item) => sum + (item?.price || 0) * (item?.quantity || 1), 0);
   const discountAmount = Math.round(subtotal * (discountPercent / 100));
   const freeShippingThreshold = 200000;
   const isFreeShipping = subtotal >= freeShippingThreshold || subtotal === 0;
@@ -150,11 +151,11 @@ export default function CheckoutPage({
   const total = Math.max(0, subtotal - discountAmount + shippingFee);
 
   const bankInfo = {
-    bankName: 'Vietcombank',
-    bankCode: 'VCB',
-    accountNumber: '1028889999',
-    accountName: 'SEN XINH GARDEN',
-    branch: 'Chi nhánh Ba Đình - Hà Nội'
+    bankName: 'MBBank',
+    bankCode: 'MB',
+    accountNumber: '0001761675223',
+    accountName: 'NGUYEN HOANG THAI VINH',
+    branch: 'Ngân hàng Quân Đội (MBBank)'
   };
 
   const activeBankInfo = {
@@ -636,7 +637,7 @@ export default function CheckoutPage({
   }
 
   // Screen 2: Empty Cart in Checkout
-  if (cartItems.length === 0) {
+  if (!cartItems || cartItems.length === 0) {
     return (
       <div className="checkout-page">
         <div className="container" style={{ padding: '80px 24px', textAlign: 'center', maxWidth: '600px' }}>

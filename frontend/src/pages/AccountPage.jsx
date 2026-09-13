@@ -5,7 +5,6 @@ import {
   Mail, 
   Phone, 
   MapPin, 
-  ShieldCheck, 
   Package, 
   Heart, 
   Sparkles, 
@@ -21,14 +20,9 @@ import {
   RefreshCw,
   Trash2,
   Plus,
-  Minus,
-  Tag,
-  Lock,
-  KeyRound,
-  Eye,
-  EyeOff
+  Tag
 } from 'lucide-react';
-import { getAdminOrders, updateOrderStatus, getAdminStats, getCustomerOrders, cancelCustomerOrder, changePassword, setPassword } from '../services/api';
+import { getAdminOrders, updateOrderStatus, getCustomerOrders, cancelCustomerOrder } from '../services/api';
 import NotificationModal from '../components/NotificationModal';
 import useModal from '../components/useModal';
 
@@ -100,77 +94,7 @@ export default function AccountPage({
   const [couponError, setCouponError] = useState('');
   const [couponSuccess, setCouponSuccess] = useState(false);
 
-  // Change Password state
-  const [pwdData, setPwdData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-  const [pwdLoading, setPwdLoading] = useState(false);
-  const [pwdError, setPwdError] = useState('');
-  const [pwdSuccess, setPwdSuccess] = useState(false);
-  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
-  const [showNewPwd, setShowNewPwd] = useState(false);
-  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
-  const handlePasswordChangeSubmit = async (e) => {
-    e.preventDefault();
-    const isSettingInitial = user && user.hasPassword === false;
-
-    if (!isSettingInitial && !pwdData.currentPassword) {
-      setPwdError('Vui lòng nhập mật khẩu hiện tại!');
-      return;
-    }
-    if (!pwdData.newPassword) {
-      setPwdError('Vui lòng nhập mật khẩu mới!');
-      return;
-    }
-    if (pwdData.newPassword.length < 6) {
-      setPwdError('Mật khẩu mới phải có ít nhất 6 ký tự!');
-      return;
-    }
-    if (pwdData.newPassword !== pwdData.confirmPassword) {
-      setPwdError('Mật khẩu xác nhận không khớp với mật khẩu mới!');
-      return;
-    }
-
-    setPwdLoading(true);
-    setPwdError('');
-
-    try {
-      if (isSettingInitial) {
-        const res = await setPassword({
-          email: formData.email,
-          password: pwdData.newPassword
-        });
-
-        if (res.success) {
-          setPwdSuccess(true);
-          setPwdData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-          if (onUpdateUser) {
-            onUpdateUser({ hasPassword: true });
-          }
-          setTimeout(() => setPwdSuccess(false), 4000);
-        }
-      } else {
-        const res = await changePassword({
-          email: formData.email,
-          currentPassword: pwdData.currentPassword,
-          newPassword: pwdData.newPassword
-        });
-
-        if (res.success) {
-          setPwdSuccess(true);
-          setPwdData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-          setTimeout(() => setPwdSuccess(false), 4000);
-        }
-      }
-    } catch (err) {
-      setPwdError(err.message || 'Không thể cập nhật mật khẩu. Vui lòng kiểm tra lại!');
-    } finally {
-      setPwdLoading(false);
-    }
-  };
 
   // Orders and shipping history state
   const [orders, setOrders] = useState([]);
@@ -316,7 +240,6 @@ export default function AccountPage({
               {activeTab === 'wishlist' && 'Mục Yêu Thích Của Tôi'}
               {activeTab === 'cart' && 'Giỏ Hàng Của Bạn'}
               {activeTab === 'profile' && 'Tài Khoản Của Tôi'}
-              {activeTab === 'password' && 'Đổi Mật Khẩu Bảo Mật'}
             </span>
           </div>
 
@@ -327,14 +250,12 @@ export default function AccountPage({
                 {activeTab === 'wishlist' && 'Bộ Sưu Tập Đã Lưu'}
                 {activeTab === 'cart' && 'Túi Mầm Xanh'}
                 {activeTab === 'profile' && 'Trung Tâm Thành Viên'}
-                {activeTab === 'password' && 'Bảo Mật Tài Khoản'}
               </span>
               <h1 className="page-title" style={{ fontSize: '2.4rem', marginTop: '4px' }}>
                 {activeTab === 'orders' && 'Đơn Hàng & Lịch Sử Giao Hàng'}
                 {activeTab === 'wishlist' && `Mục Yêu Thích (${wishlistProducts.length} Cây)`}
                 {activeTab === 'cart' && `Giỏ Hàng (${cartCount} Sản Phẩm)`}
                 {activeTab === 'profile' && 'Hồ Sơ & Quản Lý Tài Khoản'}
-                {activeTab === 'password' && 'Cập Nhật Mật Khẩu Mới'}
               </h1>
             </div>
 
@@ -470,13 +391,6 @@ export default function AccountPage({
                   )}
                 </button>
 
-                <button 
-                  className={`profile-nav-btn ${activeTab === 'password' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('password')}
-                >
-                  <KeyRound size={18} />
-                  <span>Đổi Mật Khẩu</span>
-                </button>
 
                 <button 
                   className="profile-nav-btn logout"
@@ -1170,149 +1084,7 @@ export default function AccountPage({
               </div>
             )}
 
-            {/* 5. TAB: CHANGE PASSWORD */}
-            {activeTab === 'password' && (
-              <div className="account-card">
-                <div className="account-card-header">
-                  <div>
-                    <h3 style={{ fontSize: '1.35rem', fontWeight: 700 }}>
-                      {user?.hasPassword === false ? 'Thiết Lập Mật Khẩu (Tài Khoản Google)' : 'Đổi Mật Khẩu Tài Khoản'}
-                    </h3>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: '2px' }}>
-                      {user?.hasPassword === false
-                        ? 'Tài khoản của bạn đăng nhập qua Google và chưa có mật khẩu local. Thiết lập mật khẩu để bạn có thể đăng nhập bằng cả Email/Mật khẩu.'
-                        : 'Để bảo vệ tài khoản, bạn nên sử dụng mật khẩu mạnh có chữ, số và ký tự đặc biệt'}
-                    </p>
-                  </div>
-                </div>
 
-                {pwdSuccess && (
-                  <div style={{ padding: '14px 18px', background: '#D1FAE5', border: '1px solid #10B981', borderRadius: '10px', color: '#065F46', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <CheckCircle2 size={20} color="#059669" />
-                    <div>
-                      <strong>Thành công!</strong> {user?.hasPassword === false ? 'Mật khẩu đã được thiết lập thành công. Giờ đây bạn có thể đăng nhập bằng Email và Mật khẩu mới!' : 'Mật khẩu của bạn đã được cập nhật thành công.'}
-                    </div>
-                  </div>
-                )}
-
-                {pwdError && (
-                  <div style={{ padding: '14px 18px', background: '#FEE2E2', border: '1px solid #EF4444', borderRadius: '10px', color: '#991B1B', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <AlertCircle size={20} color="#DC2626" />
-                    <div>
-                      <strong>Lỗi:</strong> {pwdError}
-                    </div>
-                  </div>
-                )}
-
-                <form onSubmit={handlePasswordChangeSubmit} style={{ maxWidth: '540px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                  {/* Current Password - Chỉ hiển thị nếu tài khoản đã có mật khẩu */}
-                  {user?.hasPassword !== false && (
-                    <div className="auth-field">
-                      <label>Mật khẩu hiện tại</label>
-                      <div className="auth-input-wrap">
-                        <span className="auth-input-icon">
-                          <Lock size={18} />
-                        </span>
-                        <input
-                          type={showCurrentPwd ? 'text' : 'password'}
-                          className="auth-input"
-                          placeholder="Nhập mật khẩu bạn đang dùng"
-                          value={pwdData.currentPassword}
-                          onChange={(e) => setPwdData({ ...pwdData, currentPassword: e.target.value })}
-                          required
-                        />
-                        <button
-                          type="button"
-                          className="auth-input-toggle"
-                          onClick={() => setShowCurrentPwd(!showCurrentPwd)}
-                          tabIndex="-1"
-                        >
-                          {showCurrentPwd ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* New Password */}
-                  <div className="auth-field">
-                    <label>
-                      <span>Mật khẩu mới</span>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>Tối thiểu 6 ký tự</span>
-                    </label>
-                    <div className="auth-input-wrap">
-                      <span className="auth-input-icon">
-                        <KeyRound size={18} />
-                      </span>
-                      <input
-                        type={showNewPwd ? 'text' : 'password'}
-                        className="auth-input"
-                        placeholder="Tạo mật khẩu mới an toàn"
-                        value={pwdData.newPassword}
-                        onChange={(e) => setPwdData({ ...pwdData, newPassword: e.target.value })}
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="auth-input-toggle"
-                        onClick={() => setShowNewPwd(!showNewPwd)}
-                        tabIndex="-1"
-                      >
-                        {showNewPwd ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Confirm New Password */}
-                  <div className="auth-field">
-                    <label>Xác nhận mật khẩu mới</label>
-                    <div className="auth-input-wrap">
-                      <span className="auth-input-icon">
-                        <Lock size={18} />
-                      </span>
-                      <input
-                        type={showConfirmPwd ? 'text' : 'password'}
-                        className="auth-input"
-                        placeholder="Nhập lại mật khẩu mới"
-                        value={pwdData.confirmPassword}
-                        onChange={(e) => setPwdData({ ...pwdData, confirmPassword: e.target.value })}
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="auth-input-toggle"
-                        onClick={() => setShowConfirmPwd(!showConfirmPwd)}
-                        tabIndex="-1"
-                      >
-                        {showConfirmPwd ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Security recommendation */}
-                  <div style={{ background: 'var(--bg-alt)', padding: '14px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '0.85rem', color: 'var(--primary)', marginBottom: '6px' }}>
-                      <ShieldCheck size={16} />
-                      <span>Mẹo bảo mật tài khoản Sen Xinh:</span>
-                    </div>
-                    <ul style={{ paddingLeft: '20px', fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                      <li>Nên đổi mật khẩu định kỳ 3-6 tháng/lần.</li>
-                      <li>Không sử dụng cùng mật khẩu với các mạng xã hội khác.</li>
-                      <li>Đăng xuất tài khoản khi dùng máy tính công cộng.</li>
-                    </ul>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={pwdLoading}
-                    style={{ padding: '12px 24px', alignSelf: 'flex-start', marginTop: '4px' }}
-                  >
-                    <KeyRound size={16} />
-                    <span>{pwdLoading ? 'Đang xử lý...' : (user?.hasPassword === false ? 'Thiết Lập Mật Khẩu' : 'Cập Nhật Mật Khẩu')}</span>
-                  </button>
-                </form>
-              </div>
-            )}
           </main>
         </div>
       </div>

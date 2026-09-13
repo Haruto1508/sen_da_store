@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Shield,
-  Lock,
   AlertTriangle,
   AlertCircle,
   Sparkles,
@@ -16,7 +15,6 @@ export default function AdminGatekeeper({
   addToast
 }) {
   const [adminEmail, setAdminEmail] = useState('admin@senxinh.vn');
-  const [adminPassword, setAdminPassword] = useState('admin123');
   const [gateError, setGateError] = useState('');
   const [gateLoading, setGateLoading] = useState(false);
 
@@ -25,7 +23,7 @@ export default function AdminGatekeeper({
     setGateError('');
     setGateLoading(true);
     try {
-      const res = await loginUser(adminEmail, adminPassword);
+      const res = await loginUser(adminEmail);
       if (res && res.data) {
         if (
           res.data.role?.toLowerCase().includes('admin') ||
@@ -46,10 +44,9 @@ export default function AdminGatekeeper({
 
   const handleQuickAdminLogin = async () => {
     setAdminEmail('admin@senxinh.vn');
-    setAdminPassword('admin123');
     setGateLoading(true);
     try {
-      const res = await loginUser('admin@senxinh.vn', 'admin123');
+      const res = await loginUser('admin@senxinh.vn');
       if (res && res.data) {
         if (onLoginAsAdmin) onLoginAsAdmin(res.data, true);
         if (addToast) addToast('Đăng nhập Quản Trị Viên thành công!', 'success');
@@ -70,11 +67,11 @@ export default function AdminGatekeeper({
         </div>
 
         <h2 className="admin-gate-title">
-          <Lock size={26} color="#0F172A" />
+          <Shield size={26} color="#0F172A" />
           Quản Trị Nhà Vườn
         </h2>
         <p className="admin-gate-desc">
-          Khu vực dành riêng cho Quản Trị Viên (Admin) Sen Xinh Garden. Vui lòng đăng nhập với tài khoản được ủy quyền.
+          Khu vực dành riêng cho Quản Trị Viên (Admin) Sen Xinh Garden. Vui lòng nhập email quản trị được ủy quyền.
         </p>
 
         {user && (
@@ -104,17 +101,6 @@ export default function AdminGatekeeper({
               placeholder="admin@senxinh.vn"
               value={adminEmail}
               onChange={(e) => setAdminEmail(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="admin-field">
-            <label>Mật Khẩu</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={adminPassword}
-              onChange={(e) => setAdminPassword(e.target.value)}
               required
             />
           </div>

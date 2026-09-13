@@ -3,7 +3,6 @@ package com.succulentshop.backend.controller;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.GoogleLoginRequest;
 import com.succulentshop.backend.dto.LoginRequest;
-import com.succulentshop.backend.dto.PasswordResetDto.*;
 import com.succulentshop.backend.dto.RegisterRequest;
 import com.succulentshop.backend.service.AuthService;
 import org.springframework.http.ResponseEntity;
@@ -23,12 +22,12 @@ public class AuthController {
     }
 
     /**
-     * Đăng nhập tài khoản
+     * Đăng nhập tài khoản bằng Email (Passwordless)
      */
     @PostMapping("/login")
     @SuppressWarnings("unchecked")
     public ResponseEntity<ApiResult<Map<String, Object>>> login(@RequestBody LoginRequest request) {
-        Map<String, Object> result = authService.login(request.getEmail(), request.getPassword());
+        Map<String, Object> result = authService.login(request.getEmail());
         Map<String, Object> userData = new LinkedHashMap<>((Map<String, Object>) result.get("user"));
         if (result.containsKey("token")) {
             userData.put("token", result.get("token"));
@@ -51,7 +50,7 @@ public class AuthController {
     }
 
     /**
-     * Đăng ký tài khoản mới
+     * Đăng ký tài khoản mới không cần mật khẩu
      */
     @PostMapping("/register")
     @SuppressWarnings("unchecked")
@@ -60,7 +59,6 @@ public class AuthController {
                 request.getName(),
                 request.getEmail(),
                 request.getPhone(),
-                request.getPassword(),
                 request.getAddress()
         );
         Map<String, Object> userData = new LinkedHashMap<>((Map<String, Object>) result.get("user"));
@@ -72,68 +70,5 @@ public class AuthController {
             "Đăng ký thành công! Chào mừng bạn đến với Sen Xinh Garden.",
             userData
         ));
-    }
-
-    /**
-     * Yêu cầu gửi mã OTP khôi phục mật khẩu
-     */
-    @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResult<Map<String, Object>>> forgotPassword(@RequestBody ForgotPasswordRequest request) {
-        String demoOtp = authService.requestOtp(request.getEmailOrPhone());
-
-        return ResponseEntity.ok(ApiResult.ok(
-            "Mã xác thực OTP đã được tạo thành công.",
-            Map.of("demoOtp", demoOtp)
-        ));
-    }
-
-    /**
-     * Đặt lại mật khẩu bằng mã OTP
-     */
-    @PostMapping("/reset-password")
-    public ResponseEntity<ApiResult<Void>> resetPassword(@RequestBody ResetPasswordRequest request) {
-        authService.resetPassword(request.getEmailOrPhone(), request.getOtp(), request.getNewPassword());
-
-        return ResponseEntity.ok(ApiResult.ok(
-            "Mật khẩu đã được đặt lại thành công! Bạn có thể đăng nhập ngay.",
-            null
-        ));
-    }
-
-    /**
-     * Đổi mật khẩu cho tài khoản
-     */
-    @PostMapping("/change-password")
-    public ResponseEntity<ApiResult<Void>> changePassword(@RequestBody ChangePasswordRequest request) {
-        authService.changePassword(request.getEmail(), request.getCurrentPassword(), request.getNewPassword());
-
-        return ResponseEntity.ok(ApiResult.ok(
-            "Cập nhật mật khẩu mới thành công!",
-            null
-        ));
-    }
-
-    /**
-     * Thiết lập mật khẩu cho tài khoản Google chưa có mật khẩu
-     */
-    @PostMapping("/set-password")
-    public ResponseEntity<ApiResult<Map<String, Object>>> setPassword(
-            @RequestBody com.succulentshop.backend.dto.SetPasswordRequest request,
-            @RequestHeader(value = "Authorization", required = false) String authHeader
-    ) {
-        Map<String, Object> result = authService.setPassword(request, authHeader);
-        return ResponseEntity.ok(ApiResult.ok(
-            "Thiết lập mật khẩu thành công! Giờ đây bạn có thể đăng nhập bằng Email và Mật khẩu.",
-            result
-        ));
-    }
-
-    /**
-     * Kiểm tra trạng thái email (kiểm tra tài khoản Google chưa có mật khẩu)
-     */
-    @GetMapping("/check-email")
-    public ResponseEntity<ApiResult<Map<String, Object>>> checkEmail(@RequestParam String email) {
-        Map<String, Object> result = authService.checkEmailStatus(email);
-        return ResponseEntity.ok(ApiResult.ok("Kiểm tra email thành công", result));
     }
 }

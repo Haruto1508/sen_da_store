@@ -123,7 +123,7 @@ class ControllerApiResultTest {
     @DisplayName("AuthController trả về ApiResult thành công")
     void testAuthController() {
         AuthService authService = mock(AuthService.class);
-        when(authService.login("admin@senxinh.vn", "admin123")).thenReturn(Map.of(
+        when(authService.login("admin@senxinh.vn")).thenReturn(Map.of(
                 "user", Map.of("email", "admin@senxinh.vn", "role", "ROLE_ADMIN"),
                 "token", "mock-token"
         ));
@@ -132,7 +132,6 @@ class ControllerApiResultTest {
 
         LoginRequest loginReq = new LoginRequest();
         loginReq.setEmail("admin@senxinh.vn");
-        loginReq.setPassword("admin123");
 
         ResponseEntity<ApiResult<Map<String, Object>>> loginResp = controller.login(loginReq);
         assertEquals(HttpStatus.OK, loginResp.getStatusCode());

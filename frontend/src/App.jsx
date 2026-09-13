@@ -17,7 +17,6 @@ import AccountPage from './pages/AccountPage';
 import CartPage from './pages/CartPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
 
 import { PRODUCTS } from './data/products';
 import { getProducts, validateCoupon, USE_MOCK_DATA, isMockUser } from './services/api';
@@ -260,7 +259,7 @@ export default function App() {
         break;
       case 'password':
       case 'forgot-password':
-        navigate('/forgot-password');
+        navigate('/login');
         break;
       default:
         navigate('/');
@@ -831,17 +830,9 @@ export default function App() {
             }
           />
 
-          {/* Dedicated Forgot / Reset Password Route */}
-          <Route
-            path="/forgot-password"
-            element={
-              <ForgotPasswordPage
-                onNavigate={navigateTo}
-                addToast={addToast}
-              />
-            }
-          />
-          <Route path="/password" element={<Navigate to="/forgot-password" replace />} />
+          {/* Password routes redirect to Login */}
+          <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
+          <Route path="/password" element={<Navigate to="/login" replace />} />
 
           {/* Dedicated Cart Route (Opens CartPage directly) */}
           <Route

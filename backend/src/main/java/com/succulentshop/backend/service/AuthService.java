@@ -1,7 +1,6 @@
 package com.succulentshop.backend.service;
 
 import com.succulentshop.backend.dto.GoogleLoginRequest;
-import com.succulentshop.backend.dto.SetPasswordRequest;
 import com.succulentshop.backend.dto.UpdateProfileRequest;
 import com.succulentshop.backend.entity.SocialAccount;
 import com.succulentshop.backend.entity.User;
@@ -54,11 +53,12 @@ public class AuthService {
     }
 
     /**
-     * Đăng nhập người dùng bằng email/số điện thoại và mật khẩu
+     * Đăng nhập người dùng bằng email hoặc số điện thoại (Passwordless Authentication)
+     * Nếu tài khoản chưa tồn tại, tự động tạo mới tài khoản với quyền Thành viên mới
      */
-    public Map<String, Object> login(String identifier, String password) {
-        if (identifier == null || password == null || identifier.isBlank() || password.isBlank()) {
-            throw new AppException(ErrorCode.AUTH_CREDENTIALS_REQUIRED);
+    public Map<String, Object> login(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING, "Vui lòng nhập email hoặc số điện thoại để đăng nhập");
         }
 
         String target = identifier.trim().toLowerCase();
@@ -67,47 +67,42 @@ public class AuthService {
             userOpt = userRepository.findByPhone(target);
         }
 
-        if (userOpt.isEmpty()) {
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS);
-        }
-
-        User user = userOpt.get();
-
-        // Kiểm tra trạng thái tài khoản
-        if (user.isBanned() || user.isDeleted()) {
-            throw new AppException(ErrorCode.ACCOUNT_DISABLED);
-        }
-
-        // Case 2: Tài khoản được tạo từ Google OAuth và chưa thiết lập mật khẩu local
-        if (user.getPassword() == null || user.getPassword().isBlank()) {
-            throw new AppException(
-                ErrorCode.PASSWORD_NOT_SET,
-                "Tài khoản của bạn được tạo qua Google và chưa thiết lập mật khẩu. Vui lòng thiết lập mật khẩu trước khi đăng nhập bằng Email/Mật khẩu hoặc tiếp tục Đăng nhập bằng Google."
-            );
-        }
-
-        // Kiểm tra mật khẩu (hỗ trợ BCrypt và fallback nâng cấp từ dữ liệu seed cũ)
-        boolean matches = false;
-        if (isBCryptHash(user.getPassword())) {
-            matches = passwordEncoder.matches(password, user.getPassword());
-        } else {
-            // Tự động nâng cấp sang mã hóa BCrypt ngay trong lần đăng nhập đầu tiên
-            matches = user.getPassword().equals(password);
-            if (matches) {
-                user.setPassword(passwordEncoder.encode(password));
-                userRepository.save(user);
-                log.info("Đã nâng cấp mật khẩu sang định dạng BCrypt cho user: {}", user.getEmail());
+        User user;
+        if (userOpt.isPresent()) {
+            user = userOpt.get();
+            // Kiểm tra trạng thái tài khoản
+            if (user.isBanned() || user.isDeleted()) {
+                throw new AppException(ErrorCode.ACCOUNT_DISABLED);
             }
-        }
-
-        if (!matches) {
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS);
+        } else {
+            // Tự động tạo tài khoản mới nếu chưa tồn tại
+            String displayName = target.contains("@") ? target.split("@")[0] : target;
+            User newUser = new User(
+                displayName,
+                target,
+                "",
+                null, // Không lưu mật khẩu
+                "Hà Nội, Việt Nam",
+                "Thành viên mới",
+                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+                50
+            );
+            newUser.setAuthProvider("EMAIL");
+            user = userRepository.save(newUser);
+            log.info("Tự động tạo tài khoản người dùng mới từ email: {}", target);
         }
 
         return Map.of(
             "user", sanitizeUser(user),
             "token", "bearer_token_" + user.getId() + "_" + System.currentTimeMillis()
         );
+    }
+
+    /**
+     * Overload tương thích ngược cho các lời gọi cũ có truyền password
+     */
+    public Map<String, Object> login(String identifier, String password) {
+        return login(identifier);
     }
 
     /**
@@ -188,7 +183,6 @@ public class AuthService {
         Optional<SocialAccount> socialOpt = socialAccountRepository.findByProviderAndProviderId("GOOGLE", sub);
 
         if (socialOpt.isPresent()) {
-            // Case 4: Đã liên kết trước đó -> trả về User duy nhất
             user = socialOpt.get().getUser();
             if (avatar != null && !avatar.isBlank()) {
                 socialOpt.get().setAvatar(avatar);
@@ -196,11 +190,9 @@ public class AuthService {
             }
             log.info("Google login thành công cho User đã liên kết: {} (ID={})", user.getEmail(), user.getId());
         } else {
-            // Case 3: Kiểm tra email đã có tài khoản (đăng ký local trước đó) hay chưa
             Optional<User> existingUserOpt = userRepository.findByEmail(cleanEmail);
             if (existingUserOpt.isPresent()) {
                 user = existingUserOpt.get();
-                // Liên kết tài khoản Google với tài khoản người dùng hiện có (Tuyệt đối không tạo User trùng lặp)
                 SocialAccount sa = new SocialAccount(user, "GOOGLE", sub, cleanEmail, avatar);
                 socialAccountRepository.save(sa);
                 if (user.getAvatar() == null || user.getAvatar().isBlank()) {
@@ -209,7 +201,6 @@ public class AuthService {
                 }
                 log.info("Đã liên kết thành công Google Identity (sub={}) vào User hiện có: {} (ID={})", sub, user.getEmail(), user.getId());
             } else {
-                // Case 1: Tạo User mới từ Google OAuth, password = NULL
                 String displayName = (name != null && !name.isBlank()) ? name.trim() : cleanEmail.split("@")[0];
                 String userAvatar = (avatar != null && !avatar.isBlank()) 
                     ? avatar 
@@ -246,109 +237,10 @@ public class AuthService {
     }
 
     /**
-     * Kiểm tra trạng thái tài khoản theo email (hỗ trợ phát hiện tài khoản Google chưa có mật khẩu)
+     * Đăng ký tài khoản mới không cần mật khẩu
      */
-    public Map<String, Object> checkEmailStatus(String email) {
-        if (email == null || email.isBlank()) {
-            return Map.of("exists", false);
-        }
-
-        String cleanEmail = email.trim().toLowerCase();
-
-        Optional<User> userOpt = userRepository.findByEmail(cleanEmail);
-        if (userOpt.isEmpty()) {
-            userOpt = userRepository.findByPhone(email.trim());
-        }
-
-        if (userOpt.isEmpty()) {
-            return Map.of("exists", false);
-        }
-
-        User user = userOpt.get();
-        boolean hasPassword = user.getPassword() != null && !user.getPassword().isBlank();
-        boolean isGoogle = "GOOGLE".equalsIgnoreCase(user.getAuthProvider());
-        if (!isGoogle && socialAccountRepository != null) {
-            isGoogle = socialAccountRepository.findByUser(user).stream()
-                    .anyMatch(s -> "GOOGLE".equalsIgnoreCase(s.getProvider()));
-        }
-
-        Map<String, Object> res = new LinkedHashMap<>();
-        res.put("exists", true);
-        res.put("hasPassword", hasPassword);
-        res.put("isGoogle", isGoogle);
-        res.put("email", user.getEmail());
-        res.put("name", user.getName());
-        return res;
-    }
-
-    /**
-     * Thiết lập mật khẩu local cho tài khoản Google chưa có mật khẩu
-     */
-    @Transactional
-    public Map<String, Object> setPassword(SetPasswordRequest request, String authHeader) {
-        if (request == null || request.getPassword() == null || request.getPassword().isBlank()) {
-            throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING, "Vui lòng nhập mật khẩu mới");
-        }
-
-        if (request.getPassword().trim().length() < 6) {
-            throw new AppException(ErrorCode.INVALID_REQUEST, "Mật khẩu phải có tối thiểu 6 ký tự");
-        }
-
-        User user = null;
-
-        // 1. Nhận diện user qua Auth Token nếu có
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7).trim();
-            String[] parts = token.split("_");
-            if (parts.length >= 3) {
-                try {
-                    Long userId = Long.parseLong(parts[2]);
-                    user = userRepository.findById(userId).orElse(null);
-                } catch (NumberFormatException ignored) {}
-            }
-        }
-
-        // 2. Nếu chưa có token, nhận diện qua email truyền lên
-        if (user == null && request.getEmail() != null && !request.getEmail().isBlank()) {
-            String cleanEmail = request.getEmail().trim().toLowerCase();
-            user = userRepository.findByEmail(cleanEmail).orElse(null);
-        }
-
-        if (user == null) {
-            throw new AppException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy thông tin tài khoản người dùng");
-        }
-
-        // Nếu user đã có mật khẩu, yêu cầu sử dụng chức năng Đổi mật khẩu
-        if (user.getPassword() != null && !user.getPassword().isBlank()) {
-            // Cho phép bypass nếu cung cấp đúng OTP khôi phục
-            if (request.getOtp() == null || (!"686868".equals(request.getOtp()) && !request.getOtp().equals(user.getResetOtp()))) {
-                throw new AppException(
-                    ErrorCode.INVALID_REQUEST,
-                    "Tài khoản của bạn đã có mật khẩu. Vui lòng sử dụng chức năng Đổi mật khẩu trong Cài đặt tài khoản."
-                );
-            }
-        }
-
-        // Băm mật khẩu bằng BCrypt
-        String hashedPassword = passwordEncoder.encode(request.getPassword().trim());
-        user.setPassword(hashedPassword);
-        user.setResetOtp(null);
-        userRepository.save(user);
-
-        log.info("Thiết lập mật khẩu BCrypt thành công cho tài khoản: {}", user.getEmail());
-
-        return Map.of(
-            "user", sanitizeUser(user),
-            "token", "bearer_token_" + user.getId() + "_" + System.currentTimeMillis()
-        );
-    }
-
-    /**
-     * Đăng ký tài khoản local mới với mật khẩu được mã hóa BCrypt
-     */
-    public Map<String, Object> register(String name, String email, String phone, String password, String address) {
-        if (email == null || password == null || name == null ||
-            email.isBlank() || password.isBlank() || name.isBlank()) {
+    public Map<String, Object> register(String name, String email, String phone, String address) {
+        if (email == null || name == null || email.isBlank() || name.isBlank()) {
             throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING);
         }
 
@@ -357,22 +249,17 @@ public class AuthService {
             throw new AppException(ErrorCode.EMAIL_ALREADY_EXISTS, "Email này đã được sử dụng trong hệ thống!");
         }
 
-        if (password.trim().length() < 6) {
-            throw new AppException(ErrorCode.INVALID_REQUEST, "Mật khẩu phải có tối thiểu 6 ký tự");
-        }
-
-        String hashedPassword = passwordEncoder.encode(password.trim());
-
         User user = new User(
             name.trim(),
             cleanEmail,
             phone != null ? phone.trim() : "",
-            hashedPassword,
+            null, // Không dùng mật khẩu
             address != null ? address.trim() : "Hà Nội, Việt Nam",
             "Thành viên mới",
             "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
             50
         );
+        user.setAuthProvider("EMAIL");
 
         User saved = userRepository.save(user);
         return Map.of(
@@ -381,51 +268,11 @@ public class AuthService {
         );
     }
 
-    public String requestOtp(String emailOrPhone) {
-        User user = findByIdentifierOrThrow(emailOrPhone);
-        String demoOtp = "686868";
-        user.setResetOtp(demoOtp);
-        userRepository.save(user);
-        return demoOtp;
-    }
-
-    public void resetPassword(String emailOrPhone, String otp, String newPassword) {
-        User user = findByIdentifierOrThrow(emailOrPhone);
-        if (!"686868".equals(otp) && !otp.equals(user.getResetOtp())) {
-            throw new AppException(ErrorCode.INVALID_OTP);
-        }
-        if (newPassword == null || newPassword.trim().length() < 6) {
-            throw new AppException(ErrorCode.INVALID_REQUEST, "Mật khẩu mới phải có tối thiểu 6 ký tự");
-        }
-        user.setPassword(passwordEncoder.encode(newPassword.trim()));
-        user.setResetOtp(null);
-        userRepository.save(user);
-    }
-
-    public void changePassword(String email, String currentPassword, String newPassword) {
-        User user = findByIdentifierOrThrow(email);
-
-        if (user.getPassword() == null || user.getPassword().isBlank()) {
-            throw new AppException(ErrorCode.PASSWORD_NOT_SET, "Tài khoản chưa có mật khẩu, vui lòng sử dụng chức năng Thiết lập mật khẩu.");
-        }
-
-        boolean matches = false;
-        if (isBCryptHash(user.getPassword())) {
-            matches = passwordEncoder.matches(currentPassword, user.getPassword());
-        } else {
-            matches = user.getPassword().equals(currentPassword);
-        }
-
-        if (!matches) {
-            throw new AppException(ErrorCode.CURRENT_PASSWORD_INCORRECT);
-        }
-
-        if (newPassword == null || newPassword.trim().length() < 6) {
-            throw new AppException(ErrorCode.INVALID_REQUEST, "Mật khẩu mới phải có tối thiểu 6 ký tự");
-        }
-
-        user.setPassword(passwordEncoder.encode(newPassword.trim()));
-        userRepository.save(user);
+    /**
+     * Overload tương thích ngược có truyền tham số password
+     */
+    public Map<String, Object> register(String name, String email, String phone, String password, String address) {
+        return register(name, email, phone, address);
     }
 
     public Map<String, Object> getProfile(String email) {
@@ -477,14 +324,12 @@ public class AuthService {
         map.put("authProvider", user.getAuthProvider());
         map.put("status", user.getStatus() != null ? user.getStatus() : "ACTIVE");
 
-        // Kiểm tra xem user đã có mật khẩu local hay chưa
-        boolean hasPassword = user.getPassword() != null && !user.getPassword().isBlank();
-        map.put("hasPassword", hasPassword);
-
-        // Danh sách các nhà cung cấp xác thực đã liên kết (ví dụ: LOCAL, GOOGLE)
+        // Danh sách các nhà cung cấp xác thực đã liên kết (EMAIL, GOOGLE)
         List<String> linkedProviders = new ArrayList<>();
-        if (hasPassword) {
-            linkedProviders.add("LOCAL");
+        if ("GOOGLE".equalsIgnoreCase(user.getAuthProvider())) {
+            linkedProviders.add("GOOGLE");
+        } else {
+            linkedProviders.add("EMAIL");
         }
         if (socialAccountRepository != null) {
             List<SocialAccount> socials = socialAccountRepository.findByUser(user);
@@ -494,16 +339,9 @@ public class AuthService {
                 }
             }
         }
-        if (linkedProviders.isEmpty()) {
-            linkedProviders.add(user.getAuthProvider() != null ? user.getAuthProvider() : "LOCAL");
-        }
         map.put("linkedProviders", linkedProviders);
 
         map.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : null);
         return map;
-    }
-
-    private boolean isBCryptHash(String str) {
-        return str != null && (str.startsWith("$2a$") || str.startsWith("$2b$") || str.startsWith("$2y$")) && str.length() >= 60;
     }
 }

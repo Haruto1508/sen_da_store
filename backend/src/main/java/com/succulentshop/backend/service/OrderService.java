@@ -30,10 +30,10 @@ public class OrderService {
     private final UserRepository userRepository;
     private final BankTransferConfig bankTransferConfig;
 
-    private static final String BANK_NAME = "Vietcombank";
-    private static final String BANK_CODE = "VCB";
-    private static final String ACCOUNT_NUMBER = "1028889999";
-    private static final String ACCOUNT_NAME = "SEN XINH GARDEN";
+    private static final String BANK_NAME = "MBBank";
+    private static final String BANK_CODE = "MB";
+    private static final String ACCOUNT_NUMBER = "0001761675223";
+    private static final String ACCOUNT_NAME = "NGUYEN HOANG THAI VINH";
 
     @Autowired
     public OrderService(OrderRepository orderRepository,

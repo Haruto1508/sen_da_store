@@ -1,13 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { 
   User, 
   Mail, 
   Phone, 
-  Lock, 
-  Eye, 
-  EyeOff, 
   ArrowRight, 
-  Check, 
   AlertCircle, 
   Gift, 
   Sprout, 
@@ -22,34 +18,11 @@ export default function RegisterPage({ onRegisterSuccess, onNavigate, addToast }
     name: '',
     email: '',
     phone: '',
-    password: '',
-    confirmPassword: '',
     agreeTerms: true
   });
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-
-  // Password strength calculation
-  const passwordStrength = useMemo(() => {
-    const pass = formData.password;
-    if (!pass) return { score: 0, label: '', class: '' };
-    let score = 0;
-    if (pass.length >= 6) score += 1;
-    if (pass.length >= 8 && /[0-9]/.test(pass)) score += 1;
-    if (/[A-Z]/.test(pass) || /[^A-Za-z0-9]/.test(pass)) score += 1;
-
-    if (score === 1) return { score: 1, label: 'Mật khẩu yếu', class: 'weak' };
-    if (score === 2) return { score: 2, label: 'Mật khẩu vừa phải', class: 'medium' };
-    return { score: 3, label: 'Mật khẩu mạnh & an toàn', class: 'strong' };
-  }, [formData.password]);
-
-  const passwordsMatch = useMemo(() => {
-    if (!formData.confirmPassword) return null;
-    return formData.password === formData.confirmPassword;
-  }, [formData.password, formData.confirmPassword]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -62,18 +35,8 @@ export default function RegisterPage({ onRegisterSuccess, onNavigate, addToast }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.email.trim() || !formData.password) {
-      setErrorMsg('Vui lòng điền đầy đủ các trường thông tin bắt buộc!');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setErrorMsg('Mật khẩu cần tối thiểu 6 ký tự để đảm bảo an toàn.');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setErrorMsg('Mật khẩu xác nhận không khớp. Vui lòng kiểm tra lại!');
+    if (!formData.name.trim() || !formData.email.trim()) {
+      setErrorMsg('Vui lòng điền đầy đủ họ tên và email!');
       return;
     }
 
@@ -89,13 +52,12 @@ export default function RegisterPage({ onRegisterSuccess, onNavigate, addToast }
       const res = await registerUser({
         name: formData.name.trim(),
         email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        password: formData.password
+        phone: formData.phone.trim()
       });
 
       if (res.success && res.data) {
         if (addToast) {
-          addToast(`Chào mừng thành viên mới: ${res.data.name}! Bạn được tặng mã SENMOI50`, 'info');
+          addToast(`Chào mừng thành viên mới: ${res.data.name}! Bạn được tặng mã SENMOI50 🌿`, 'info');
         }
         if (onRegisterSuccess) {
           onRegisterSuccess(res.data);
@@ -227,135 +189,42 @@ export default function RegisterPage({ onRegisterSuccess, onNavigate, addToast }
                 </div>
               </div>
 
-              {/* Email and Phone Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="auth-field">
-                  <label htmlFor="reg-email">Email</label>
-                  <div className="auth-input-wrap">
-                    <span className="auth-input-icon">
-                      <Mail size={18} />
-                    </span>
-                    <input
-                      id="reg-email"
-                      name="email"
-                      type="email"
-                      className="auth-input"
-                      placeholder="email@vidu.com"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="auth-field">
-                  <label htmlFor="reg-phone">Số điện thoại</label>
-                  <div className="auth-input-wrap">
-                    <span className="auth-input-icon">
-                      <Phone size={18} />
-                    </span>
-                    <input
-                      id="reg-phone"
-                      name="phone"
-                      type="tel"
-                      className="auth-input"
-                      placeholder="0988 123 456"
-                      value={formData.phone}
-                      onChange={handleChange}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Password */}
+              {/* Email */}
               <div className="auth-field">
-                <label htmlFor="reg-password">
-                  <span>Mật khẩu</span>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', fontWeight: 'normal' }}>
-                    Tối thiểu 6 ký tự
-                  </span>
-                </label>
+                <label htmlFor="reg-email">Địa chỉ Email</label>
                 <div className="auth-input-wrap">
                   <span className="auth-input-icon">
-                    <Lock size={18} />
+                    <Mail size={18} />
                   </span>
                   <input
-                    id="reg-password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
+                    id="reg-email"
+                    name="email"
+                    type="email"
                     className="auth-input"
-                    placeholder="Tạo mật khẩu an toàn"
-                    value={formData.password}
+                    placeholder="email@vidu.com"
+                    value={formData.email}
                     onChange={handleChange}
                     required
                   />
-                  <button
-                    type="button"
-                    className="auth-input-toggle"
-                    onClick={() => setShowPassword(!showPassword)}
-                    tabIndex="-1"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
                 </div>
-
-                {/* Password Strength Indicator */}
-                {formData.password && (
-                  <div className="password-strength-box">
-                    <div className="strength-meter-bars">
-                      <div className={`strength-meter-bar ${passwordStrength.score >= 1 ? passwordStrength.class : ''}`} />
-                      <div className={`strength-meter-bar ${passwordStrength.score >= 2 ? passwordStrength.class : ''}`} />
-                      <div className={`strength-meter-bar ${passwordStrength.score >= 3 ? passwordStrength.class : ''}`} />
-                    </div>
-                    <div className="strength-label-row">
-                      <span className="strength-label-text" style={{ 
-                        color: passwordStrength.score === 1 ? '#EF4444' : passwordStrength.score === 2 ? '#F59E0B' : '#10B981' 
-                      }}>
-                        {passwordStrength.label}
-                      </span>
-                      <span>Độ an toàn</span>
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* Confirm Password */}
+              {/* Phone */}
               <div className="auth-field">
-                <label htmlFor="reg-confirm-password">
-                  <span>Xác nhận mật khẩu</span>
-                  {passwordsMatch === true && (
-                    <span style={{ color: '#10B981', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <Check size={13} /> Khớp mật khẩu
-                    </span>
-                  )}
-                  {passwordsMatch === false && (
-                    <span style={{ color: '#EF4444', fontSize: '0.78rem' }}>
-                      Chưa khớp
-                    </span>
-                  )}
-                </label>
+                <label htmlFor="reg-phone">Số điện thoại</label>
                 <div className="auth-input-wrap">
                   <span className="auth-input-icon">
-                    <Lock size={18} />
+                    <Phone size={18} />
                   </span>
                   <input
-                    id="reg-confirm-password"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    className={`auth-input ${passwordsMatch === false ? 'has-error' : ''}`}
-                    placeholder="Nhập lại mật khẩu vừa tạo"
-                    value={formData.confirmPassword}
+                    id="reg-phone"
+                    name="phone"
+                    type="tel"
+                    className="auth-input"
+                    placeholder="0988 123 456"
+                    value={formData.phone}
                     onChange={handleChange}
-                    required
                   />
-                  <button
-                    type="button"
-                    className="auth-input-toggle"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    tabIndex="-1"
-                  >
-                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
                 </div>
               </div>
 

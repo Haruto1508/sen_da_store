@@ -1049,90 +1049,57 @@ export async function validateCartItems(items) {
 }
 
 // ==============================================================================
-// AUTHENTICATION APIs (Login, Register, Password Reset)
+// AUTHENTICATION APIs (Passwordless Email & Google OAuth)
+// ==============================================================================
+
 /**
- * Kiểm tra trạng thái tài khoản theo email (phát hiện tài khoản Google chưa có mật khẩu)
+ * Đăng nhập bằng Email (Passwordless)
+ * Nếu ở chế độ Mock Data và tài khoản chưa có, tự động tạo mới tài khoản
  */
-export async function checkEmailStatus(email) {
-  const cleanEmail = (email || '').trim().toLowerCase();
-  if (!cleanEmail) return { exists: false };
-
-  if (USE_MOCK_DATA) {
-    const users = getStoredUsers();
-    const target = users.find(
-      (u) => (u.email && u.email.toLowerCase() === cleanEmail) || u.phone === cleanEmail
-    );
-    if (!target) return { exists: false };
-    const hasPassword = Boolean(target.password && target.password.trim() !== '');
-    const isGoogle = target.authProvider === 'GOOGLE' || 
-      (Array.isArray(target.linkedProviders) && target.linkedProviders.includes('GOOGLE'));
-    return {
-      exists: true,
-      hasPassword,
-      isGoogle,
-      email: target.email,
-      name: target.name
-    };
-  }
-
-  try {
-    const res = await fetch(`${API_BASE}/auth/check-email?email=${encodeURIComponent(cleanEmail)}`);
-    if (!res.ok) return { exists: false };
-    const data = await res.json();
-    return data.data || { exists: false };
-  } catch {
-    return { exists: false };
-  }
-}
-
-export async function loginUser(email, password) {
+export async function loginUser(email, password = '') {
   if (USE_MOCK_DATA) {
     const users = getStoredUsers();
     const cleanEmail = (email || '').trim().toLowerCase();
-    const existingUser = users.find(
+    let existingUser = users.find(
       (u) => (u.email && u.email.toLowerCase() === cleanEmail) || u.phone === cleanEmail
     );
 
-    if (existingUser) {
-      // Case 2: Tài khoản tồn tại nhưng chưa có password local (tạo qua Google)
-      if (!existingUser.password) {
-        const error = new Error(
-          'Tài khoản của bạn được tạo qua Google và chưa thiết lập mật khẩu. Vui lòng thiết lập mật khẩu trước khi đăng nhập bằng Email/Password hoặc tiếp tục Đăng nhập bằng Google.'
-        );
-        error.code = 'AUTH_008';
-        error.email = existingUser.email;
-        throw error;
-      }
-
-      const isMatch =
-        existingUser.password === password ||
-        (cleanEmail === 'admin@senxinh.vn' && (password === 'admin' || password === 'admin123')) ||
-        (cleanEmail === 'long.senxinh@gmail.com' && (password === '123' || password === '123456'));
-
-      if (isMatch) {
-        const { password: _, ...userSafe } = existingUser;
-        userSafe.hasPassword = true;
-        userSafe.isMockUser = true;
-        userSafe.linkedProviders = ['LOCAL'];
-        if (existingUser.authProvider === 'GOOGLE') {
-          userSafe.linkedProviders.push('GOOGLE');
-        }
-        return {
-          success: true,
-          message: 'Đăng nhập thành công! (Chế độ Mock Data)',
-          data: userSafe,
-          token: `mock_token_${Date.now()}`
-        };
-      }
+    if (!existingUser) {
+      // Tự động tạo mới tài khoản nếu chưa tồn tại
+      existingUser = {
+        id: `user_${Date.now()}`,
+        publicId: `mock-uuid-${Date.now()}`,
+        name: cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanEmail,
+        email: cleanEmail,
+        phone: '',
+        authProvider: 'EMAIL',
+        address: 'Hà Nội, Việt Nam',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+        role: 'Thành viên mới',
+        points: 50
+      };
+      users.push(existingUser);
+      saveStoredUsers(users);
     }
 
-    throw new Error('Email hoặc mật khẩu không chính xác. Hãy kiểm tra lại!');
+    const { password: _, ...userSafe } = existingUser;
+    userSafe.isMockUser = true;
+    userSafe.linkedProviders = ['EMAIL'];
+    if (existingUser.authProvider === 'GOOGLE') {
+      userSafe.linkedProviders.push('GOOGLE');
+    }
+    return {
+      success: true,
+      message: 'Đăng nhập thành công! (Chế độ Mock Data)',
+      data: userSafe,
+      token: `mock_token_${Date.now()}`
+    };
   }
 
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email: (email || '').trim() })
   });
   const data = await res.json();
   if (!res.ok) {
@@ -1180,7 +1147,6 @@ export async function loginWithGoogle({ idToken, accessToken, profile = null } =
     let matched = users.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
 
     if (!matched) {
-      // Case 1: User mới đăng nhập Google -> password = null
       matched = {
         id: `user_google_${Date.now()}`,
         publicId: `google-uuid-${Date.now()}`,
@@ -1196,7 +1162,6 @@ export async function loginWithGoogle({ idToken, accessToken, profile = null } =
       users.push(matched);
       saveStoredUsers(users);
     } else {
-      // Case 3 & 4: User đã tồn tại (đăng ký local trước đó hoặc đã liên kết), không tạo user thứ hai!
       if (userAvatar && (!matched.avatar || matched.avatar.includes('unsplash'))) {
         matched.avatar = userAvatar;
         saveStoredUsers(users);
@@ -1204,12 +1169,8 @@ export async function loginWithGoogle({ idToken, accessToken, profile = null } =
     }
 
     const { password: _, ...userSafe } = matched;
-    userSafe.hasPassword = !!matched.password;
     userSafe.isMockUser = true;
     userSafe.linkedProviders = ['GOOGLE'];
-    if (matched.password) {
-      userSafe.linkedProviders.push('LOCAL');
-    }
 
     return {
       success: true,
@@ -1234,52 +1195,6 @@ export async function loginWithGoogle({ idToken, accessToken, profile = null } =
   return data;
 }
 
-/**
- * Thiết lập mật khẩu cho tài khoản Google chưa có mật khẩu local
- */
-export async function setPassword({ email, password, otp } = {}) {
-  if (USE_MOCK_DATA) {
-    const users = getStoredUsers();
-    const cleanEmail = (email || '').trim().toLowerCase();
-    const target = users.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
-    if (!target) {
-      throw new Error('Không tìm thấy tài khoản người dùng để thiết lập mật khẩu!');
-    }
-    target.password = password;
-    saveStoredUsers(users);
-
-    const { password: _, ...userSafe } = target;
-    userSafe.hasPassword = true;
-    userSafe.isMockUser = true;
-    userSafe.linkedProviders = ['GOOGLE', 'LOCAL'];
-    return {
-      success: true,
-      message: 'Thiết lập mật khẩu thành công! Bạn có thể đăng nhập bằng Email và Mật khẩu.',
-      data: userSafe,
-      token: `mock_token_${Date.now()}`
-    };
-  }
-
-  const token = localStorage.getItem('senxinh_token');
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-  }
-
-  const res = await fetch(`${API_BASE}/auth/set-password`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ email, password, otp })
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    const err = new Error(data.message || 'Thiết lập mật khẩu thất bại');
-    err.code = data.code;
-    throw err;
-  }
-  return data;
-}
-
 export async function registerUser(userData) {
   if (USE_MOCK_DATA) {
     const users = getStoredUsers();
@@ -1295,7 +1210,7 @@ export async function registerUser(userData) {
       name: userData.name,
       email: cleanEmail,
       phone: userData.phone || '',
-      password: userData.password,
+      authProvider: 'EMAIL',
       address: userData.address || 'Hà Nội, Việt Nam',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
       role: 'Thành viên mới',
@@ -1307,6 +1222,7 @@ export async function registerUser(userData) {
 
     const { password: _, ...userSafe } = newUser;
     userSafe.isMockUser = true;
+    userSafe.linkedProviders = ['EMAIL'];
     return {
       success: true,
       message: 'Đăng ký thành công! Tặng bạn mã ưu đãi SENMOI50 cho đơn đầu tiên.',
@@ -1318,7 +1234,12 @@ export async function registerUser(userData) {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userData)
+    body: JSON.stringify({
+      name: userData.name,
+      email: userData.email,
+      phone: userData.phone,
+      address: userData.address
+    })
   });
   const data = await res.json();
   if (!res.ok) {
@@ -1327,101 +1248,26 @@ export async function registerUser(userData) {
   return data;
 }
 
-export async function requestPasswordOtp(emailOrPhone) {
-  if (USE_MOCK_DATA) {
-    const users = getStoredUsers();
-    const target = (emailOrPhone || '').trim().toLowerCase();
-    const found = users.find(
-      (u) => u.email.toLowerCase() === target || u.phone === target
-    );
-
-    if (!found && target !== 'admin@senxinh.vn' && target !== 'long.senxinh@gmail.com') {
-      throw new Error('Không tìm thấy tài khoản với email/số điện thoại này.');
-    }
-
-    return {
-      success: true,
-      message: 'Mã xác thực OTP đã được gửi đến bạn. (Mã mẫu thử nghiệm: 686868)',
-      demoOtp: '686868'
-    };
-  }
-
-  const res = await fetch(`${API_BASE}/auth/forgot-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ emailOrPhone })
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.message || 'Không tìm thấy tài khoản');
-  }
-  return data;
+/**
+ * Các hàm tương thích ngược nếu còn component gọi tạm thời
+ */
+export async function checkEmailStatus(email) {
+  return { exists: true, hasPassword: false, isGoogle: false };
 }
 
-export async function resetPassword({ emailOrPhone, otp, newPassword }) {
-  if (USE_MOCK_DATA) {
-    if (otp !== '686868' && otp !== '123456') {
-      throw new Error('Mã OTP xác thực không chính xác! Hãy nhập 686868 để thử nghiệm.');
-    }
-
-    const users = getStoredUsers();
-    const target = (emailOrPhone || '').trim().toLowerCase();
-    const userIndex = users.findIndex(
-      (u) => u.email.toLowerCase() === target || u.phone === target
-    );
-
-    if (userIndex !== -1) {
-      users[userIndex].password = newPassword;
-      saveStoredUsers(users);
-    }
-
-    return {
-      success: true,
-      message: 'Đổi mật khẩu thành công! Bạn có thể đăng nhập ngay bằng mật khẩu mới.'
-    };
-  }
-
-  const res = await fetch(`${API_BASE}/auth/reset-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ emailOrPhone, otp, newPassword })
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.message || 'Đặt lại mật khẩu thất bại');
-  }
-  return data;
+export async function setPassword() {
+  return { success: true, message: 'Tính năng mật khẩu đã được lược bỏ.' };
 }
 
-export async function changePassword({ email, currentPassword, newPassword }) {
-  if (USE_MOCK_DATA) {
-    const users = getStoredUsers();
-    const target = (email || '').trim().toLowerCase();
-    const found = users.find((u) => u.email.toLowerCase() === target);
-
-    if (found && found.password !== currentPassword) {
-      throw new Error('Mật khẩu hiện tại không chính xác!');
-    }
-
-    if (found) {
-      found.password = newPassword;
-      saveStoredUsers(users);
-    }
-
-    return {
-      success: true,
-      message: 'Cập nhật mật khẩu mới thành công!'
-    };
-  }
-
-  const res = await fetch(`${API_BASE}/auth/change-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, currentPassword, newPassword })
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.message || 'Đổi mật khẩu thất bại');
-  }
-  return data;
+export async function requestPasswordOtp() {
+  return { success: true, message: 'Tính năng mật khẩu đã được lược bỏ.' };
 }
+
+export async function resetPassword() {
+  return { success: true, message: 'Tính năng mật khẩu đã được lược bỏ.' };
+}
+
+export async function changePassword() {
+  return { success: true, message: 'Tính năng mật khẩu đã được lược bỏ.' };
+}
+
