@@ -241,14 +241,28 @@ export async function getProductById(id) {
  */
 export async function createOrder(orderPayload) {
   if (USE_MOCK_DATA) {
-    const subtotal = orderPayload.items?.reduce((sum, it) => sum + (it.price || 0) * (it.quantity || 1), 0) || 0;
-    const discountAmount = orderPayload.discountAmount || 0;
-    const shippingFee = orderPayload.shippingFee !== undefined ? orderPayload.shippingFee : (subtotal >= 200000 || subtotal === 0 ? 0 : 30000);
-    const totalAmount = orderPayload.totalAmount || Math.max(0, subtotal - discountAmount + shippingFee);
+    const subtotal = orderPayload.subtotal !== undefined
+      ? orderPayload.subtotal
+      : (orderPayload.items?.reduce((sum, it) => sum + (it.price || 0) * (it.quantity || 1), 0) || 0);
+
+    let discountAmount = orderPayload.discountAmount || 0;
+    if (!discountAmount && orderPayload.discountPercent > 0) {
+      discountAmount = Math.round(subtotal * (orderPayload.discountPercent / 100));
+    }
+
+    const shippingFee = orderPayload.shippingFee !== undefined
+      ? orderPayload.shippingFee
+      : (subtotal >= 200000 || subtotal === 0 ? 0 : 30000);
+
+    const totalAmount = orderPayload.totalAmount !== undefined
+      ? orderPayload.totalAmount
+      : Math.max(0, subtotal - discountAmount + shippingFee);
+
+    const orderCode = orderPayload.orderCode || `SX${Math.floor(100000 + Math.random() * 900000)}`;
 
     const mockOrder = {
       id: Date.now(),
-      orderCode: orderPayload.orderCode || `SX-${Date.now().toString(36).toUpperCase()}`,
+      orderCode,
       status: 'PENDING',
       customerName: orderPayload.customerName || 'Khách hàng',
       customerPhone: orderPayload.customerPhone || '',
@@ -259,11 +273,28 @@ export async function createOrder(orderPayload) {
       items: orderPayload.items || [],
       subtotal,
       discountAmount,
+      discountCode: orderPayload.discountCode || '',
       shippingFee,
       totalAmount,
       note: orderPayload.note || '',
       createdAt: new Date().toISOString()
     };
+
+    const sepayBank = 'MBBank';
+    const sepayAcc = 'VQRQALYXL6596';
+    const sepayHolder = encodeURIComponent('NGUYEN HOANG THAI VINH');
+    const qrImageUrl = `https://vietqr.app/img?bank=${sepayBank}&acc=${sepayAcc}&template=compact&amount=${totalAmount}&des=${orderCode}&showinfo=true&fullacc=true&holder=${sepayHolder}&store=Sen%20Xinh%20Garden`;
+
+    const vietQrData = {
+      bankName: 'MBBank',
+      bankCode: 'MBBank',
+      accountNumber: sepayAcc,
+      accountName: 'NGUYEN HOANG THAI VINH',
+      amount: totalAmount,
+      orderCode,
+      qrImageUrl
+    };
+
     try {
       const existing = getStoredOrders();
       existing.unshift(mockOrder);
@@ -271,7 +302,7 @@ export async function createOrder(orderPayload) {
     } catch (e) {
       console.error('Lỗi lưu đơn hàng mock:', e);
     }
-    return { success: true, data: mockOrder, order: mockOrder };
+    return { success: true, data: mockOrder, order: mockOrder, vietQr: vietQrData };
   }
 
   const res = await fetch(`${API_BASE}/orders`, {

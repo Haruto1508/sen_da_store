@@ -31,8 +31,8 @@ public class OrderService {
     private final BankTransferConfig bankTransferConfig;
 
     private static final String BANK_NAME = "MBBank";
-    private static final String BANK_CODE = "MB";
-    private static final String ACCOUNT_NUMBER = "0001761675223";
+    private static final String BANK_CODE = "MBBank";
+    private static final String ACCOUNT_NUMBER = "VQRQALYXL6596";
     private static final String ACCOUNT_NAME = "NGUYEN HOANG THAI VINH";
 
     @Autowired
@@ -161,7 +161,7 @@ public class OrderService {
             userRepository.save(customer);
         }
 
-        // 5. Generate VietQR if needed
+        // 5. Generate VietQR if needed (chuẩn SePay vietqr.app)
         Map<String, Object> vietQrData = null;
         if ("vietqr".equalsIgnoreCase(saved.getPaymentMethod())) {
             String activeBankCode = (bankTransferConfig != null && bankTransferConfig.getBankCode() != null && !bankTransferConfig.getBankCode().isBlank())
@@ -172,7 +172,7 @@ public class OrderService {
                     ? bankTransferConfig.getAccountName() : ACCOUNT_NAME;
 
             String encodedName = URLEncoder.encode(activeAccountName, StandardCharsets.UTF_8);
-            String qrUrl = String.format("https://img.vietqr.io/image/%s-%s-compact2.png?amount=%d&addInfo=%s&accountName=%s",
+            String qrUrl = String.format("https://vietqr.app/img?bank=%s&acc=%s&template=compact&amount=%d&des=%s&showinfo=true&fullacc=true&holder=%s&store=Sen%%20Xinh%%20Garden",
                     activeBankCode, activeAccountNumber, totalAmount, orderCode, encodedName);
 
             vietQrData = Map.of(

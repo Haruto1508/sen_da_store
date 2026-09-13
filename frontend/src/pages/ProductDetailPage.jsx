@@ -281,8 +281,8 @@ export default function ProductDetailPage({
               <button 
                 className={`icon-btn ${isWishlisted ? 'active' : ''}`}
                 style={{ width: '52px', height: '52px' }}
-                onClick={() => onToggleWishlist(product.id)}
-                title="Lưu vào yêu thích"
+                onClick={() => onToggleWishlist(product?.id || product?.publicId)}
+                title={isWishlisted ? 'Bỏ khỏi yêu thích' : 'Lưu vào yêu thích'}
                 aria-label="Yêu thích"
               >
                 <Heart size={22} fill={isWishlisted ? '#E63946' : 'none'} color={isWishlisted ? '#E63946' : 'currentColor'} />
@@ -315,7 +315,8 @@ export default function ProductDetailPage({
                     onSelectProduct(rel.id);
                   }}
                   onAddToCart={onAddToCart}
-                  isWishlisted={wishlist.includes(rel.id)}
+                  onBuyNow={onBuyNow}
+                  isWishlisted={wishlist.some(wId => String(wId) === String(rel.id) || (rel.publicId && String(wId) === String(rel.publicId)))}
                   onToggleWishlist={onToggleWishlist}
                 />
               ))}

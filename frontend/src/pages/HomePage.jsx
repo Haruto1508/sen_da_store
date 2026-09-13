@@ -8,6 +8,7 @@ export default function HomePage({
   products,
   onOpenProductDetail,
   onAddToCart,
+  onBuyNow,
   wishlist,
   onToggleWishlist,
   onNavigateShop,
@@ -60,7 +61,8 @@ export default function HomePage({
                     product={product}
                     onOpenDetail={() => onOpenProductDetail(product.id)}
                     onAddToCart={onAddToCart}
-                    isWishlisted={wishlist.includes(product.id)}
+                    onBuyNow={onBuyNow}
+                    isWishlisted={wishlist.some(wId => String(wId) === String(product.id) || (product.publicId && String(wId) === String(product.publicId)))}
                     onToggleWishlist={onToggleWishlist}
                   />
                 ))}
@@ -108,6 +110,7 @@ export default function HomePage({
         onApplyFilters={handleApplyFiltersFromHub}
         onOpenProductDetail={onOpenProductDetail}
         onAddToCart={onAddToCart}
+        onBuyNow={onBuyNow}
       />
     </div>
   );

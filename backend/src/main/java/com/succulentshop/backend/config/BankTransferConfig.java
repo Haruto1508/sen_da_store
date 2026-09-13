@@ -9,10 +9,10 @@ public class BankTransferConfig {
     @Value("${sepay.api-key:}")
     private String sepayApiKey;
 
-    @Value("${bank.code:MB}")
+    @Value("${bank.code:MBBank}")
     private String bankCode;
 
-    @Value("${bank.account-number:0001761675223}")
+    @Value("${bank.account-number:VQRQALYXL6596}")
     private String accountNumber;
 
     @Value("${bank.account-name:NGUYEN HOANG THAI VINH}")

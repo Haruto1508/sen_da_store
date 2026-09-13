@@ -152,27 +152,32 @@ export default function CheckoutPage({
 
   const bankInfo = {
     bankName: 'MBBank',
-    bankCode: 'MB',
-    accountNumber: '0001761675223',
+    bankCode: 'MBBank',
+    accountNumber: 'VQRQALYXL6596', // Tài khoản ảo SePay (VA) từ ảnh cấu hình
+    primaryAccountNumber: '0001761675223', // Số tài khoản ngân hàng gốc
     accountName: 'NGUYEN HOANG THAI VINH',
-    branch: 'Ngân hàng Quân Đội (MBBank)'
+    branch: 'Ngân hàng TMCP Quân Đội (MBBank)'
   };
 
   const activeBankInfo = {
     bankName: vietQrData?.bankName || bankInfo.bankName,
     bankCode: vietQrData?.bankCode || bankInfo.bankCode,
     accountNumber: vietQrData?.accountNumber || bankInfo.accountNumber,
+    primaryAccountNumber: bankInfo.primaryAccountNumber,
     accountName: vietQrData?.accountName || bankInfo.accountName,
     branch: bankInfo.branch
   };
 
   const currentCode = orderCode || `SX${Math.floor(100000 + Math.random() * 900000)}`;
-  const finalTotalAmount = placedOrder ? placedOrder.totalAmount : total;
+  const finalTotalAmount = placedOrder ? (placedOrder.totalAmount !== undefined ? placedOrder.totalAmount : total) : total;
 
-  const vietQrUrl = vietQrData?.qrImageUrl || `https://img.vietqr.io/image/${activeBankInfo.bankCode}-${activeBankInfo.accountNumber}-compact2.png?amount=${finalTotalAmount}&addInfo=${currentCode}&accountName=${encodeURIComponent(activeBankInfo.accountName)}`;
+  // Sử dụng cổng VietQR SePay vietqr.app chuẩn hóa chính xác số tiền & nội dung chuyển khoản
+  const sepayAcc = activeBankInfo.accountNumber || 'VQRQALYXL6596';
+  const sepayHolder = encodeURIComponent(activeBankInfo.accountName || 'NGUYEN HOANG THAI VINH');
+  const vietQrUrl = vietQrData?.qrImageUrl || `https://vietqr.app/img?bank=MBBank&acc=${sepayAcc}&template=compact&amount=${Math.round(finalTotalAmount)}&des=${currentCode}&showinfo=true&fullacc=true&holder=${sepayHolder}&store=Sen%20Xinh%20Garden`;
 
-  const handleCopyAccount = () => {
-    navigator.clipboard.writeText(activeBankInfo.accountNumber);
+  const handleCopyAccount = (accNumber = activeBankInfo.accountNumber) => {
+    navigator.clipboard.writeText(accNumber);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -194,6 +199,12 @@ export default function CheckoutPage({
         note: formData.note,
         paymentMethod: formData.paymentMethod,
         discountCode: discountCode || '',
+        discountPercent: discountPercent || 0,
+        discountAmount: discountAmount,
+        shippingFee: shippingFee,
+        subtotal: subtotal,
+        totalAmount: total,
+        orderCode: currentCode,
         items: cartItems.map(it => ({
           id: it.id,
           name: it.name,
@@ -211,6 +222,9 @@ export default function CheckoutPage({
       }
       setPlacedOrder(result.order || {
         orderCode: code,
+        subtotal,
+        discountAmount,
+        shippingFee,
         totalAmount: total,
         paymentMethod: formData.paymentMethod,
         customerName: formData.name,
@@ -547,17 +561,32 @@ export default function CheckoutPage({
                     </div>
 
                     <div className="qr-info-item highlight">
-                      <span className="qr-info-label">Số tài khoản:</span>
+                      <span className="qr-info-label">Số tài khoản ảo (VA SePay):</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <strong className="qr-info-val" style={{ fontSize: '1.15rem', color: 'var(--primary)' }}>
                           {activeBankInfo.accountNumber}
                         </strong>
-                        <button className="copy-btn" onClick={handleCopyAccount} title="Sao chép số tài khoản">
+                        <button className="copy-btn" onClick={() => handleCopyAccount(activeBankInfo.accountNumber)} title="Sao chép số tài khoản VA">
                           <Copy size={15} />
                           <span>{copied ? 'Đã chép!' : 'Sao chép'}</span>
                         </button>
                       </div>
                     </div>
+
+                    {activeBankInfo.primaryAccountNumber && activeBankInfo.primaryAccountNumber !== activeBankInfo.accountNumber && (
+                      <div className="qr-info-item">
+                        <span className="qr-info-label">Số tài khoản MBBank gốc:</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <strong className="qr-info-val" style={{ color: 'var(--text-main)' }}>
+                            {activeBankInfo.primaryAccountNumber}
+                          </strong>
+                          <button className="copy-btn" onClick={() => handleCopyAccount(activeBankInfo.primaryAccountNumber)} title="Sao chép số tài khoản MBBank">
+                            <Copy size={15} />
+                            <span>Sao chép</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="qr-info-item">
                       <span className="qr-info-label">Số tiền cần chuyển:</span>

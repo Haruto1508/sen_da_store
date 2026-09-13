@@ -19,6 +19,7 @@ export default function ShopPage({
   onSortChange,
   onOpenProductDetail,
   onAddToCart,
+  onBuyNow,
   wishlist,
   onToggleWishlist,
   onlyWishlist,
@@ -133,7 +134,8 @@ export default function ShopPage({
                   product={product}
                   onOpenDetail={() => onOpenProductDetail(product.id)}
                   onAddToCart={onAddToCart}
-                  isWishlisted={wishlist.includes(product.id)}
+                  onBuyNow={onBuyNow}
+                  isWishlisted={wishlist.some(wId => String(wId) === String(product.id) || (product.publicId && String(wId) === String(product.publicId)))}
                   onToggleWishlist={onToggleWishlist}
                 />
               ))}

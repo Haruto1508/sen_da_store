@@ -1,21 +1,24 @@
 import React from 'react';
-import { Heart, Plus, Star, Sun, Droplets } from 'lucide-react';
+import { Heart, Plus, Star, Sun, Droplets, Zap } from 'lucide-react';
 
 export default function ProductCard({ 
   product, 
   onOpenDetail, 
   onAddToCart, 
+  onBuyNow,
   isWishlisted, 
   onToggleWishlist 
 }) {
   const formatPrice = (amount) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
   };
+
+  const productId = product?.id || product?.publicId;
 
   return (
     <article className="product-card">
       {/* Image Container */}
-      <div className="card-image-wrap" onClick={() => onOpenDetail(product)}>
+      <div className="card-image-wrap" onClick={() => onOpenDetail && onOpenDetail(product)}>
         {product.badge && (
           <span className="card-badge">{product.badge}</span>
         )}
@@ -24,7 +27,7 @@ export default function ProductCard({
           className={`card-wishlist-btn ${isWishlisted ? 'active' : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleWishlist(product.id);
+            if (onToggleWishlist) onToggleWishlist(productId);
           }}
           title={isWishlisted ? 'Bỏ khỏi yêu thích' : 'Thêm vào yêu thích'}
           aria-label="Yêu thích"
@@ -53,7 +56,7 @@ export default function ProductCard({
           </span>
         </div>
 
-        <h3 className="card-title" onClick={() => onOpenDetail(product)}>
+        <h3 className="card-title" onClick={() => onOpenDetail && onOpenDetail(product)}>
           {product.name}
         </h3>
 
@@ -73,17 +76,34 @@ export default function ProductCard({
             )}
           </div>
 
-          <button 
-            className="btn-add-cart"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddToCart(product);
-            }}
-            title="Thêm vào giỏ hàng"
-            aria-label="Thêm vào giỏ"
-          >
-            <Plus size={20} />
-          </button>
+          <div className="card-actions-wrap" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button 
+              className="btn-add-cart"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onAddToCart) onAddToCart(product, 1);
+              }}
+              title="Thêm vào giỏ hàng"
+              aria-label="Thêm vào giỏ"
+            >
+              <Plus size={20} />
+            </button>
+
+            {onBuyNow && (
+              <button 
+                className="btn-quick-buy"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBuyNow(product, 1);
+                }}
+                title="Mua ngay chậu cây này"
+                aria-label="Mua ngay"
+              >
+                <Zap size={14} fill="#FFE082" color="#FFE082" />
+                <span>Mua</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </article>

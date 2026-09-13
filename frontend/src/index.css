@@ -790,6 +790,40 @@ input::-webkit-contacts-auto-fill-button {
   transform: scale(1.08);
 }
 
+.card-actions-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-quick-buy {
+  height: 40px;
+  padding: 0 13px;
+  border-radius: var(--radius-full, 9999px);
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1));
+  box-shadow: 0 2px 8px rgba(45, 106, 79, 0.2);
+  white-space: nowrap;
+}
+
+.btn-quick-buy:hover {
+  background: var(--primary-dark, #1B4332);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(45, 106, 79, 0.35);
+}
+
+.btn-quick-buy:active {
+  transform: translateY(0);
+}
+
 /* Modals */
 .modal-overlay {
   position: fixed;

@@ -24,7 +24,18 @@ import { getProducts, validateCoupon, USE_MOCK_DATA, isMockUser } from './servic
 // Route Helper Wrappers to extract URL parameters via useParams()
 function ProductDetailRoute({ productList, onAddToCart, onBuyNow, wishlist, onToggleWishlist, navigateTo }) {
   const { id } = useParams();
-  const product = productList.find((p) => p.id === id || p.publicId === id) || productList[0];
+  const product =
+    productList.find(
+      (p) => String(p.id) === String(id) || (p.publicId && String(p.publicId) === String(id))
+    ) || productList[0];
+
+  const isWishlisted = product
+    ? wishlist.some(
+        (wId) =>
+          String(wId) === String(product.id) ||
+          (product.publicId && String(wId) === String(product.publicId))
+      )
+    : false;
 
   return (
     <ProductDetailPage
@@ -36,7 +47,7 @@ function ProductDetailRoute({ productList, onAddToCart, onBuyNow, wishlist, onTo
       onSelectProduct={(productId) => navigateTo('product-detail', productId)}
       onAddToCart={onAddToCart}
       onBuyNow={onBuyNow}
-      isWishlisted={wishlist.includes(product?.id)}
+      isWishlisted={isWishlisted}
       onToggleWishlist={onToggleWishlist}
       wishlist={wishlist}
     />
@@ -397,24 +408,43 @@ export default function App() {
 
   // Cart operations (Đồng bộ tồn kho động từ Database)
   const handleAddToCart = (product, qty = 1, showToast = true) => {
+    if (!product) return false;
+
+    const prodId = product.id || product.publicId;
     const liveProduct =
-      productList.find((p) => p.id === product.id || (p.publicId && p.publicId === product.id)) || product;
-    const availableStock = liveProduct.inStock !== undefined ? liveProduct.inStock : 999;
+      productList.find(
+        (p) =>
+          (p.id !== undefined && String(p.id) === String(prodId)) ||
+          (p.publicId && String(p.publicId) === String(prodId))
+      ) || product;
+
+    const stockVal = liveProduct.inStock;
+    const availableStock =
+      stockVal !== null && stockVal !== undefined && !isNaN(stockVal)
+        ? Math.max(0, Number(stockVal))
+        : 999;
 
     if (availableStock <= 0) {
       addToast(`Cây "${liveProduct.name}" hiện đang tạm hết hàng trong kho.`, 'error');
-      return;
+      return false;
     }
 
+    const requestQty = Math.max(1, Number(qty) || 1);
     let reachedMax = false;
+
     setCartItems((prev) => {
-      const existing = prev.find((item) => item.id === liveProduct.id);
+      const existing = prev.find(
+        (item) =>
+          String(item.id) === String(liveProduct.id) ||
+          (liveProduct.publicId && String(item.publicId) === String(liveProduct.publicId))
+      );
+
       if (existing) {
-        const targetQty = existing.quantity + qty;
+        const targetQty = existing.quantity + requestQty;
         if (targetQty > availableStock) {
           reachedMax = true;
           return prev.map((item) =>
-            item.id === liveProduct.id
+            item.id === existing.id
               ? {
                   ...item,
                   ...liveProduct,
@@ -425,7 +455,7 @@ export default function App() {
           );
         }
         return prev.map((item) =>
-          item.id === liveProduct.id
+          item.id === existing.id
             ? {
                 ...item,
                 ...liveProduct,
@@ -436,7 +466,7 @@ export default function App() {
         );
       }
 
-      const initialQty = Math.min(qty, availableStock);
+      const initialQty = Math.min(requestQty, availableStock);
       return [
         ...prev,
         {
@@ -454,6 +484,8 @@ export default function App() {
         addToast(`Đã thêm ${liveProduct.name} vào giỏ hàng!`, 'cart');
       }
     }
+
+    return true;
   };
 
   const handleLoginSuccess = (userData, remember = true) => {
@@ -506,8 +538,10 @@ export default function App() {
   };
 
   const handleBuyNow = (product, qty = 1) => {
-    handleAddToCart(product, qty, false);
-    navigateTo('checkout');
+    const success = handleAddToCart(product, qty, false);
+    if (success !== false) {
+      navigateTo('checkout');
+    }
   };
 
   const handleUpdateQty = (productId, newQty) => {
@@ -517,34 +551,36 @@ export default function App() {
     }
 
     const liveProduct = productList.find(
-      (p) => p.id === productId || (p.publicId && p.publicId === productId)
+      (p) => String(p.id) === String(productId) || (p.publicId && String(p.publicId) === String(productId))
     );
-    const availableStock = liveProduct?.inStock !== undefined ? liveProduct.inStock : 999;
+    const availableStock = liveProduct?.inStock !== undefined && liveProduct.inStock !== null ? Number(liveProduct.inStock) : 999;
 
     if (newQty > availableStock) {
       addToast(`Kho chỉ còn tối đa ${availableStock} cây cho sản phẩm này!`, 'info');
       setCartItems((prev) =>
-        prev.map((item) => (item.id === productId ? { ...item, quantity: availableStock, inStock: availableStock } : item))
+        prev.map((item) => (String(item.id) === String(productId) ? { ...item, quantity: availableStock, inStock: availableStock } : item))
       );
       return;
     }
 
     setCartItems((prev) =>
-      prev.map((item) => (item.id === productId ? { ...item, quantity: newQty, inStock: availableStock } : item))
+      prev.map((item) => (String(item.id) === String(productId) ? { ...item, quantity: newQty, inStock: availableStock } : item))
     );
   };
 
   const handleRemoveItem = (productId) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== productId));
+    setCartItems((prev) => prev.filter((item) => String(item.id) !== String(productId)));
     addToast('Đã xóa sản phẩm khỏi giỏ hàng', 'info');
   };
 
   const handleToggleWishlist = (productId) => {
+    if (!productId) return;
+    const targetId = String(productId);
     setWishlist((prev) => {
-      const exists = prev.includes(productId);
+      const exists = prev.some((id) => String(id) === targetId);
       if (exists) {
         addToast('Đã xóa khỏi danh sách yêu thích', 'info');
-        return prev.filter((id) => id !== productId);
+        return prev.filter((id) => String(id) !== targetId);
       } else {
         addToast('Đã lưu vào danh sách yêu thích!', 'wishlist');
         return [...prev, productId];
@@ -579,7 +615,15 @@ export default function App() {
     return productList
       .filter((item) => {
         // Wishlist filter
-        if (onlyWishlist && !wishlist.includes(item.id)) return false;
+        if (
+          onlyWishlist &&
+          !wishlist.some(
+            (wId) =>
+              String(wId) === String(item.id) ||
+              (item.publicId && String(wId) === String(item.publicId))
+          )
+        )
+          return false;
 
         // Category filter
         if (selectedCategory !== 'all' && item.category !== selectedCategory) return false;
@@ -656,6 +700,7 @@ export default function App() {
                 products={productList}
                 onOpenProductDetail={(id) => navigateTo('product-detail', id)}
                 onAddToCart={handleAddToCart}
+                onBuyNow={handleBuyNow}
                 wishlist={wishlist}
                 onToggleWishlist={handleToggleWishlist}
                 onNavigateShop={() => navigateTo('shop')}
@@ -692,6 +737,7 @@ export default function App() {
                 onSortChange={setSortBy}
                 onOpenProductDetail={(id) => navigateTo('product-detail', id)}
                 onAddToCart={handleAddToCart}
+                onBuyNow={handleBuyNow}
                 wishlist={wishlist}
                 onToggleWishlist={handleToggleWishlist}
                 onlyWishlist={onlyWishlist}

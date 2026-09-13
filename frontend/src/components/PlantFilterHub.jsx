@@ -7,9 +7,10 @@ import {
   Sun, 
   Sprout, 
   Sparkles, 
-  Layers,
-  Check,
-  ShoppingBag
+  Layers, 
+  Check, 
+  ShoppingBag,
+  Zap
 } from 'lucide-react';
 import { CATEGORIES } from '../data/products';
 
@@ -27,6 +28,7 @@ export default function PlantFilterHub({
   onApplyFilters,
   onOpenProductDetail,
   onAddToCart,
+  onBuyNow,
   initialCategory = 'all',
   initialLight = 'all',
   initialDifficulty = 'all'
@@ -242,16 +244,32 @@ export default function PlantFilterHub({
                     </p>
                     <div className="hub-preview-price-row">
                       <span className="hub-preview-price">{(plant.price || 0).toLocaleString('vi-VN')}₫</span>
-                      <button 
-                        className="hub-add-cart-btn"
-                        title="Thêm vào giỏ hàng"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onAddToCart) onAddToCart(plant, 1);
-                        }}
-                      >
-                        <ShoppingBag size={15} />
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button 
+                          className="hub-add-cart-btn"
+                          title="Thêm vào giỏ hàng"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onAddToCart) onAddToCart(plant, 1);
+                          }}
+                        >
+                          <ShoppingBag size={15} />
+                        </button>
+                        {onBuyNow && (
+                          <button
+                            type="button"
+                            className="hub-add-cart-btn"
+                            style={{ background: 'var(--primary)', color: '#fff' }}
+                            title="Mua ngay chậu cây này"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onBuyNow(plant, 1);
+                            }}
+                          >
+                            <Zap size={14} fill="#FFE082" color="#FFE082" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
