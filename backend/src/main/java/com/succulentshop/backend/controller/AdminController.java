@@ -12,6 +12,7 @@ import com.succulentshop.backend.repository.CouponRepository;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.repository.ProductRepository;
 import com.succulentshop.backend.repository.UserRepository;
+import com.succulentshop.backend.service.CloudinaryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +29,7 @@ public class AdminController {
     private final ProductRepository productRepository;
     private final CouponRepository couponRepository;
     private final UserRepository userRepository;
+    private final CloudinaryService cloudinaryService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AdminController(
@@ -36,10 +38,22 @@ public class AdminController {
             CouponRepository couponRepository,
             UserRepository userRepository
     ) {
+        this(orderRepository, productRepository, couponRepository, userRepository, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AdminController(
+            OrderRepository orderRepository,
+            ProductRepository productRepository,
+            CouponRepository couponRepository,
+            UserRepository userRepository,
+            CloudinaryService cloudinaryService
+    ) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
         this.couponRepository = couponRepository;
         this.userRepository = userRepository;
+        this.cloudinaryService = cloudinaryService;
     }
 
     // ==========================================
@@ -221,7 +235,16 @@ public class AdminController {
         }
 
         Product p = optionalProduct.get();
+        String oldImage = p.getImage();
         populateProductFromMap(p, payload);
+        String newImage = p.getImage();
+
+        // Tự động dọn dẹp ảnh cũ trên Cloudinary nếu ảnh sản phẩm được thay đổi
+        if (cloudinaryService != null && oldImage != null && !oldImage.isBlank() 
+                && newImage != null && !newImage.equals(oldImage)) {
+            cloudinaryService.deleteImage(oldImage);
+        }
+
         productRepository.save(p);
 
         return ResponseEntity.ok(ApiResult.ok("Cập nhật sản phẩm thành công", convertProductToMap(p)));
@@ -255,6 +278,11 @@ public class AdminController {
         }
 
         Product p = optionalProduct.get();
+        // Dọn dẹp ảnh trên Cloudinary khi xóa sản phẩm để giải phóng dung lượng
+        if (cloudinaryService != null && p.getImage() != null && !p.getImage().isBlank()) {
+            cloudinaryService.deleteImage(p.getImage());
+        }
+
         p.setStatus("DELETED");
         productRepository.save(p);
         return ResponseEntity.ok(ApiResult.ok("Đã xóa sản phẩm thành công (Soft Delete)", null));

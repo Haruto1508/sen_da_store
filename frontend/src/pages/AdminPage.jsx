@@ -17,7 +17,8 @@ import {
   getAdminCustomers,
   updateCustomerRole,
   updateCustomerStatus,
-  deleteAdminCustomer
+  deleteAdminCustomer,
+  deleteProductImage
 } from '../services/api';
 
 import { ORDER_STATUS_LABELS, SAMPLE_IMAGES } from '../components/admin/adminConstants';
@@ -353,6 +354,9 @@ export default function AdminPage({
     if (window.confirm(`Bạn có chắc muốn xóa cây "${prod.name}" khỏi danh mục?`)) {
       try {
         await deleteAdminProduct(prod.id);
+        if (prod.image && (prod.image.includes('cloudinary.com') || prod.image.includes('/uploads/products/'))) {
+          deleteProductImage(prod.image);
+        }
         if (addToast) addToast(`Đã xóa cây "${prod.name}"`, 'info');
         loadAllData();
       } catch (err) {

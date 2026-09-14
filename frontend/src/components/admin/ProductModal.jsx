@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Sprout, X, Check, UploadCloud, Image as ImageIcon, Loader2, Link2, Trash2, CheckCircle2 } from 'lucide-react';
+import { Sprout, X, Check, UploadCloud, Image as ImageIcon, Loader2, Link2, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { CATEGORIES } from '../../data/products';
 import { SAMPLE_IMAGES } from './adminConstants';
-import { uploadProductImage } from '../../services/api';
+import { uploadProductImage, deleteProductImage } from '../../services/api';
 
 export default function ProductModal({
   isOpen,
@@ -21,6 +21,18 @@ export default function ProductModal({
   if (!isOpen) return null;
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+  // Nhận diện lỗi đầy bộ nhớ hoặc vượt hạn mức Cloudinary
+  const isCloudFull = Boolean(
+    uploadError && (
+      uploadError.toLowerCase().includes('đầy') ||
+      uploadError.toLowerCase().includes('giới hạn') ||
+      uploadError.toLowerCase().includes('quota') ||
+      uploadError.toLowerCase().includes('storage') ||
+      uploadError.toLowerCase().includes('capacity') ||
+      uploadError.toLowerCase().includes('credit')
+    )
+  );
 
   const handleUploadFile = async (file) => {
     if (!file) return;
@@ -44,8 +56,11 @@ export default function ProductModal({
     setIsUploading(true);
     setUploadError('');
 
+    // Lấy ảnh cũ đang có trên form để tự động xóa trên Cloudinary khi upload ảnh mới
+    const previousImage = productFormData.image;
+
     try {
-      const res = await uploadProductImage(file);
+      const res = await uploadProductImage(file, previousImage);
       if (res && res.url) {
         setProductFormData((prev) => ({
           ...prev,
@@ -53,6 +68,7 @@ export default function ProductModal({
         }));
       }
     } catch (err) {
+      console.error('Lỗi khi tải ảnh lên cloud:', err);
       setUploadError(err.message || 'Lỗi khi tải ảnh lên cloud');
     } finally {
       setIsUploading(false);
@@ -75,7 +91,17 @@ export default function ProductModal({
     }
   };
 
-  const handleRemoveImage = () => {
+  const handleRemoveImage = async () => {
+    const currentImg = productFormData.image;
+    // Dọn dẹp ảnh trên Cloudinary khi admin bấm Xóa ảnh
+    if (currentImg && (currentImg.includes('cloudinary.com') || currentImg.includes('/uploads/products/'))) {
+      try {
+        await deleteProductImage(currentImg);
+      } catch (e) {
+        console.warn('Lỗi dọn dẹp ảnh khi xóa:', e);
+      }
+    }
+
     setProductFormData((prev) => ({
       ...prev,
       image: ''
@@ -330,8 +356,33 @@ export default function ProductModal({
               )}
 
               {uploadError && (
-                <div className="admin-upload-error">
-                  <span>{uploadError}</span>
+                <div
+                  style={{
+                    marginTop: '12px',
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    background: isCloudFull ? '#FEF2F2' : '#FFF7ED',
+                    border: `1.5px solid ${isCloudFull ? '#EF4444' : '#FDBA74'}`,
+                    color: isCloudFull ? '#991B1B' : '#9A3412',
+                    fontSize: '0.86rem',
+                    lineHeight: 1.5,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px'
+                  }}
+                >
+                  <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '2px', color: isCloudFull ? '#DC2626' : '#EA580C' }} />
+                  <div>
+                    <strong style={{ display: 'block', marginBottom: '2px', color: isCloudFull ? '#B91C1C' : '#C2410C' }}>
+                      {isCloudFull ? 'Bộ Nhớ Đám Mây (Cloudinary) Đã Đầy / Đạt Giới Hạn!' : 'Không Thể Tải Ảnh Lên:'}
+                    </strong>
+                    <span>{uploadError}</span>
+                    {isCloudFull && (
+                      <div style={{ marginTop: '6px', fontSize: '0.8rem', color: '#7F1D1D', lineHeight: 1.45 }}>
+                        💡 <strong>Gợi ý khắc phục:</strong> Bạn hãy xóa bớt các cây sen đá cũ hoặc ảnh không dùng nữa trong danh mục để giải phóng dung lượng, hoặc đăng nhập vào bảng điều khiển Cloudinary để nâng cấp gói tài khoản.
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

@@ -641,10 +641,15 @@ export async function getAdminProducts() {
 
 /**
  * Admin: Tải ảnh sản phẩm lên Cloud (Cloudinary / Fallback)
+ * @param {File} file File ảnh được chọn
+ * @param {string} previousImageUrl URL ảnh cũ cần dọn dẹp trên Cloudinary (nếu có)
  */
-export async function uploadProductImage(file) {
+export async function uploadProductImage(file, previousImageUrl = '') {
   const formData = new FormData();
   formData.append('file', file);
+  if (previousImageUrl) {
+    formData.append('previousImageUrl', previousImageUrl);
+  }
 
   try {
     const res = await fetch(`${API_BASE}/admin/upload-product-image`, {
@@ -667,6 +672,25 @@ export async function uploadProductImage(file) {
       });
     }
     throw err;
+  }
+}
+
+/**
+ * Admin: Xóa ảnh khỏi Cloudinary để tiết kiệm dung lượng
+ */
+export async function deleteProductImage(imageUrlOrPublicId) {
+  if (!imageUrlOrPublicId) return { success: false };
+  if (USE_MOCK_DATA) return { success: true };
+
+  try {
+    const res = await fetch(`${API_BASE}/admin/delete-image?imageUrl=${encodeURIComponent(imageUrlOrPublicId)}`, {
+      method: 'DELETE'
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.warn('Lỗi khi xóa ảnh trên cloud:', err);
+    return { success: false };
   }
 }
 

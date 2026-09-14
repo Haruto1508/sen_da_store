@@ -45,7 +45,8 @@ public enum ErrorCode {
 
     // Upload Codes
     FILE_TOO_LARGE("UPLOAD_001", "Dung lượng ảnh vượt quá giới hạn cho phép", HttpStatus.BAD_REQUEST),
-    FILE_TYPE_NOT_SUPPORTED("UPLOAD_002", "Định dạng file không được hỗ trợ", HttpStatus.BAD_REQUEST);
+    FILE_TYPE_NOT_SUPPORTED("UPLOAD_002", "Định dạng file không được hỗ trợ", HttpStatus.BAD_REQUEST),
+    STORAGE_LIMIT_EXCEEDED("UPLOAD_003", "Bộ nhớ lưu trữ đám mây (Cloudinary) đã đầy hoặc vượt quá giới hạn cho phép!", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

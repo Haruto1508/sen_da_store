@@ -35,7 +35,7 @@ public class CloudinaryService {
     private String serverPort;
 
     // Giới hạn kích thước ảnh tối đa (5MB)
-    public static final long MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+    public static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
     private static final List<String> ALLOWED_IMAGE_TYPES = List.of(
             "image/jpeg", "image/png", "image/webp", "image/gif", "image/jpg"
@@ -99,8 +99,20 @@ public class CloudinaryService {
                 response.put("format", uploadResult.get("format"));
 
                 return response;
-            } catch (IOException e) {
+            } catch (Exception e) {
                 log.error("Lỗi khi tải ảnh lên Cloudinary: {}", e.getMessage(), e);
+                String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+
+                // Kiểm tra nếu bộ nhớ đám mây bị đầy / hết credits / vượt quota
+                if (msg.contains("quota") || msg.contains("credit") || msg.contains("limit")
+                        || msg.contains("storage") || msg.contains("capacity") || msg.contains("exceeded")
+                        || msg.contains("disabled") || msg.contains("out of")) {
+                    throw new AppException(
+                            ErrorCode.STORAGE_LIMIT_EXCEEDED,
+                            "Bộ nhớ lưu trữ đám mây (Cloudinary) đã đầy hoặc đạt giới hạn lưu trữ gói tài khoản! Không thể tải thêm ảnh mới. Vui lòng xóa bớt ảnh cũ để giải phóng dung lượng."
+                    );
+                }
+
                 throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION, "Không thể tải ảnh lên Cloudinary: " + e.getMessage());
             }
         }
@@ -143,17 +155,114 @@ public class CloudinaryService {
     }
 
     /**
-     * Delete an image from Cloudinary by public ID
+     * Upload an image file to Cloudinary and automatically delete the previous image if provided.
+     *
+     * @param file MultipartFile from client
+     * @param folder Folder name on Cloudinary
+     * @param previousImageUrl Old image URL to be deleted from cloud
+     * @return Map containing url, publicId, and storageType
      */
-    public boolean deleteImage(String publicId) {
-        if (cloudName == null || cloudName.isBlank() || publicId == null || publicId.isBlank()) {
-            return false;
+    public Map<String, Object> uploadAndReplaceImage(MultipartFile file, String folder, String previousImageUrl) {
+        Map<String, Object> uploadResult = uploadImage(file, folder);
+
+        // Sau khi upload ảnh mới thành công, dọn dẹp ảnh cũ trên Cloudinary nếu có
+        if (previousImageUrl != null && !previousImageUrl.isBlank()) {
+            try {
+                deleteImage(previousImageUrl);
+                log.info("Đã tự động xóa ảnh cũ trên cloud: {}", previousImageUrl);
+            } catch (Exception ex) {
+                log.warn("Không thể xóa ảnh cũ {}: {}", previousImageUrl, ex.getMessage());
+            }
+        }
+
+        return uploadResult;
+    }
+
+    /**
+     * Trích xuất publicId từ Cloudinary secure_url hoặc url bất kỳ
+     * Ví dụ: https://res.cloudinary.com/demo/image/upload/v12345/senxinh_products/abc.jpg -> senxinh_products/abc
+     */
+    public String extractPublicIdFromUrl(String url) {
+        if (url == null || url.isBlank() || !url.contains("cloudinary.com")) {
+            return null;
         }
         try {
-            Map<?, ?> result = cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
-            return "ok".equals(result.get("result"));
+            int uploadIdx = url.indexOf("/upload/");
+            if (uploadIdx == -1) return null;
+
+            String path = url.substring(uploadIdx + "/upload/".length());
+            String[] segments = path.split("/");
+            StringBuilder publicIdBuilder = new StringBuilder();
+            boolean pastVersionOrTransforms = false;
+
+            for (String seg : segments) {
+                // Bỏ qua version (v12345678) hoặc transformation (w_500, c_fill,...)
+                if (!pastVersionOrTransforms && (seg.matches("^v\\d+$") || seg.contains(",") || seg.startsWith("w_") || seg.startsWith("h_") || seg.startsWith("c_"))) {
+                    continue;
+                }
+                pastVersionOrTransforms = true;
+                if (publicIdBuilder.length() > 0) {
+                    publicIdBuilder.append("/");
+                }
+                publicIdBuilder.append(seg);
+            }
+
+            String fullPublicIdWithExt = publicIdBuilder.toString();
+            int lastDotIdx = fullPublicIdWithExt.lastIndexOf('.');
+            if (lastDotIdx != -1) {
+                return fullPublicIdWithExt.substring(0, lastDotIdx);
+            }
+            return fullPublicIdWithExt;
         } catch (Exception e) {
-            log.warn("Không thể xóa ảnh từ Cloudinary (publicId: {}): {}", publicId, e.getMessage());
+            log.warn("Không thể trích xuất publicId từ URL {}: {}", url, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Delete an image from Cloudinary by public ID or full URL
+     */
+    public boolean deleteImage(String publicIdOrUrl) {
+        if (publicIdOrUrl == null || publicIdOrUrl.isBlank()) {
+            return false;
+        }
+
+        String target = publicIdOrUrl.trim();
+
+        // 1. Nếu là Cloudinary URL hoặc publicId
+        if (target.contains("cloudinary.com")) {
+            String extracted = extractPublicIdFromUrl(target);
+            if (extracted != null && !extracted.isBlank()) {
+                target = extracted;
+            }
+        }
+
+        // 2. Nếu là local fallback URL (ví dụ: http://localhost:8080/uploads/products/abc.jpg)
+        if (target.contains("/uploads/products/")) {
+            try {
+                String fileName = target.substring(target.lastIndexOf("/") + 1);
+                Path localFile = Paths.get("uploads/products").resolve(fileName);
+                boolean deleted = Files.deleteIfExists(localFile);
+                log.info("Xóa file ảnh cục bộ: {} -> {}", localFile, deleted);
+                return deleted;
+            } catch (Exception e) {
+                log.warn("Lỗi khi xóa file ảnh cục bộ {}: {}", target, e.getMessage());
+                return false;
+            }
+        }
+
+        if (cloudName == null || cloudName.isBlank() || cloudName.contains("your_cloudinary")) {
+            return false;
+        }
+
+        try {
+            log.info("Gửi yêu cầu xóa ảnh Cloudinary với publicId: {}", target);
+            Map<?, ?> result = cloudinary.uploader().destroy(target, ObjectUtils.emptyMap());
+            String status = result != null ? (String) result.get("result") : "";
+            log.info("Kết quả xóa ảnh Cloudinary (publicId: {}): {}", target, status);
+            return "ok".equals(status);
+        } catch (Exception e) {
+            log.warn("Không thể xóa ảnh từ Cloudinary (publicId: {}): {}", target, e.getMessage());
             return false;
         }
     }
