@@ -712,6 +712,46 @@ export default function CheckoutPage({
         <form onSubmit={handleSubmitOrder} className="checkout-layout">
           {/* Left Column: Delivery Info & Payment Method */}
           <div className="checkout-form-column">
+            {/* Guest Checkout Notice Banner */}
+            {!user && (
+              <div style={{
+                background: 'linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)',
+                border: '1px solid #A7F3D0',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Sparkles size={18} color="var(--primary)" />
+                  <span style={{ fontSize: '0.86rem', color: '#065F46' }}>
+                    <strong>Bạn có thể mua hàng ngay mà không cần tài khoản!</strong> Nếu đã có tài khoản, hãy đăng nhập để tự động điền thông tin và tích lũy điểm Mầm Xanh.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  style={{
+                    background: 'var(--primary)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '7px 14px',
+                    borderRadius: '6px',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Đăng Nhập Nhanh
+                </button>
+              </div>
+            )}
+
             {/* Step 1: Customer Details */}
             <div className="checkout-card">
               <div className="card-section-header">

@@ -231,26 +231,26 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
           {/* Right Form Content */}
           <div className="auth-content">
             <div className="auth-form-header">
-              {/* Tab Switcher */}
-              <div className="auth-tab-switch">
-                <button 
-                  className="auth-tab-btn active"
-                  type="button"
-                >
-                  Đăng Nhập
-                </button>
-                <button 
-                  className="auth-tab-btn"
-                  type="button"
-                  onClick={() => onNavigate('register')}
-                >
-                  Đăng Ký Mới
-                </button>
+              {/* Trust Badge */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: '#EBF4EE',
+                color: 'var(--primary)',
+                padding: '4px 12px',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                marginBottom: '14px'
+              }}>
+                <Sparkles size={14} />
+                <span>Đăng Nhập & Đăng Ký 1-Chạm</span>
               </div>
 
-              <h1 className="auth-title">Chào Mừng Trở Lại!</h1>
+              <h1 className="auth-title">Chào Mừng Bạn Đến Vườn Sen Xinh! 🌿</h1>
               <p className="auth-subtitle">
-                Nhập tài khoản email hoặc đăng nhập nhanh bằng Google
+                Đăng nhập hoặc tạo tài khoản mới nhanh chóng không cần nhớ mật khẩu
               </p>
             </div>
 
@@ -262,11 +262,56 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
               </div>
             )}
 
-            {/* Login Form */}
+            {/* Priority 1: Google One-Click Auth */}
+            <div className="auth-social-row" style={{ marginBottom: '20px' }}>
+              <button 
+                type="button" 
+                className="auth-social-btn"
+                disabled={loading}
+                onClick={handleGoogleLogin}
+                style={{
+                  width: '100%',
+                  height: '50px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1.5px solid var(--border-light)',
+                  background: '#ffffff',
+                  fontSize: '0.96rem',
+                  fontWeight: 600,
+                  color: 'var(--text-main)',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                title="Đăng nhập bảo mật 1 chạm với tài khoản Google"
+              >
+                {loading ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                )}
+                <span>Tiếp Tục Với Google (Khuyên Dùng)</span>
+              </button>
+            </div>
+
+            {/* Social Separator */}
+            <div className="auth-separator" style={{ margin: '0 0 20px 0' }}>
+              <span>hoặc sử dụng địa chỉ email</span>
+            </div>
+
+            {/* Passwordless Email Form */}
             <form className="auth-form" onSubmit={handleSubmit}>
               {/* Email Field */}
               <div className="auth-field">
-                <label htmlFor="login-email">Tài khoản Email</label>
+                <label htmlFor="login-email">Email Của Bạn</label>
                 <div className="auth-input-wrap">
                   <span className="auth-input-icon">
                     <Mail size={18} />
@@ -275,7 +320,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                     id="login-email"
                     type="email"
                     className={`auth-input ${errorMsg ? 'has-error' : ''}`}
-                    placeholder="VD: long.senxinh@gmail.com"
+                    placeholder="VD: ban@gmail.com"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
@@ -294,7 +339,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                   />
-                  <span>Ghi nhớ đăng nhập trên thiết bị này</span>
+                  <span>Duy trì đăng nhập trên thiết bị này</span>
                 </label>
               </div>
 
@@ -303,61 +348,67 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                 type="submit" 
                 className="auth-submit-btn"
                 disabled={loading}
+                style={{ height: '48px' }}
               >
                 {loading ? (
-                  <span>Đang đăng nhập...</span>
+                  <span>Đang kết nối...</span>
                 ) : (
                   <>
                     <LogIn size={18} />
-                    <span>Đăng Nhập Bằng Email</span>
+                    <span>Tiếp Tục Với Email</span>
                     <ArrowRight size={16} />
                   </>
                 )}
               </button>
             </form>
 
-            {/* Social Separator */}
-            <div className="auth-separator">
-              <span>hoặc tiếp tục với</span>
+            {/* New Member Perk Box */}
+            <div style={{
+              marginTop: '22px',
+              padding: '12px 16px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)',
+              border: '1px solid #A7F3D0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: '#D1FAE5',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Gift size={18} color="#059669" />
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#065F46', lineHeight: 1.45 }}>
+                <strong>Quà tặng thành viên mới:</strong> Tự động kích hoạt mã <strong>SENMOI50</strong> (-50.000đ) và cộng <strong>50 điểm Mầm Xanh</strong> ngay sau khi đăng nhập!
+              </div>
             </div>
 
-            {/* Google Sign-in */}
-            <div className="auth-social-row">
-              <button 
-                type="button" 
-                className="auth-social-btn"
-                disabled={loading}
-                onClick={handleGoogleLogin}
-                title="Đăng nhập bảo mật với tài khoản Google"
-              >
-                {loading ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                  </svg>
-                )}
-                <span>Đăng nhập với Google</span>
-              </button>
-            </div>
-
-            {/* Switch to Register */}
-            <p className="auth-switch-prompt">
-              Chưa có tài khoản Sen Xinh?{' '}
-              <a 
-                href="#/register" 
-                className="auth-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onNavigate('register');
+            {/* Guest Checkout Notice */}
+            <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+              Bạn chỉ muốn mua hàng nhanh?{' '}
+              <button
+                type="button"
+                onClick={() => onNavigate && onNavigate('shop')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--primary)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: 0,
+                  textDecoration: 'underline'
                 }}
               >
-                Đăng ký thành viên ngay
-              </a>
-            </p>
+                Mua hàng không cần tài khoản →
+              </button>
+            </div>
 
             {/* Back to Home Link */}
             <div style={{ textAlign: 'center', marginTop: '14px' }}>
@@ -377,7 +428,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                   borderRadius: '6px'
                 }}
               >
-                ← Quay lại trang chủ mua sắm
+                ← Quay lại trang chủ
               </button>
             </div>
           </div>
