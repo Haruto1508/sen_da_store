@@ -64,7 +64,12 @@ export default function RegisterPage({ onRegisterSuccess, onNavigate, addToast }
         }
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Đăng ký không thành công. Hãy thử lại!');
+      console.error('Lỗi đăng ký tài khoản:', err);
+      const msg = err.message || '';
+      const friendlyMsg = (!msg || msg.includes('Failed to fetch'))
+        ? 'Không thể kết nối đến máy chủ. Quý khách vui lòng thử lại sau!'
+        : msg;
+      setErrorMsg(friendlyMsg);
     } finally {
       setLoading(false);
     }

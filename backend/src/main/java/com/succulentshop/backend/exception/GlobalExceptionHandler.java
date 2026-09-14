@@ -52,10 +52,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResult.error(ErrorCode.FILE_TOO_LARGE.getCode(), "Dung lượng tệp tải lên vượt quá giới hạn tối đa cho phép của hệ thống (10MB)."));
     }
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResult<Void>> handleGeneralException(Exception ex) {
+        log.error("Unhandled server exception: ", ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResult.error(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode(), "Đã xảy ra lỗi máy chủ: " + ex.getMessage()));
+                .body(ApiResult.error(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode(), "Hệ thống đang bận hoặc đã xảy ra sự cố. Quý khách vui lòng thử lại sau ít phút!"));
     }
 }

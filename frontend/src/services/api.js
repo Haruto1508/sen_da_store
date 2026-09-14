@@ -212,7 +212,7 @@ export async function getProducts(params = {}) {
     if (params.sort) query.append('sort', params.sort);
 
     const res = await fetch(`${API_BASE}/products?${query.toString()}`);
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    if (!res.ok) throw new Error('Không thể tải danh sách sản phẩm. Vui lòng thử lại sau!');
     const data = await res.json();
     return data.data || [];
   } catch (error) {
@@ -231,7 +231,7 @@ export async function getProductById(id) {
   }
 
   const res = await fetch(`${API_BASE}/products/${id}`);
-  if (!res.ok) throw new Error(`Không tìm thấy sản phẩm (${res.status})`);
+  if (!res.ok) throw new Error('Không tìm thấy thông tin sản phẩm');
   const data = await res.json();
   return data.data;
 }
@@ -331,7 +331,7 @@ export async function lookupOrder(orderCode) {
     const existing = getStoredOrders();
     const found = existing.find((o) => o.orderCode === orderCode);
     if (found) return found;
-    throw new Error('Không tìm thấy đơn hàng trong Mock Data');
+    throw new Error('Không tìm thấy thông tin đơn hàng');
   }
 
   const res = await fetch(`${API_BASE}/orders/${orderCode}`);
@@ -1001,7 +1001,7 @@ export async function simulateBankTransferPayment(orderCode) {
         : o
     );
     localStorage.setItem('senxinh_mock_orders', JSON.stringify(updated));
-    return { success: true, message: 'Mô phỏng chuyển khoản thành công (Mock Data)', status: 'PAID' };
+    return { success: true, message: 'Mô phỏng chuyển khoản thành công', status: 'PAID' };
   }
 
   try {
@@ -1121,7 +1121,7 @@ export async function loginUser(email, password = '') {
     }
     return {
       success: true,
-      message: 'Đăng nhập thành công! (Chế độ Mock Data)',
+      message: 'Đăng nhập thành công!',
       data: userSafe,
       token: `mock_token_${Date.now()}`
     };

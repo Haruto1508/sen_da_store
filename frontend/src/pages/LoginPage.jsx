@@ -40,7 +40,12 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
         }
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Đăng nhập không thành công. Hãy thử lại!');
+      console.error('Lỗi đăng nhập tài khoản:', err);
+      const msg = err.message || '';
+      const friendlyMsg = (!msg || msg.includes('Failed to fetch'))
+        ? 'Không thể kết nối đến máy chủ. Quý khách vui lòng thử lại sau!'
+        : msg;
+      setErrorMsg(friendlyMsg);
     } finally {
       setLoading(false);
     }
@@ -49,7 +54,9 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
   // Khởi tạo Google Identity Services / One Tap khi component mount
   useEffect(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (clientId && window.google?.accounts?.id) {
+    const isValidClientId = clientId && !clientId.includes('your-google-client-id') && clientId.trim() !== '';
+
+    if (isValidClientId && window.google?.accounts?.id) {
       try {
         window.google.accounts.id.initialize({
           client_id: clientId,
@@ -63,7 +70,8 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                   if (onLoginSuccess) onLoginSuccess(res.data, rememberMe);
                 }
               } catch (err) {
-                setErrorMsg(err.message || 'Lỗi đăng nhập qua Google One Tap.');
+                console.error('Google One Tap login error:', err);
+                setErrorMsg('Đăng nhập Google không thành công. Quý khách vui lòng đăng nhập bằng Email!');
               } finally {
                 setLoading(false);
               }
@@ -79,13 +87,18 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
   // Xử lý khi người dùng nhấn nút "Google"
   const handleGoogleLogin = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!clientId || clientId.includes('your-google-client-id')) {
-      if (addToast) addToast('Vui lòng cấu hình VITE_GOOGLE_CLIENT_ID trong file .env!', 'error');
+    const isValidClientId = clientId && !clientId.includes('your-google-client-id') && clientId.trim() !== '';
+
+    if (!isValidClientId) {
+      console.warn('[Cấu hình] VITE_GOOGLE_CLIENT_ID chưa được thiết lập trong file .env');
+      if (addToast) {
+        addToast('Tính năng đăng nhập Google hiện đang được bảo trì. Quý khách vui lòng đăng nhập bằng Email!', 'info');
+      }
       return;
     }
 
     if (!window.google?.accounts?.oauth2) {
-      if (addToast) addToast('Đang tải thư viện Google, vui lòng thử lại sau giây lát...', 'warning');
+      if (addToast) addToast('Đang kết nối dịch vụ Google, vui lòng thử lại sau giây lát...', 'info');
       return;
     }
 
@@ -99,8 +112,9 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
         callback: async (tokenResponse) => {
           if (tokenResponse.error) {
             setLoading(false);
+            console.error('Google OAuth token error:', tokenResponse.error);
             if (tokenResponse.error !== 'popup_closed_by_user') {
-              setErrorMsg('Đăng nhập Google không thành công: ' + tokenResponse.error);
+              setErrorMsg('Đăng nhập Google không thành công. Quý khách vui lòng thử lại hoặc đăng nhập bằng Email!');
             }
             return;
           }
@@ -127,15 +141,17 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
               }
             }
           } catch (err) {
-            setErrorMsg(err.message || 'Lỗi khi xử lý thông tin tài khoản Google.');
+            console.error('Lỗi khi xử lý thông tin tài khoản Google:', err);
+            setErrorMsg('Đăng nhập Google thất bại. Quý khách vui lòng đăng nhập bằng Email!');
           } finally {
             setLoading(false);
           }
         },
         error_callback: (err) => {
           setLoading(false);
+          console.error('Google OAuth popup error:', err);
           if (err.type !== 'popup_closed_by_user') {
-            setErrorMsg('Cửa sổ Google bị đóng hoặc popup bị chặn bởi trình duyệt.');
+            setErrorMsg('Cửa sổ đăng nhập Google bị gián đoạn hoặc bị trình duyệt chặn. Vui lòng thử lại!');
           }
         }
       });
@@ -143,7 +159,8 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
       client.requestAccessToken();
     } catch (err) {
       setLoading(false);
-      setErrorMsg('Không thể mở cửa sổ đăng nhập Google: ' + err.message);
+      console.error('Không thể mở cửa sổ đăng nhập Google:', err);
+      setErrorMsg('Không thể mở cửa sổ đăng nhập Google. Quý khách vui lòng đăng nhập bằng Email!');
     }
   };
 
