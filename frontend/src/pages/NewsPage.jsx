@@ -26,10 +26,10 @@ export default function NewsPage({ onSelectArticle, onNavigateHome }) {
             <span className="section-subtitle" style={{ color: 'var(--accent)' }}>
               Kiến Thức Nhà Vườn
             </span>
-            <h1 className="page-title" style={{ fontSize: '2.5rem', marginTop: '4px' }}>
+            <h1 className="page-title" style={{ fontSize: '1.75rem', marginTop: '4px' }}>
               Cẩm Nang Trồng & Chăm Sóc Sen Đá
             </h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: '1rem', marginTop: '6px', maxWidth: '650px' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', marginTop: '6px', maxWidth: '650px' }}>
               Tổng hợp những kinh nghiệm thực tế, mẹo cứu cây úng rễ, bí quyết thuần nắng và phối trộn giá thể chuẩn từ các nghệ nhân làm vườn Đà Lạt.
             </p>
           </div>

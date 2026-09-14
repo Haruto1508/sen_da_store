@@ -148,10 +148,10 @@ export default function ProductDetailPage({
                 <span className="tag-pill" style={{ background: 'var(--primary-light)', color: 'var(--primary)', fontWeight: 700, marginBottom: '8px' }}>
                   {product.category === 'haworthia' ? 'Sen Mọng Nước & Kim Cương' : product.category === 'echeveria' ? 'Sen Đài & Hoa Hồng' : 'Cây Cảnh Phong Thủy'}
                 </span>
-                <h1 style={{ fontSize: '2.4rem', margin: '4px 0 6px', lineHeight: 1.2 }}>
+                <h1 style={{ fontSize: '1.75rem', margin: '4px 0 6px', lineHeight: 1.25 }}>
                   {product.name}
                 </h1>
-                <p style={{ fontStyle: 'italic', color: 'var(--text-light)', fontSize: '1.05rem', marginBottom: '14px' }}>
+                <p style={{ fontStyle: 'italic', color: 'var(--text-light)', fontSize: '0.88rem', marginBottom: '12px' }}>
                   {product.scientificName}
                 </p>
               </div>
@@ -162,22 +162,22 @@ export default function ProductDetailPage({
                 title="Sao chép liên kết"
                 aria-label="Chia sẻ"
               >
-                <Share2 size={18} />
+                <Share2 size={16} />
               </button>
             </div>
 
             {/* Price & Reviews */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', margin: '12px 0 20px' }}>
-              <span style={{ fontSize: '2.1rem', fontWeight: 800, color: 'var(--primary)', fontFamily: 'Outfit, sans-serif' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', margin: '10px 0 16px' }}>
+              <span style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--primary)', fontFamily: 'Outfit, sans-serif' }}>
                 {formatPrice(product.price)}
               </span>
               {product.originalPrice > product.price && (
-                <span style={{ fontSize: '1.2rem', color: 'var(--text-light)', textDecoration: 'line-through' }}>
+                <span style={{ fontSize: '0.92rem', color: 'var(--text-light)', textDecoration: 'line-through' }}>
                   {formatPrice(product.originalPrice)}
                 </span>
               )}
               {product.originalPrice > product.price && (
-                <span style={{ background: '#FEE2E2', color: '#DC2626', fontSize: '0.8rem', fontWeight: 700, padding: '3px 8px', borderRadius: '4px' }}>
+                <span style={{ background: '#FEE2E2', color: '#DC2626', fontSize: '0.74rem', fontWeight: 700, padding: '2px 7px', borderRadius: '4px' }}>
                   Tiết kiệm {Math.round((1 - product.price / product.originalPrice) * 100)}%
                 </span>
               )}
@@ -254,9 +254,9 @@ export default function ProductDetailPage({
 
             {/* Purchasing Action Bar */}
             <div className="detail-action-bar">
-              <div className="qty-control" style={{ padding: '6px' }}>
+              <div className="qty-control" style={{ padding: '4px' }}>
                 <button className="qty-btn" onClick={handleDecrease} aria-label="Giảm">-</button>
-                <span className="qty-value" style={{ fontSize: '1.05rem', minWidth: '36px', textAlign: 'center' }}>{qty}</span>
+                <span className="qty-value" style={{ fontSize: '0.95rem', minWidth: '32px', textAlign: 'center' }}>{qty}</span>
                 <button className="qty-btn" onClick={handleIncrease} aria-label="Tăng">+</button>
               </div>
 
@@ -265,7 +265,7 @@ export default function ProductDetailPage({
                 onClick={() => onAddToCart(product, qty)}
                 title="Thêm vào giỏ hàng để tiếp tục chọn thêm cây khác"
               >
-                <ShoppingBag size={20} />
+                <ShoppingBag size={18} />
                 <span>Thêm Vào Giỏ ({formatPrice(product.price * qty)})</span>
               </button>
 
@@ -274,18 +274,18 @@ export default function ProductDetailPage({
                 onClick={() => onBuyNow(product, qty)}
                 title="Đặt mua ngay chậu sen đá này"
               >
-                <Zap size={19} fill="#FFE082" color="#FFE082" className="zap-icon" />
+                <Zap size={17} fill="#FFE082" color="#FFE082" className="zap-icon" />
                 <span>Mua Ngay</span>
               </button>
 
               <button 
                 className={`icon-btn ${isWishlisted ? 'active' : ''}`}
-                style={{ width: '52px', height: '52px' }}
+                style={{ width: '44px', height: '44px' }}
                 onClick={() => onToggleWishlist(product?.id || product?.publicId)}
                 title={isWishlisted ? 'Bỏ khỏi yêu thích' : 'Lưu vào yêu thích'}
                 aria-label="Yêu thích"
               >
-                <Heart size={22} fill={isWishlisted ? '#E63946' : 'none'} color={isWishlisted ? '#E63946' : 'currentColor'} />
+                <Heart size={20} fill={isWishlisted ? '#E63946' : 'none'} color={isWishlisted ? '#E63946' : 'currentColor'} />
               </button>
             </div>
 

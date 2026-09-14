@@ -251,7 +251,7 @@ export default function AccountPage({
                 {activeTab === 'cart' && 'Túi Mầm Xanh'}
                 {activeTab === 'profile' && 'Trung Tâm Thành Viên'}
               </span>
-              <h1 className="page-title" style={{ fontSize: '2.4rem', marginTop: '4px' }}>
+              <h1 className="page-title" style={{ fontSize: '1.75rem', marginTop: '4px' }}>
                 {activeTab === 'orders' && 'Đơn Hàng & Lịch Sử Giao Hàng'}
                 {activeTab === 'wishlist' && `Mục Yêu Thích (${wishlistProducts.length} Cây)`}
                 {activeTab === 'cart' && `Giỏ Hàng (${cartCount} Sản Phẩm)`}

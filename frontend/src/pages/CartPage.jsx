@@ -106,7 +106,7 @@ export default function CartPage({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px', marginTop: '14px' }}>
             <div>
               <span className="section-subtitle" style={{ color: 'var(--accent)' }}>Túi Mầm Xanh</span>
-              <h1 className="page-title" style={{ fontSize: '2rem', marginTop: '4px' }}>
+              <h1 className="page-title" style={{ fontSize: '1.65rem', marginTop: '4px' }}>
                 Giỏ Hàng Của Bạn ({totalItemCount} sản phẩm)
               </h1>
             </div>

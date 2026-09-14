@@ -80,10 +80,10 @@ export default function ShopPage({
               <span className="section-subtitle" style={{ color: 'var(--accent)' }}>
                 {onlyWishlist ? 'Danh Sách Đã Lưu' : 'Bộ Sưu Tập Thực Vật Phong Phú'}
               </span>
-              <h1 className="page-title" style={{ fontSize: '2.5rem', marginTop: '4px' }}>
+              <h1 className="page-title" style={{ fontSize: '1.75rem', marginTop: '4px' }}>
                 {onlyWishlist ? 'Mầm Xanh Yêu Thích Của Bạn' : 'Cửa Hàng Sen Đá & Cây Phong Thủy'}
               </h1>
-              <p style={{ color: 'var(--text-muted)', fontSize: '1rem', marginTop: '6px', maxWidth: '650px' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', marginTop: '4px', maxWidth: '650px' }}>
                 {onlyWishlist
                   ? 'Xem lại các chậu cây bạn đã lưu lại để tham khảo hoặc bổ sung vào giỏ hàng.'
                   : 'Khám phá hàng chục giống sen đá tuyển chọn với bố cục 5 cây mỗi dòng giúp bạn dễ dàng so sánh và chọn lựa.'}

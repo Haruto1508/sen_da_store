@@ -32,7 +32,7 @@ export default function ProductCard({
           title={isWishlisted ? 'Bỏ khỏi yêu thích' : 'Thêm vào yêu thích'}
           aria-label="Yêu thích"
         >
-          <Heart size={18} fill={isWishlisted ? '#E63946' : 'none'} color={isWishlisted ? '#E63946' : 'currentColor'} />
+          <Heart size={16} fill={isWishlisted ? '#E63946' : 'none'} color={isWishlisted ? '#E63946' : 'currentColor'} />
         </button>
 
         <img 
@@ -86,7 +86,7 @@ export default function ProductCard({
               title="Thêm vào giỏ hàng"
               aria-label="Thêm vào giỏ"
             >
-              <Plus size={20} />
+              <Plus size={16} />
             </button>
 
             {onBuyNow && (

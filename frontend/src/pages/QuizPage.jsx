@@ -82,7 +82,7 @@ export default function QuizPage({
 
           <div style={{ marginTop: '14px' }}>
             <span className="section-subtitle" style={{ color: 'var(--accent)' }}>Tư Vấn Tự Động 30 Giây</span>
-            <h1 className="page-title" style={{ fontSize: '2.4rem', marginTop: '4px' }}>
+            <h1 className="page-title" style={{ fontSize: '1.75rem', marginTop: '4px' }}>
               Tìm Chậu Sen Đá Hoàn Hảo Dành Riêng Cho Bạn
             </h1>
           </div>
@@ -153,10 +153,10 @@ export default function QuizPage({
                 <Sparkles size={36} color="#fff" />
               </div>
               <span className="section-subtitle" style={{ color: 'var(--primary)' }}>Kết Quả Phù Hợp Nhất</span>
-              <h2 style={{ fontSize: '2.2rem', marginTop: '6px', marginBottom: '10px' }}>
+              <h2 style={{ fontSize: '1.65rem', marginTop: '6px', marginBottom: '10px' }}>
                 Những Mầm Xanh Dành Riêng Cho Bạn!
               </h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '1rem', maxWidth: '600px', margin: '0 auto' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', maxWidth: '600px', margin: '0 auto' }}>
                 Dựa trên điều kiện ánh sáng và sở thích của bạn, nhà vườn Sen Xinh Garden gợi ý các giống sen đá có sức sống mãnh liệt và tương hợp phong thủy nhất:
               </p>
             </div>

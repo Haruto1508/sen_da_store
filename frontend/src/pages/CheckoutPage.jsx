@@ -364,10 +364,10 @@ export default function CheckoutPage({
             </div>
 
             <span className="section-subtitle" style={{ color: 'var(--primary)' }}>Cảm Ơn Bạn Đã Mua Hàng!</span>
-            <h1 style={{ fontSize: '2.2rem', marginTop: '6px', marginBottom: '12px' }}>
+            <h1 style={{ fontSize: '1.6rem', marginTop: '4px', marginBottom: '10px' }}>
               {isPaid ? 'Đơn Hàng Đã Được Thanh Toán!' : 'Đặt Hàng Thành Công!'}
             </h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: '1.02rem', maxWidth: '580px', margin: '0 auto 28px' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.94rem', maxWidth: '580px', margin: '0 auto 24px' }}>
               Nhà vườn Sen Xinh Garden đã tiếp nhận đơn hàng <strong>#{currentCode}</strong> và đang tiến hành chọn lọc những cây sen đá tươi khỏe nhất để đóng gói giao đến bạn.
             </p>
 
@@ -699,9 +699,9 @@ export default function CheckoutPage({
             <span className="breadcrumb-current">Thanh Toán Đơn Hàng</span>
           </div>
 
-          <div style={{ marginTop: '14px' }}>
+          <div style={{ marginTop: '10px' }}>
             <span className="section-subtitle" style={{ color: 'var(--accent)' }}>Xác Nhận & Đặt Hàng</span>
-            <h1 className="page-title" style={{ fontSize: '2.4rem', marginTop: '4px' }}>
+            <h1 className="page-title" style={{ fontSize: '1.75rem', marginTop: '4px' }}>
               Thông Tin Giao Hàng & Thanh Toán
             </h1>
           </div>

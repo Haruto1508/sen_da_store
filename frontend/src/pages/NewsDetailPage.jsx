@@ -48,7 +48,7 @@ export default function NewsDetailPage({
           <span className="tag-pill" style={{ background: 'var(--accent-light)', color: 'var(--accent)', fontWeight: 700, marginBottom: '12px' }}>
             {article.category}
           </span>
-          <h1 style={{ fontSize: '2.4rem', lineHeight: 1.3, margin: '8px 0 16px' }}>
+          <h1 style={{ fontSize: '1.75rem', lineHeight: 1.3, margin: '8px 0 14px' }}>
             {article.title}
           </h1>
 
