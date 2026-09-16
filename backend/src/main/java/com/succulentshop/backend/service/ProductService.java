@@ -2,6 +2,8 @@ package com.succulentshop.backend.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.succulentshop.backend.dto.ProductResponse;
+import com.succulentshop.backend.dto.ReviewResponse;
 import com.succulentshop.backend.entity.Product;
 import com.succulentshop.backend.exception.AppException;
 import com.succulentshop.backend.exception.ErrorCode;
@@ -23,7 +25,7 @@ public class ProductService {
         this.productRepository = productRepository;
     }
 
-    public List<Map<String, Object>> getFilteredProducts(String category, String search, String light, String difficulty, String sort) {
+    public List<ProductResponse> getFilteredProducts(String category, String search, String light, String difficulty, String sort) {
         boolean hasFilter = (category != null && !category.isBlank() && !"all".equalsIgnoreCase(category))
                 || (search != null && !search.isBlank())
                 || (light != null && !light.isBlank() && !"all".equalsIgnoreCase(light))
@@ -38,7 +40,6 @@ public class ProductService {
                 )
                 : productRepository.findByStatusNot("DELETED");
 
-        // Filter out any non-active products just in case
         products = new ArrayList<>(products.stream().filter(Product::isActive).toList());
 
         if ("price-asc".equalsIgnoreCase(sort)) {
@@ -49,16 +50,16 @@ public class ProductService {
             products.sort(Comparator.comparingDouble(Product::getRating).reversed());
         }
 
-        List<Map<String, Object>> responseList = new ArrayList<>();
+        List<ProductResponse> responseList = new ArrayList<>();
         for (Product p : products) {
-            responseList.add(convertProductToMap(p));
+            responseList.add(convertProductToResponse(p));
         }
         return responseList;
     }
 
-    public Map<String, Object> getProductDetail(String id) {
+    public ProductResponse getProductDetail(String id) {
         Product p = findByIdOrThrow(id);
-        return convertProductToMap(p);
+        return convertProductToResponse(p);
     }
 
     public Product findByIdOrThrow(String id) {
@@ -111,7 +112,7 @@ public class ProductService {
     }
 
     @Transactional
-    public Map<String, Object> addReview(String productId, int newRating, String comment, String reviewerName) {
+    public ReviewResponse addReview(String productId, int newRating, String comment, String reviewerName) {
         Product p = findByIdOrThrow(productId);
         int clampedRating = Math.max(1, Math.min(5, newRating));
 
@@ -125,42 +126,42 @@ public class ProductService {
         p.setReviewsCount(currentReviews + 1);
         productRepository.save(p);
 
-        return Map.of(
-            "productId", p.getId(),
-            "rating", p.getRating(),
-            "reviewsCount", p.getReviewsCount(),
-            "newRatingAdded", clampedRating,
-            "reviewerName", reviewerName != null ? reviewerName : "Khách yêu sen đá",
-            "comment", comment != null ? comment : ""
-        );
+        ReviewResponse response = new ReviewResponse();
+        response.setProductId(p.getId());
+        response.setRating(p.getRating());
+        response.setReviewsCount(p.getReviewsCount());
+        response.setNewRatingAdded(clampedRating);
+        response.setReviewerName(reviewerName != null ? reviewerName : "Khách yêu sen đá");
+        response.setComment(comment != null ? comment : "");
+        return response;
     }
 
-    public Map<String, Object> convertProductToMap(Product p) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("id", p.getId());
-        map.put("publicId", p.getPublicId());
-        map.put("name", p.getName());
-        map.put("scientificName", p.getScientificName());
-        map.put("category", p.getCategory());
-        map.put("price", p.getPrice());
-        map.put("originalPrice", p.getOriginalPrice());
-        map.put("rating", p.getRating());
-        map.put("reviewsCount", p.getReviewsCount());
-        map.put("badge", p.getBadge());
-        map.put("image", p.getImage());
-        map.put("difficulty", p.getDifficulty());
-        map.put("difficultyLevel", p.getDifficultyLevel());
-        map.put("light", p.getLight());
-        map.put("lightType", p.getLightType());
-        map.put("watering", p.getWatering());
-        map.put("wateringDays", p.getWateringDays());
-        map.put("size", p.getSize());
-        map.put("idealLocation", p.getIdealLocation());
-        map.put("inStock", p.getInStock());
-        map.put("description", p.getDescription());
-        map.put("meaning", p.getMeaning());
-        map.put("status", p.getStatus());
-        map.put("available", p.isActive());
+    public ProductResponse convertProductToResponse(Product p) {
+        ProductResponse response = new ProductResponse();
+        response.setId(p.getId());
+        response.setPublicId(p.getPublicId());
+        response.setName(p.getName());
+        response.setScientificName(p.getScientificName());
+        response.setCategory(p.getCategory());
+        response.setPrice(p.getPrice());
+        response.setOriginalPrice(p.getOriginalPrice());
+        response.setRating(p.getRating());
+        response.setReviewsCount(p.getReviewsCount());
+        response.setBadge(p.getBadge());
+        response.setImage(p.getImage());
+        response.setDifficulty(p.getDifficulty());
+        response.setDifficultyLevel(p.getDifficultyLevel());
+        response.setLight(p.getLight());
+        response.setLightType(p.getLightType());
+        response.setWatering(p.getWatering());
+        response.setWateringDays(p.getWateringDays());
+        response.setSize(p.getSize());
+        response.setIdealLocation(p.getIdealLocation());
+        response.setInStock(p.getInStock());
+        response.setDescription(p.getDescription());
+        response.setMeaning(p.getMeaning());
+        response.setStatus(p.getStatus());
+        response.setAvailable(p.isActive());
 
         List<String> tips = Collections.emptyList();
         if (p.getCareTips() != null && !p.getCareTips().isBlank()) {
@@ -170,8 +171,8 @@ public class ProductService {
                 tips = List.of(p.getCareTips());
             }
         }
-        map.put("careTips", tips);
+        response.setCareTips(tips);
 
-        return map;
+        return response;
     }
 }

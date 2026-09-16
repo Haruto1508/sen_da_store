@@ -2,6 +2,7 @@ package com.succulentshop.backend.service;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import com.succulentshop.backend.dto.CloudinaryUploadResponse;
 import com.succulentshop.backend.exception.AppException;
 import com.succulentshop.backend.exception.ErrorCode;
 import org.slf4j.Logger;
@@ -50,9 +51,9 @@ public class CloudinaryService {
      *
      * @param file MultipartFile from client
      * @param folder Folder name on Cloudinary
-     * @return Map containing url, publicId, and storageType
+     * @return DTO containing url, publicId, and storageType
      */
-    public Map<String, Object> uploadImage(MultipartFile file, String folder) {
+    public CloudinaryUploadResponse uploadImage(MultipartFile file, String folder) {
         if (file == null || file.isEmpty()) {
             throw new AppException(ErrorCode.INVALID_REQUEST, "Vui lòng chọn một file ảnh để tải lên");
         }
@@ -72,7 +73,6 @@ public class CloudinaryService {
             throw new AppException(ErrorCode.FILE_TYPE_NOT_SUPPORTED, "Định dạng file không được hỗ trợ. Vui lòng chọn ảnh JPG, PNG, WEBP hoặc GIF");
         }
 
-        // 1. If Cloudinary is configured, upload directly to Cloudinary Cloud
         if (cloudName != null && !cloudName.isBlank() && !cloudName.contains("your_cloudinary")) {
             try {
                 log.info("Bắt đầu upload ảnh lên Cloudinary folder: {}", folder);
@@ -91,19 +91,17 @@ public class CloudinaryService {
 
                 log.info("Upload ảnh lên Cloudinary thành công! URL: {}", secureUrl);
 
-                Map<String, Object> response = new HashMap<>();
-                response.put("url", secureUrl);
-                response.put("publicId", publicId);
-                response.put("storage", "CLOUDINARY");
-                response.put("bytes", uploadResult.get("bytes"));
-                response.put("format", uploadResult.get("format"));
-
+                CloudinaryUploadResponse response = new CloudinaryUploadResponse();
+                response.setUrl(secureUrl);
+                response.setPublicId(publicId);
+                response.setStorage("CLOUDINARY");
+                response.setBytes(uploadResult.get("bytes") instanceof Number ? ((Number) uploadResult.get("bytes")).longValue() : null);
+                response.setFormat(String.valueOf(uploadResult.get("format")));
                 return response;
             } catch (Exception e) {
                 log.error("Lỗi khi tải ảnh lên Cloudinary: {}", e.getMessage(), e);
                 String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
 
-                // Kiểm tra nếu bộ nhớ đám mây bị đầy / hết credits / vượt quota
                 if (msg.contains("quota") || msg.contains("credit") || msg.contains("limit")
                         || msg.contains("storage") || msg.contains("capacity") || msg.contains("exceeded")
                         || msg.contains("disabled") || msg.contains("out of")) {
@@ -117,7 +115,6 @@ public class CloudinaryService {
             }
         }
 
-        // 2. Fallback: Save locally if Cloudinary credentials are not yet configured in .env
         log.warn("Chưa phát hiện cấu hình CLOUDINARY_CLOUD_NAME. Sử dụng fallback lưu trữ cục bộ.");
         try {
             String uploadDir = "uploads/products";
@@ -140,13 +137,12 @@ public class CloudinaryService {
 
             String localUrl = "http://localhost:" + serverPort + "/uploads/products/" + fileName;
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("url", localUrl);
-            response.put("publicId", fileName);
-            response.put("storage", "LOCAL_FALLBACK");
-            response.put("bytes", file.getSize());
-            response.put("note", "Ảnh lưu tạm tại local. Hãy cấu hình CLOUDINARY_CLOUD_NAME trong backend/.env để chuyển hẳn sang Cloud.");
-
+            CloudinaryUploadResponse response = new CloudinaryUploadResponse();
+            response.setUrl(localUrl);
+            response.setPublicId(fileName);
+            response.setStorage("LOCAL_FALLBACK");
+            response.setBytes(file.getSize());
+            response.setNote("Ảnh lưu tạm tại local. Hãy cấu hình CLOUDINARY_CLOUD_NAME trong backend/.env để chuyển hẳn sang Cloud.");
             return response;
         } catch (IOException e) {
             log.error("Lỗi lưu ảnh fallback cục bộ: {}", e.getMessage(), e);
@@ -160,22 +156,21 @@ public class CloudinaryService {
      * @param file MultipartFile from client
      * @param folder Folder name on Cloudinary
      * @param previousImageUrl Old image URL to be deleted from cloud
-     * @return Map containing url, publicId, and storageType
+     * @return DTO containing url, publicId, and storageType
      */
-    public Map<String, Object> uploadAndReplaceImage(MultipartFile file, String folder, String previousImageUrl) {
-        Map<String, Object> uploadResult = uploadImage(file, folder);
+    public CloudinaryUploadResponse uploadAndReplaceImage(MultipartFile file, String folder, String previousImageUrl) {
+       CloudinaryUploadResponse uploadResult = uploadImage(file, folder);
 
-        // Sau khi upload ảnh mới thành công, dọn dẹp ảnh cũ trên Cloudinary nếu có
-        if (previousImageUrl != null && !previousImageUrl.isBlank()) {
-            try {
-                deleteImage(previousImageUrl);
-                log.info("Đã tự động xóa ảnh cũ trên cloud: {}", previousImageUrl);
-            } catch (Exception ex) {
-                log.warn("Không thể xóa ảnh cũ {}: {}", previousImageUrl, ex.getMessage());
-            }
-        }
+       if (previousImageUrl != null && !previousImageUrl.isBlank()) {
+           try {
+               deleteImage(previousImageUrl);
+               log.info("Đã tự động xóa ảnh cũ trên cloud: {}", previousImageUrl);
+           } catch (Exception ex) {
+               log.warn("Không thể xóa ảnh cũ {}: {}", previousImageUrl, ex.getMessage());
+           }
+       }
 
-        return uploadResult;
+       return uploadResult;
     }
 
     /**

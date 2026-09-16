@@ -1,14 +1,15 @@
 package com.succulentshop.backend.controller;
 
 import com.succulentshop.backend.dto.ApiResult;
+import com.succulentshop.backend.dto.ProductResponse;
 import com.succulentshop.backend.dto.ReviewRequest;
+import com.succulentshop.backend.dto.ReviewResponse;
 import com.succulentshop.backend.exception.ErrorCode;
 import com.succulentshop.backend.service.ProductService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/products")
@@ -21,25 +22,25 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResult<List<Map<String, Object>>>> getProducts(
+    public ResponseEntity<ApiResult<List<ProductResponse>>> getProducts(
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String light,
             @RequestParam(required = false) String difficulty,
             @RequestParam(required = false, defaultValue = "featured") String sort
     ) {
-        List<Map<String, Object>> responseList = productService.getFilteredProducts(category, search, light, difficulty, sort);
+        List<ProductResponse> responseList = productService.getFilteredProducts(category, search, light, difficulty, sort);
         return ResponseEntity.ok(ApiResult.ok("Lấy danh sách sản phẩm thành công", responseList));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResult<Map<String, Object>>> getProductById(@PathVariable String id) {
-        Map<String, Object> productData = productService.getProductDetail(id);
+    public ResponseEntity<ApiResult<ProductResponse>> getProductById(@PathVariable String id) {
+        ProductResponse productData = productService.getProductDetail(id);
         return ResponseEntity.ok(ApiResult.ok("Lấy chi tiết sản phẩm thành công", productData));
     }
 
     @PostMapping("/{id}/reviews")
-    public ResponseEntity<ApiResult<Map<String, Object>>> submitReview(
+    public ResponseEntity<ApiResult<ReviewResponse>> submitReview(
             @PathVariable String id,
             @RequestBody ReviewRequest reviewRequest
     ) {
@@ -47,7 +48,7 @@ public class ProductController {
             return ResponseEntity.badRequest().body(ApiResult.error(ErrorCode.INVALID_RATING));
         }
 
-        Map<String, Object> result = productService.addReview(
+        ReviewResponse result = productService.addReview(
                 id,
                 reviewRequest.getRating(),
                 reviewRequest.getComment(),

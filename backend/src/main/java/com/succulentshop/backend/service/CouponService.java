@@ -1,5 +1,6 @@
 package com.succulentshop.backend.service;
 
+import com.succulentshop.backend.dto.CouponValidationResponse;
 import com.succulentshop.backend.entity.Coupon;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.CouponRepository;
@@ -22,6 +23,25 @@ public class CouponService {
             return Optional.empty();
         }
         return couponRepository.findByCodeIgnoreCaseAndIsActiveTrue(code.trim());
+    }
+
+    public CouponValidationResponse validateCouponResponse(String code) {
+        Optional<Coupon> optionalCoupon = validateCoupon(code);
+        CouponValidationResponse response = new CouponValidationResponse();
+        if (optionalCoupon.isEmpty()) {
+            response.setValid(false);
+            response.setCode(code != null ? code.trim() : "");
+            response.setDiscountPercent(0);
+            response.setDescription("");
+            return response;
+        }
+
+        Coupon coupon = optionalCoupon.get();
+        response.setValid(true);
+        response.setCode(coupon.getCode());
+        response.setDiscountPercent(coupon.getDiscountPercent());
+        response.setDescription(coupon.getDescription() != null ? coupon.getDescription() : "");
+        return response;
     }
 
     public List<Coupon> getAllCoupons() {

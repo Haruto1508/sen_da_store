@@ -1,6 +1,7 @@
 package com.succulentshop.backend.controller;
 
 import com.succulentshop.backend.dto.ApiResult;
+import com.succulentshop.backend.dto.MoMoPaymentResponse;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.service.MoMoService;
@@ -27,7 +28,7 @@ public class MoMoPaymentController {
      * Khởi tạo giao dịch thanh toán qua Cổng MoMo (Ví MoMo / VietQR MoMo)
      */
     @PostMapping("/momo/create")
-    public ResponseEntity<ApiResult<Map<String, Object>>> createMoMoPayment(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResult<MoMoPaymentResponse>> createMoMoPayment(@RequestBody Map<String, String> request) {
         String orderCode = request.get("orderCode");
         if (orderCode == null || orderCode.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResult.error("Thiếu mã đơn hàng orderCode"));
@@ -40,7 +41,7 @@ public class MoMoPaymentController {
         }
 
         Order order = orderOpt.get();
-        Map<String, Object> moMoResponse = moMoService.createPayment(order);
+        MoMoPaymentResponse moMoResponse = moMoService.createPayment(order);
 
         return ResponseEntity.ok(ApiResult.ok("Khởi tạo thanh toán MoMo thành công", moMoResponse));
     }
@@ -71,7 +72,7 @@ public class MoMoPaymentController {
      * API Hỗ trợ kiểm thử/demo nhanh trên Localhost (Mô phỏng Webhook MoMo xác nhận tiền về)
      */
     @PostMapping("/momo/simulate-ipn")
-    public ResponseEntity<ApiResult<Map<String, Object>>> simulateMoMoPayment(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResult<MoMoPaymentResponse>> simulateMoMoPayment(@RequestBody Map<String, String> request) {
         String orderCode = request.get("orderCode");
         if (orderCode == null || orderCode.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResult.error("Thiếu orderCode"));
@@ -89,9 +90,14 @@ public class MoMoPaymentController {
 
         System.out.println("⚡ [Demo Simulation] Đơn hàng #" + orderCode + " đã được xác nhận thanh toán MoMo!");
 
+        MoMoPaymentResponse response = new MoMoPaymentResponse();
+        response.setOrderId(order.getOrderCode());
+        response.setAmount(order.getTotalAmount() != null ? Long.valueOf(order.getTotalAmount()) : null);
+        response.setResultCode(0);
+        response.setMessage("Mô phỏng thanh toán MoMo thành công cho đơn hàng #" + orderCode);
         return ResponseEntity.ok(ApiResult.ok(
                 "Mô phỏng thanh toán MoMo thành công cho đơn hàng #" + orderCode,
-                Map.of("orderCode", orderCode, "status", "PAID")
+                response
         ));
     }
 }

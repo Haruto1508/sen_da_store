@@ -1,6 +1,11 @@
 package com.succulentshop.backend.service;
 
+import com.succulentshop.backend.config.BankTransferConfig;
 import com.succulentshop.backend.dto.CreateOrderRequest;
+import com.succulentshop.backend.dto.CreateOrderResponse;
+import com.succulentshop.backend.dto.OrderItemResponse;
+import com.succulentshop.backend.dto.OrderResponse;
+import com.succulentshop.backend.dto.VietQrResponse;
 import com.succulentshop.backend.entity.Coupon;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.entity.OrderItem;
@@ -12,7 +17,6 @@ import com.succulentshop.backend.exception.InsufficientStockException;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.repository.UserRepository;
-import com.succulentshop.backend.config.BankTransferConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,7 +60,7 @@ public class OrderService {
     }
 
     @Transactional
-    public Map<String, Object> createOrder(CreateOrderRequest request) {
+    public CreateOrderResponse createOrder(CreateOrderRequest request) {
         if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty() ||
             request.getCustomerPhone() == null || request.getCustomerPhone().trim().isEmpty() ||
             request.getCustomerAddress() == null || request.getCustomerAddress().trim().isEmpty()) {
@@ -67,10 +71,8 @@ public class OrderService {
             throw new AppException(ErrorCode.CART_EMPTY);
         }
 
-        // 1. Verify and deduct stock for all items atomically
         List<OrderItem> orderItems = new ArrayList<>();
         int subtotal = 0;
-        List<Map<String, Object>> itemResponses = new ArrayList<>();
 
         for (CreateOrderRequest.OrderItemDto itemDto : request.getItems()) {
             Product p = productService.findActiveByIdOrThrow(itemDto.getId());
@@ -91,26 +93,13 @@ public class OrderService {
                 );
             }
 
-            // Lấy giá chuẩn từ Database snapshot tại thời điểm mua
             int price = p.getPrice() != null ? p.getPrice() : (itemDto.getPrice() != null ? itemDto.getPrice() : 0);
-
-            // Deduct stock
             productService.deductStock(p.getId(), qty);
 
             subtotal += price * qty;
-            OrderItem item = new OrderItem(p.getId(), p.getName(), price, qty, p.getImage());
-            orderItems.add(item);
-
-            itemResponses.add(Map.of(
-                "id", p.getId(),
-                "name", p.getName(),
-                "price", price,
-                "quantity", qty,
-                "image", p.getImage() != null ? p.getImage() : ""
-            ));
+            orderItems.add(new OrderItem(p.getId(), p.getName(), price, qty, p.getImage()));
         }
 
-        // 2. Validate coupon
         int discountPercent = 0;
         String validCouponCode = null;
         if (request.getDiscountCode() != null && !request.getDiscountCode().trim().isEmpty()) {
@@ -125,7 +114,6 @@ public class OrderService {
         int shippingFee = subtotal >= 200000 ? 0 : 30000;
         int totalAmount = Math.max(0, subtotal - discountAmount + shippingFee);
 
-        // 3. Build & save order
         Order order = new Order();
         int randomDigits = 100000 + new Random().nextInt(900000);
         String orderCode = "SX" + randomDigits;
@@ -152,7 +140,6 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
 
-        // 4. Reward Sen Points to registered customer
         Optional<User> userOpt = userRepository.findByPhone(saved.getCustomerPhone());
         if (userOpt.isPresent()) {
             User customer = userOpt.get();
@@ -161,8 +148,7 @@ public class OrderService {
             userRepository.save(customer);
         }
 
-        // 5. Generate VietQR if needed (chuẩn SePay vietqr.app)
-        Map<String, Object> vietQrData = null;
+        VietQrResponse vietQrResponse = null;
         if ("vietqr".equalsIgnoreCase(saved.getPaymentMethod())) {
             String activeBankCode = (bankTransferConfig != null && bankTransferConfig.getBankCode() != null && !bankTransferConfig.getBankCode().isBlank())
                     ? bankTransferConfig.getBankCode() : BANK_CODE;
@@ -175,33 +161,29 @@ public class OrderService {
             String qrUrl = String.format("https://vietqr.app/img?bank=%s&acc=%s&template=compact&amount=%d&des=%s&showinfo=true&fullacc=true&holder=%s&store=Sen%%20Xinh%%20Garden",
                     activeBankCode, activeAccountNumber, totalAmount, orderCode, encodedName);
 
-            vietQrData = Map.of(
-                "bankName", BANK_NAME,
-                "bankCode", activeBankCode,
-                "accountNumber", activeAccountNumber,
-                "accountName", activeAccountName,
-                "amount", totalAmount,
-                "orderCode", orderCode,
-                "qrImageUrl", qrUrl
-            );
+            vietQrResponse = new VietQrResponse();
+            vietQrResponse.setBankName(BANK_NAME);
+            vietQrResponse.setBankCode(activeBankCode);
+            vietQrResponse.setAccountNumber(activeAccountNumber);
+            vietQrResponse.setAccountName(activeAccountName);
+            vietQrResponse.setAmount(totalAmount);
+            vietQrResponse.setOrderCode(orderCode);
+            vietQrResponse.setQrImageUrl(qrUrl);
         }
 
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("order", convertOrderToMap(saved));
-        if (vietQrData != null) {
-            response.put("vietQr", vietQrData);
-        }
-
+        CreateOrderResponse response = new CreateOrderResponse();
+        response.setOrder(convertOrderToResponse(saved));
+        response.setVietQr(vietQrResponse);
         return response;
     }
 
-    public Map<String, Object> getOrderByCode(String orderCode) {
+    public OrderResponse getOrderByCode(String orderCode) {
         Order o = orderRepository.findByOrderCode(orderCode.trim().toUpperCase())
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng: " + orderCode));
-        return convertOrderToMap(o);
+        return convertOrderToResponse(o);
     }
 
-    public List<Map<String, Object>> getOrdersByCustomer(String phone, String email) {
+    public List<OrderResponse> getOrdersByCustomer(String phone, String email) {
         String cleanPhone = (phone != null && !phone.isBlank()) ? phone.trim() : null;
         String cleanEmail = (email != null && !email.isBlank()) ? email.trim().toLowerCase() : null;
 
@@ -216,26 +198,25 @@ public class OrderService {
             list = orderRepository.findByCustomerEmailOrderByCreatedAtDesc(cleanEmail);
         }
 
-        List<Map<String, Object>> result = new ArrayList<>();
+        List<OrderResponse> result = new ArrayList<>();
         for (Order o : list) {
-            result.add(convertOrderToMap(o));
+            result.add(convertOrderToResponse(o));
         }
         return result;
     }
 
-    public List<Map<String, Object>> getOrdersByCustomer(String phone) {
+    public List<OrderResponse> getOrdersByCustomer(String phone) {
         return getOrdersByCustomer(phone, null);
     }
 
     @Transactional
-    public Map<String, Object> updateOrderStatus(Long orderId, String newStatus) {
+    public OrderResponse updateOrderStatus(Long orderId, String newStatus) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
 
         String oldStatus = order.getStatus();
         String formatted = newStatus.trim().toUpperCase();
 
-        // If order was cancelled, restore inventory stock
         if ("CANCELLED".equals(formatted) && !"CANCELLED".equals(oldStatus)) {
             for (OrderItem it : order.getItems()) {
                 productService.restoreStock(it.getProductId(), it.getQuantity());
@@ -244,42 +225,41 @@ public class OrderService {
 
         order.setStatus(formatted);
         orderRepository.save(order);
-        return convertOrderToMap(order);
+        return convertOrderToResponse(order);
     }
 
-    public Map<String, Object> convertOrderToMap(Order o) {
-        List<Map<String, Object>> items = new ArrayList<>();
+    public OrderResponse convertOrderToResponse(Order o) {
+        OrderResponse response = new OrderResponse();
+        response.setId(o.getId());
+        response.setPublicId(o.getPublicId());
+        response.setOrderCode(o.getOrderCode());
+        response.setCustomerName(o.getCustomerName());
+        response.setCustomerPhone(o.getCustomerPhone());
+        response.setCustomerAddress(o.getCustomerAddress());
+        response.setCustomerEmail(o.getCustomerEmail() != null ? o.getCustomerEmail() : "");
+        response.setNote(o.getNote());
+        response.setPaymentMethod(o.getPaymentMethod());
+        response.setSubtotal(o.getSubtotal());
+        response.setDiscountAmount(o.getDiscountAmount());
+        response.setDiscountCode(o.getDiscountCode());
+        response.setShippingFee(o.getShippingFee());
+        response.setTotalAmount(o.getTotalAmount());
+        response.setStatus(o.getStatus());
+        response.setCreatedAt(o.getCreatedAt() != null ? o.getCreatedAt().toString() : null);
+
+        List<OrderItemResponse> items = new ArrayList<>();
         if (o.getItems() != null) {
             for (OrderItem it : o.getItems()) {
-                items.add(Map.of(
-                    "productId", it.getProductId() != null ? it.getProductId() : "",
-                    "productName", it.getProductName() != null ? it.getProductName() : "",
-                    "price", it.getPrice() != null ? it.getPrice() : 0,
-                    "quantity", it.getQuantity() != null ? it.getQuantity() : 1,
-                    "image", it.getImage() != null ? it.getImage() : ""
-                ));
+                OrderItemResponse item = new OrderItemResponse();
+                item.setProductId(it.getProductId() != null ? it.getProductId() : "");
+                item.setProductName(it.getProductName() != null ? it.getProductName() : "");
+                item.setPrice(it.getPrice() != null ? it.getPrice() : 0);
+                item.setQuantity(it.getQuantity() != null ? it.getQuantity() : 1);
+                item.setImage(it.getImage() != null ? it.getImage() : "");
+                items.add(item);
             }
         }
-
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("id", o.getId());
-        map.put("publicId", o.getPublicId());
-        map.put("orderCode", o.getOrderCode());
-        map.put("customerName", o.getCustomerName());
-        map.put("customerPhone", o.getCustomerPhone());
-        map.put("customerAddress", o.getCustomerAddress());
-        map.put("customerEmail", o.getCustomerEmail() != null ? o.getCustomerEmail() : "");
-        map.put("note", o.getNote());
-        map.put("paymentMethod", o.getPaymentMethod());
-        map.put("items", items);
-        map.put("subtotal", o.getSubtotal());
-        map.put("discountAmount", o.getDiscountAmount());
-        map.put("discountCode", o.getDiscountCode());
-        map.put("shippingFee", o.getShippingFee());
-        map.put("totalAmount", o.getTotalAmount());
-        map.put("status", o.getStatus());
-        map.put("createdAt", o.getCreatedAt() != null ? o.getCreatedAt().toString() : null);
-
-        return map;
+        response.setItems(items);
+        return response;
     }
 }

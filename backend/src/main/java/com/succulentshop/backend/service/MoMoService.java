@@ -3,6 +3,7 @@ package com.succulentshop.backend.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.succulentshop.backend.config.MoMoConfig;
+import com.succulentshop.backend.dto.MoMoPaymentResponse;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.util.MoMoSecurityUtil;
@@ -35,7 +36,7 @@ public class MoMoService {
     /**
      * Tạo giao dịch thanh toán MoMo (Capture Wallet / VietQR MoMo)
      */
-    public Map<String, Object> createPayment(Order order) {
+    public MoMoPaymentResponse createPayment(Order order) {
         String partnerCode = moMoConfig.getPartnerCode();
         String accessKey = moMoConfig.getAccessKey();
         String secretKey = moMoConfig.getSecretKey();
@@ -50,7 +51,6 @@ public class MoMoService {
         String extraData = "";
         String requestType = "captureWallet";
 
-        // Chuỗi dữ liệu chuẩn hóa để ký HMAC-SHA256 theo MoMo v2 API
         String rawSignature = "accessKey=" + accessKey +
                 "&amount=" + amount +
                 "&extraData=" + extraData +
@@ -93,13 +93,12 @@ public class MoMoService {
 
             if (response.statusCode() == 200) {
                 Map<String, Object> responseMap = objectMapper.readValue(response.body(), new TypeReference<>() {});
-                Integer resultCode = (Integer) responseMap.get("resultCode");
+                Integer resultCode = responseMap.get("resultCode") instanceof Number ? ((Number) responseMap.get("resultCode")).intValue() : null;
                 if (resultCode != null && resultCode == 0) {
-                    return responseMap;
+                    return mapToResponse(responseMap);
                 }
             }
-            
-            // Fallback sandbox simulation nếu MoMo Sandbox trả mã khác 0 hoặc lỗi mạng
+
             return buildFallbackMoMoResponse(order, requestId, payload);
         } catch (Exception e) {
             System.err.println("Cảnh báo: Không thể gọi trực tiếp MoMo API (" + e.getMessage() + "). Tạo URL thanh toán dự phòng Sandbox.");
@@ -175,22 +174,37 @@ public class MoMoService {
     /**
      * Tạo dữ liệu fallback chuẩn định dạng MoMo để đảm bảo test trên local luôn hiển thị mã QR đẹp mắt
      */
-    private Map<String, Object> buildFallbackMoMoResponse(Order order, String requestId, Map<String, Object> payload) {
+    private MoMoPaymentResponse buildFallbackMoMoResponse(Order order, String requestId, Map<String, Object> payload) {
         String payUrl = "https://test-payment.momo.vn/v2/gateway/pay?s=" + UUID.randomUUID();
-        // Sinh mã QR MoMo theo chuẩn VietQR NAPAS tương thích MoMo
-        String qrCodeUrl = String.format("https://img.vietqr.io/image/970422-0988123456-compact2.png?amount=%d&addInfo=%s&accountName=MOMO%%20SEN%%20XINH%%20GARDEN",
-                order.getTotalAmount(), order.getOrderCode());
+       String qrCodeUrl = String.format("https://img.vietqr.io/image/970422-0988123456-compact2.png?amount=%d&addInfo=%s&accountName=MOMO%%20SEN%%20XINH%%20GARDEN",
+               order.getTotalAmount(), order.getOrderCode());
 
-        Map<String, Object> fallback = new LinkedHashMap<>();
-        fallback.put("partnerCode", moMoConfig.getPartnerCode());
-        fallback.put("orderId", order.getOrderCode());
-        fallback.put("requestId", requestId);
-        fallback.put("amount", order.getTotalAmount());
-        fallback.put("resultCode", 0);
-        fallback.put("message", "Thành công (MoMo Sandbox Gateway)");
-        fallback.put("payUrl", payUrl);
-        fallback.put("qrCodeUrl", qrCodeUrl);
-        fallback.put("deeplink", "momo://payment?action=payWithApp&orderId=" + order.getOrderCode());
-        return fallback;
+       MoMoPaymentResponse response = new MoMoPaymentResponse();
+       response.setPartnerCode(moMoConfig.getPartnerCode());
+       response.setOrderId(order.getOrderCode());
+       response.setRequestId(requestId);
+       response.setAmount(order.getTotalAmount() != null ? Long.valueOf(order.getTotalAmount()) : null);
+       response.setResultCode(0);
+       response.setMessage("Thành công (MoMo Sandbox Gateway)");
+       response.setPayUrl(payUrl);
+       response.setQrCodeUrl(qrCodeUrl);
+       response.setDeeplink("momo://payment?action=payWithApp&orderId=" + order.getOrderCode());
+       return response;
+    }
+
+    private MoMoPaymentResponse mapToResponse(Map<String, Object> responseMap) {
+       MoMoPaymentResponse response = new MoMoPaymentResponse();
+       response.setPartnerCode(String.valueOf(responseMap.get("partnerCode")));
+       response.setOrderId(String.valueOf(responseMap.get("orderId")));
+       response.setRequestId(String.valueOf(responseMap.get("requestId")));
+       Object amount = responseMap.get("amount");
+       response.setAmount(amount instanceof Number ? ((Number) amount).longValue() : null);
+       Object resultCode = responseMap.get("resultCode");
+       response.setResultCode(resultCode instanceof Number ? ((Number) resultCode).intValue() : null);
+       response.setMessage(String.valueOf(responseMap.get("message")));
+       response.setPayUrl(String.valueOf(responseMap.get("payUrl")));
+       response.setQrCodeUrl(String.valueOf(responseMap.get("qrCodeUrl")));
+       response.setDeeplink(String.valueOf(responseMap.get("deeplink")));
+       return response;
     }
 }

@@ -1,7 +1,9 @@
 package com.succulentshop.backend.service;
 
+import com.succulentshop.backend.dto.AuthResponse;
 import com.succulentshop.backend.dto.GoogleLoginRequest;
 import com.succulentshop.backend.dto.UpdateProfileRequest;
+import com.succulentshop.backend.dto.UserResponse;
 import com.succulentshop.backend.entity.SocialAccount;
 import com.succulentshop.backend.entity.User;
 import com.succulentshop.backend.exception.AppException;
@@ -56,7 +58,7 @@ public class AuthService {
      * Đăng nhập người dùng bằng email hoặc số điện thoại (Passwordless Authentication)
      * Nếu tài khoản chưa tồn tại, tự động tạo mới tài khoản với quyền Thành viên mới
      */
-    public Map<String, Object> login(String identifier) {
+    public AuthResponse login(String identifier) {
         if (identifier == null || identifier.isBlank()) {
             throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING, "Vui lòng nhập email hoặc số điện thoại để đăng nhập");
         }
@@ -70,18 +72,16 @@ public class AuthService {
         User user;
         if (userOpt.isPresent()) {
             user = userOpt.get();
-            // Kiểm tra trạng thái tài khoản
             if (user.isBanned() || user.isDeleted()) {
                 throw new AppException(ErrorCode.ACCOUNT_DISABLED);
             }
         } else {
-            // Tự động tạo tài khoản mới nếu chưa tồn tại
             String displayName = target.contains("@") ? target.split("@")[0] : target;
             User newUser = new User(
                 displayName,
                 target,
                 "",
-                null, // Không lưu mật khẩu
+                null,
                 "Hà Nội, Việt Nam",
                 "Thành viên mới",
                 "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
@@ -92,16 +92,16 @@ public class AuthService {
             log.info("Tự động tạo tài khoản người dùng mới từ email: {}", target);
         }
 
-        return Map.of(
-            "user", sanitizeUser(user),
-            "token", "bearer_token_" + user.getId() + "_" + System.currentTimeMillis()
-        );
+        AuthResponse response = new AuthResponse();
+        response.setUser(sanitizeUser(user));
+        response.setToken("bearer_token_" + user.getId() + "_" + System.currentTimeMillis());
+        return response;
     }
 
     /**
      * Overload tương thích ngược cho các lời gọi cũ có truyền password
      */
-    public Map<String, Object> login(String identifier, String password) {
+    public AuthResponse login(String identifier, String password) {
         return login(identifier);
     }
 
@@ -111,7 +111,7 @@ public class AuthService {
      */
     @Transactional
     @SuppressWarnings("unchecked")
-    public Map<String, Object> loginWithGoogle(GoogleLoginRequest request) {
+    public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
         if (request == null) {
             throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING, "Dữ liệu yêu cầu không hợp lệ");
         }
@@ -121,7 +121,6 @@ public class AuthService {
         String avatar = null;
         String sub = null;
 
-        // 1. Kiểm tra xác thực Google ID Token nếu có
         if (request.getIdToken() != null && !request.getIdToken().isBlank()) {
             try {
                 String verifyUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + request.getIdToken().trim();
@@ -137,7 +136,6 @@ public class AuthService {
             }
         }
 
-        // 2. Kiểm tra xác thực qua Access Token nếu có và chưa lấy được email
         if (email == null && request.getAccessToken() != null && !request.getAccessToken().isBlank()) {
             try {
                 HttpHeaders headers = new HttpHeaders();
@@ -161,7 +159,6 @@ public class AuthService {
             }
         }
 
-        // 3. Fallback lấy từ profile gửi lên
         if (email == null && request.getProfile() != null && request.getProfile().containsKey("email")) {
             email = (String) request.getProfile().get("email");
             if (name == null) name = (String) request.getProfile().get("name");
@@ -178,7 +175,6 @@ public class AuthService {
             sub = "google_" + cleanEmail;
         }
 
-        // 4. Tìm kiếm người dùng qua SocialAccount hoặc Email
         User user;
         Optional<SocialAccount> socialOpt = socialAccountRepository.findByProviderAndProviderId("GOOGLE", sub);
 
@@ -202,15 +198,15 @@ public class AuthService {
                 log.info("Đã liên kết thành công Google Identity (sub={}) vào User hiện có: {} (ID={})", sub, user.getEmail(), user.getId());
             } else {
                 String displayName = (name != null && !name.isBlank()) ? name.trim() : cleanEmail.split("@")[0];
-                String userAvatar = (avatar != null && !avatar.isBlank()) 
-                    ? avatar 
+                String userAvatar = (avatar != null && !avatar.isBlank())
+                    ? avatar
                     : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80";
-                
+
                 User newUser = new User(
                     displayName,
                     cleanEmail,
                     "",
-                    null, // password = NULL
+                    null,
                     null,
                     "Thành viên mới",
                     userAvatar,
@@ -225,21 +221,20 @@ public class AuthService {
             }
         }
 
-        // Kiểm tra trạng thái tài khoản
         if (user.isBanned() || user.isDeleted()) {
             throw new AppException(ErrorCode.ACCOUNT_DISABLED);
         }
 
-        return Map.of(
-            "user", sanitizeUser(user),
-            "token", "bearer_google_" + user.getId() + "_" + System.currentTimeMillis()
-        );
+        AuthResponse response = new AuthResponse();
+        response.setUser(sanitizeUser(user));
+        response.setToken("bearer_google_" + user.getId() + "_" + System.currentTimeMillis());
+        return response;
     }
 
     /**
      * Đăng ký tài khoản mới không cần mật khẩu
      */
-    public Map<String, Object> register(String name, String email, String phone, String address) {
+    public AuthResponse register(String name, String email, String phone, String address) {
         if (email == null || name == null || email.isBlank() || name.isBlank()) {
             throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING);
         }
@@ -253,7 +248,7 @@ public class AuthService {
             name.trim(),
             cleanEmail,
             phone != null ? phone.trim() : "",
-            null, // Không dùng mật khẩu
+            null,
             address != null ? address.trim() : "Hà Nội, Việt Nam",
             "Thành viên mới",
             "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
@@ -262,25 +257,25 @@ public class AuthService {
         user.setAuthProvider("EMAIL");
 
         User saved = userRepository.save(user);
-        return Map.of(
-            "user", sanitizeUser(saved),
-            "token", "bearer_token_" + saved.getId() + "_" + System.currentTimeMillis()
-        );
+        AuthResponse response = new AuthResponse();
+        response.setUser(sanitizeUser(saved));
+        response.setToken("bearer_token_" + saved.getId() + "_" + System.currentTimeMillis());
+        return response;
     }
 
     /**
      * Overload tương thích ngược có truyền tham số password
      */
-    public Map<String, Object> register(String name, String email, String phone, String password, String address) {
+    public AuthResponse register(String name, String email, String phone, String password, String address) {
         return register(name, email, phone, address);
     }
 
-    public Map<String, Object> getProfile(String email) {
+    public UserResponse getProfile(String email) {
         User user = findByIdentifierOrThrow(email);
         return sanitizeUser(user);
     }
 
-    public Map<String, Object> updateProfile(UpdateProfileRequest request) {
+    public UserResponse updateProfile(UpdateProfileRequest request) {
         User user = findByIdentifierOrThrow(request.getEmail());
         if (request.getName() != null && !request.getName().isBlank()) {
             user.setName(request.getName().trim());
@@ -310,21 +305,20 @@ public class AuthService {
         return userOpt.orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy tài khoản với: " + identifier));
     }
 
-    public Map<String, Object> sanitizeUser(User user) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("id", user.getId());
-        map.put("publicId", user.getPublicId());
-        map.put("name", user.getName());
-        map.put("email", user.getEmail());
-        map.put("phone", user.getPhone());
-        map.put("address", user.getAddress());
-        map.put("role", user.getRole());
-        map.put("avatar", user.getAvatar());
-        map.put("points", user.getPoints());
-        map.put("authProvider", user.getAuthProvider());
-        map.put("status", user.getStatus() != null ? user.getStatus() : "ACTIVE");
+    public UserResponse sanitizeUser(User user) {
+        UserResponse response = new UserResponse();
+        response.setId(user.getId());
+        response.setPublicId(user.getPublicId());
+        response.setName(user.getName());
+        response.setEmail(user.getEmail());
+        response.setPhone(user.getPhone());
+        response.setAddress(user.getAddress());
+        response.setRole(user.getRole());
+        response.setAvatar(user.getAvatar());
+        response.setPoints(user.getPoints());
+        response.setAuthProvider(user.getAuthProvider());
+        response.setStatus(user.getStatus() != null ? user.getStatus() : "ACTIVE");
 
-        // Danh sách các nhà cung cấp xác thực đã liên kết (EMAIL, GOOGLE)
         List<String> linkedProviders = new ArrayList<>();
         if ("GOOGLE".equalsIgnoreCase(user.getAuthProvider())) {
             linkedProviders.add("GOOGLE");
@@ -339,9 +333,8 @@ public class AuthService {
                 }
             }
         }
-        map.put("linkedProviders", linkedProviders);
-
-        map.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : null);
-        return map;
+        response.setLinkedProviders(linkedProviders);
+        response.setCreatedAt(user.getCreatedAt() != null ? user.getCreatedAt().toString() : null);
+        return response;
     }
 }
