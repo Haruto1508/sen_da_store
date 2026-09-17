@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Toast from './components/Toast';
 import ScrollToTop from './components/ScrollToTop';
+import SeoMeta from './components/SeoMeta';
 
 // Dedicated Pages
 import HomePage from './pages/HomePage';
@@ -19,6 +20,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 
 import { PRODUCTS } from './data/products';
+import { NEWS_ARTICLES } from './data/news';
 import { getProducts, validateCoupon, USE_MOCK_DATA, isMockUser } from './services/api';
 
 // Route Helper Wrappers to extract URL parameters via useParams()
@@ -659,8 +661,110 @@ export default function App() {
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isAuthRoute = currentRoute === 'login' || currentRoute === 'register' || currentRoute === 'password';
 
+  const pageMeta = useMemo(() => {
+    const path = location.pathname;
+
+    if (path === '/') {
+      return {
+        title: 'Trang chủ',
+        description: 'Sen Xinh Garden chuyên bán sen đá, xương rồng, chậu cảnh và phụ kiện cây xanh cho không gian sống tối ưu.',
+        image: 'https://senxinhgarden.com/hero-banner.jpg'
+      };
+    }
+
+    if (path === '/shop') {
+      return {
+        title: 'Cửa hàng sen đá & cây cảnh',
+        description: 'Khám phá bộ sưu tập sen đá, xương rồng, chậu đất nung và cây cảnh phong thủy được tuyển chọn kỹ lưỡng.',
+        image: 'https://senxinhgarden.com/hero-banner.jpg'
+      };
+    }
+
+    if (path.startsWith('/product/')) {
+      const productId = path.split('/').filter(Boolean).pop();
+      const product = productList.find((item) => String(item.id) === String(productId) || (item.publicId && String(item.publicId) === String(productId)));
+
+      if (product) {
+        return {
+          title: product.name,
+          description: product.description || `Mua ${product.name} tại Sen Xinh Garden với giá tốt, chăm sóc dễ dàng và giao hàng toàn quốc.`,
+          image: product.image || 'https://senxinhgarden.com/hero-banner.jpg'
+        };
+      }
+    }
+
+    if (path === '/news') {
+      return {
+        title: 'Tin tức & cẩm nang chăm cây',
+        description: 'Cẩm nang tưới nước, kỹ thuật chăm sóc, cách trồng sen đá và xương rồng tại nhà từ chuyên gia Sen Xinh Garden.',
+        image: 'https://senxinhgarden.com/hero-banner.jpg'
+      };
+    }
+
+    if (path.startsWith('/news/')) {
+      const articleId = path.split('/').filter(Boolean).pop();
+      const article = NEWS_ARTICLES.find((item) => String(item.id) === String(articleId));
+
+      if (article) {
+        return {
+          title: article.title,
+          description: article.summary,
+          image: article.thumbnail || 'https://senxinhgarden.com/hero-banner.jpg'
+        };
+      }
+    }
+
+    if (path === '/cart') {
+      return {
+        title: 'Giỏ hàng của bạn',
+        description: 'Xem lại sản phẩm trong giỏ hàng, áp dụng mã ưu đãi và thanh toán đơn hàng sen đá nhanh chóng.',
+        image: 'https://senxinhgarden.com/hero-banner.jpg'
+      };
+    }
+
+    if (path === '/checkout') {
+      return {
+        title: 'Thanh toán & đặt hàng',
+        description: 'Đặt hàng sen đá, xương rồng và cây cảnh ngay hôm nay với thanh toán an toàn, thuận tiện.',
+        image: 'https://senxinhgarden.com/hero-banner.jpg'
+      };
+    }
+
+    if (path === '/account') {
+      return {
+        title: 'Tài khoản của tôi',
+        description: 'Quản lý thông tin cá nhân, đơn hàng và danh sách yêu thích sản phẩm yêu thích của bạn.',
+        image: 'https://senxinhgarden.com/hero-banner.jpg'
+      };
+    }
+
+    if (path === '/login') {
+      return {
+        title: 'Đăng nhập',
+        description: 'Đăng nhập vào tài khoản Sen Xinh Garden để theo dõi đơn hàng, wishlist và ưu đãi thành viên.',
+        image: 'https://senxinhgarden.com/hero-banner.jpg'
+      };
+    }
+
+    if (path === '/register') {
+      return {
+        title: 'Đăng ký tài khoản',
+        description: 'Tạo tài khoản Sen Xinh Garden để lưu giỏ hàng, theo dõi đơn đặt hàng và nhận ưu đãi thành viên.',
+        image: 'https://senxinhgarden.com/hero-banner.jpg'
+      };
+    }
+
+    return {
+      title: 'Sen Xinh Garden',
+      description: 'Cửa hàng sen đá, xương rồng và cây cảnh phong thủy với dịch vụ tư vấn chăm sóc chuyên nghiệp.',
+      image: 'https://senxinhgarden.com/hero-banner.jpg'
+    };
+  }, [location.pathname, productList]);
+
   return (
-    <div className={`app ${isAdminRoute ? 'admin-layout' : ''} ${isAuthRoute ? 'auth-layout' : ''}`}>
+    <>
+      <SeoMeta title={pageMeta.title} description={pageMeta.description} path={location.pathname} image={pageMeta.image} />
+      <div className={`app ${isAdminRoute ? 'admin-layout' : ''} ${isAuthRoute ? 'auth-layout' : ''}`}>
       {/* Ẩn Header Navbar trên trang Admin và các trang Đăng nhập / Đăng ký */}
       {!isAdminRoute && !isAuthRoute && (
         <Navbar
@@ -990,5 +1094,6 @@ export default function App() {
       {/* Floating Scroll To Top Button (chỉ ở trang khách hàng) */}
       {!isAdminRoute && !isAuthRoute && <ScrollToTop />}
     </div>
+    </>
   );
 }

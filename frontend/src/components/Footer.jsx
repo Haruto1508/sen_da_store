@@ -41,11 +41,11 @@ export default function Footer() {
           <div className="footer-links">
             <h4>Danh Mục Sản Phẩm</h4>
             <ul>
-              <li><a href="#/shop">Sen Đài & Hoa Hồng</a></li>
-              <li><a href="#/shop">Sen Mọng Nước Pha Lê</a></li>
-              <li><a href="#/shop">Xương Rồng Phong Thủy</a></li>
-              <li><a href="#/shop">Combo Quà Tặng</a></li>
-              <li><a href="#/shop">Chậu Đất Nung & Giá Thể</a></li>
+              <li><a href="/shop">Sen Đài & Hoa Hồng</a></li>
+              <li><a href="/shop">Sen Mọng Nước Pha Lê</a></li>
+              <li><a href="/shop">Xương Rồng Phong Thủy</a></li>
+              <li><a href="/shop">Combo Quà Tặng</a></li>
+              <li><a href="/shop">Chậu Đất Nung & Giá Thể</a></li>
             </ul>
           </div>
 
@@ -53,11 +53,11 @@ export default function Footer() {
           <div className="footer-links">
             <h4>Chính Sách & Hỗ Trợ</h4>
             <ul>
-              <li><a href="#/news">Chính sách bảo hành 7 ngày</a></li>
-              <li><a href="#/news">Quy chuẩn đóng gói chống sốc</a></li>
-              <li><a href="#/news">Hướng dẫn xả bầu & thuần nắng</a></li>
-              <li><a href="#/news">Chính sách giao hàng toàn quốc</a></li>
-              <li><a href="#/news">Câu hỏi thường gặp (FAQ)</a></li>
+              <li><a href="/news">Chính sách bảo hành 7 ngày</a></li>
+              <li><a href="/news">Quy chuẩn đóng gói chống sốc</a></li>
+              <li><a href="/news">Hướng dẫn xả bầu & thuần nắng</a></li>
+              <li><a href="/news">Chính sách giao hàng toàn quốc</a></li>
+              <li><a href="/news">Câu hỏi thường gặp (FAQ)</a></li>
             </ul>
           </div>
 

@@ -147,7 +147,7 @@ export default function Navbar({
         <nav className="nav-container">
           {/* Logo */}
           <a 
-            href="#/" 
+            href="/" 
             className="logo" 
             onClick={(e) => { 
               e.preventDefault(); 
@@ -164,7 +164,7 @@ export default function Navbar({
           <ul className="nav-menu">
             <li>
               <a 
-                href="#/" 
+                href="/" 
                 className={`nav-link ${currentRoute === 'home' ? 'active' : ''}`} 
                 onClick={(e) => { e.preventDefault(); onNavigate('home'); }}
               >
@@ -173,7 +173,7 @@ export default function Navbar({
             </li>
             <li>
               <a 
-                href="#/shop" 
+                href="/shop" 
                 className={`nav-link ${currentRoute === 'shop' || currentRoute === 'product-detail' ? 'active' : ''}`} 
                 onClick={(e) => { e.preventDefault(); onNavigate('shop'); }}
               >
@@ -182,7 +182,7 @@ export default function Navbar({
             </li>
             <li>
               <a 
-                href="#/news" 
+                href="/news" 
                 className={`nav-link ${currentRoute === 'news' || currentRoute === 'news-detail' ? 'active' : ''}`} 
                 onClick={(e) => { e.preventDefault(); onNavigate('news'); }}
               >
