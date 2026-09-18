@@ -32,8 +32,9 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     try {
       const res = await loginUser(cleanEmail);
       if (res.success && res.data) {
+        const displayName = res.data.name || res.data.user?.name || 'bạn';
         if (addToast) {
-          addToast(`Chào mừng bạn trở lại, ${res.data.name}! 🌿`, 'info');
+          addToast(`Chào mừng bạn trở lại, ${displayName}! 🌿`, 'info');
         }
         if (onLoginSuccess) {
           onLoginSuccess(res.data, rememberMe);
@@ -66,7 +67,8 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
               try {
                 const res = await loginWithGoogle({ idToken: response.credential });
                 if (res.success && res.data) {
-                  if (addToast) addToast(`Chào mừng bạn trở lại, ${res.data.name}! 🌿`, 'info');
+                  const displayName = res.data.name || res.data.user?.name || 'bạn';
+                  if (addToast) addToast(`Chào mừng bạn trở lại, ${displayName}! 🌿`, 'info');
                   if (onLoginSuccess) onLoginSuccess(res.data, rememberMe);
                 }
               } catch (err) {
@@ -133,8 +135,9 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
             });
 
             if (res.success && res.data) {
+              const displayName = res.data.name || res.data.user?.name || 'bạn';
               if (addToast) {
-                addToast(`Đăng nhập Google thành công! Chào mừng ${res.data.name} 🌿`, 'info');
+                addToast(`Đăng nhập Google thành công! Chào mừng ${displayName} 🌿`, 'info');
               }
               if (onLoginSuccess) {
                 onLoginSuccess(res.data, rememberMe);

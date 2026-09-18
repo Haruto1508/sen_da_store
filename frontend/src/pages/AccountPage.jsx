@@ -71,20 +71,25 @@ export default function AccountPage({
   // Notification Modal
   const { modalProps, showModal } = useModal();
   const [isEditing, setIsEditing] = useState(false);
+
+  // Đảm bảo thông tin user luôn trích xuất chính xác kể cả khi backend trả về cấu trúc lồng
+  const currentUser = (user?.user && !user?.name) ? user.user : (user || {});
+
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
-    address: user?.address || ''
+    name: currentUser.name || '',
+    email: currentUser.email || '',
+    phone: currentUser.phone || '',
+    address: currentUser.address || ''
   });
 
   useEffect(() => {
-    if (user) {
+    const cu = (user?.user && !user?.name) ? user.user : user;
+    if (cu) {
       setFormData({
-        name: user.name || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        address: user.address || ''
+        name: cu.name || '',
+        email: cu.email || '',
+        phone: cu.phone || '',
+        address: cu.address || ''
       });
     }
   }, [user]);
@@ -112,10 +117,10 @@ export default function AccountPage({
     }
   }, [initialTab, location.state]);
 
-  const isAdmin = Boolean(user?.role?.toLowerCase().includes('admin') || user?.email === 'admin@senxinh.vn');
+  const isAdmin = Boolean(currentUser?.role?.toLowerCase().includes('admin') || currentUser?.email === 'admin@senxinh.vn');
 
   const loadOrders = async () => {
-    if (!user) {
+    if (!currentUser || (!currentUser.name && !currentUser.email && !currentUser.phone)) {
       setOrders([]);
       setStats(null);
       return;
@@ -130,8 +135,8 @@ export default function AccountPage({
         orderList = await getAdminOrders(filterStatus);
         allUserOrders = (filterStatus === 'all') ? orderList : (await getAdminOrders('all') || []);
       } else {
-        const identifier = user.phone || user.email || user.name;
-        const email = user.email || '';
+        const identifier = currentUser.phone || currentUser.email || currentUser.name;
+        const email = currentUser.email || '';
         allUserOrders = await getCustomerOrders(identifier, email);
         if (filterStatus && filterStatus !== 'all') {
           orderList = allUserOrders.filter((o) => o.status === filterStatus);
@@ -295,7 +300,7 @@ export default function AccountPage({
 
               <div className="profile-membership-pill">
                 <Sparkles size={15} color="#D97757" />
-                <span>{user?.role || (user ? 'Thành Viên Mới' : 'Khách Ghé Thăm')}</span>
+                <span>{currentUser?.role || (user ? 'Thành Viên Mới' : 'Khách Ghé Thăm')}</span>
               </div>
 
               {/* Interactive Quick Stats (Clickable to switch tabs) */}
@@ -325,7 +330,7 @@ export default function AccountPage({
                 <div className="profile-stat-divider" />
 
                 <div className="profile-stat-item" title="Điểm tích lũy thành viên">
-                  <strong>{user?.points ?? 0}</strong>
+                  <strong>{currentUser?.points ?? 0}</strong>
                   <span>Điểm Sen</span>
                 </div>
               </div>

@@ -21,7 +21,7 @@ import RegisterPage from './pages/RegisterPage';
 
 import { PRODUCTS } from './data/products';
 import { NEWS_ARTICLES } from './data/news';
-import { getProducts, validateCoupon, USE_MOCK_DATA, isMockUser } from './services/api';
+import { getProducts, validateCoupon, USE_MOCK_DATA, isMockUser, updateUserProfile } from './services/api';
 
 // Route Helper Wrappers to extract URL parameters via useParams()
 function ProductDetailRoute({ productList, onAddToCart, onBuyNow, wishlist, onToggleWishlist, navigateTo }) {
@@ -88,6 +88,15 @@ function OrderSuccessRoute({ user, onClearCart, navigateTo }) {
   );
 }
 
+// Chuẩn hóa đối tượng user để đảm bảo các thuộc tính name, email... luôn ở tầng root
+function normalizeUserData(raw) {
+  if (!raw) return null;
+  if (raw.user && typeof raw.user === 'object' && !raw.name) {
+    return { ...raw.user, token: raw.token || raw.user.token };
+  }
+  return raw;
+}
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -146,7 +155,8 @@ export default function App() {
       // 1. Kiểm tra session riêng biệt của chế độ hiện tại
       const savedInCurrentMode = localStorage.getItem(userStorageKey);
       if (savedInCurrentMode) {
-        const parsed = JSON.parse(savedInCurrentMode);
+        let parsed = JSON.parse(savedInCurrentMode);
+        parsed = normalizeUserData(parsed);
         if (USE_MOCK_DATA) {
           if (isMockUser(parsed)) {
             parsed.isMockUser = true;
@@ -160,6 +170,10 @@ export default function App() {
             localStorage.removeItem(userStorageKey);
             return null;
           }
+          // Đảm bảo lưu lại dạng phẳng chuẩn
+          try {
+            localStorage.setItem(userStorageKey, JSON.stringify(parsed));
+          } catch (e) {}
           return parsed;
         }
       }
@@ -167,7 +181,8 @@ export default function App() {
       // 2. Xử lý khóa cũ (senxinh_user legacy) nếu người dùng vừa chuyển chế độ
       const legacySaved = localStorage.getItem('senxinh_user');
       if (legacySaved) {
-        const parsedLegacy = JSON.parse(legacySaved);
+        let parsedLegacy = JSON.parse(legacySaved);
+        parsedLegacy = normalizeUserData(parsedLegacy);
         if (USE_MOCK_DATA) {
           // Đang ở Mock Data: Nếu user cũ từ Live Backend -> KHÔNG giữ đăng nhập, dọn dẹp key cũ
           if (!isMockUser(parsedLegacy)) {
@@ -491,7 +506,8 @@ export default function App() {
   };
 
   const handleLoginSuccess = (userData, remember = true) => {
-    const userToSave = USE_MOCK_DATA ? { ...userData, isMockUser: true } : userData;
+    const cleanUser = normalizeUserData(userData);
+    const userToSave = USE_MOCK_DATA ? { ...cleanUser, isMockUser: true } : cleanUser;
     setUser(userToSave);
     if (remember) {
       try {
@@ -505,7 +521,8 @@ export default function App() {
   };
 
   const handleAdminLoginSuccess = (userData) => {
-    const userToSave = USE_MOCK_DATA ? { ...userData, isMockUser: true } : userData;
+    const cleanUser = normalizeUserData(userData);
+    const userToSave = USE_MOCK_DATA ? { ...cleanUser, isMockUser: true } : cleanUser;
     setUser(userToSave);
     try {
       localStorage.setItem(userStorageKey, JSON.stringify(userToSave));
@@ -516,7 +533,8 @@ export default function App() {
   };
 
   const handleRegisterSuccess = (userData) => {
-    const userToSave = USE_MOCK_DATA ? { ...userData, isMockUser: true } : userData;
+    const cleanUser = normalizeUserData(userData);
+    const userToSave = USE_MOCK_DATA ? { ...cleanUser, isMockUser: true } : cleanUser;
     setUser(userToSave);
     try {
       localStorage.setItem(userStorageKey, JSON.stringify(userToSave));
@@ -527,11 +545,30 @@ export default function App() {
     navigate('/', { replace: true });
   };
 
+  const handleUpdateUser = async (updated) => {
+    try {
+      await updateUserProfile(updated);
+    } catch (err) {
+      console.warn('Lỗi khi lưu thông tin tài khoản lên máy chủ:', err);
+    }
+    setUser((prev) => {
+      const next = { ...prev, ...updated };
+      try {
+        localStorage.setItem(userStorageKey, JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+    addToast('Đã cập nhật thông tin tài khoản thành công!', 'info');
+  };
+
   const handleLogout = () => {
     setUser(null);
     try {
       localStorage.removeItem(userStorageKey);
       localStorage.removeItem('senxinh_user');
+      localStorage.removeItem('senxinh_auth_token');
     } catch (err) {
       console.error(err);
     }
@@ -1063,10 +1100,7 @@ export default function App() {
                 onNavigateAdmin={() => navigateTo('admin')}
                 onNavigateHome={() => navigateTo('home')}
                 onLogout={handleLogout}
-                onUpdateUser={(updated) => {
-                  setUser((prev) => ({ ...prev, ...updated }));
-                  addToast('Đã cập nhật thông tin tài khoản thành công!', 'info');
-                }}
+                onUpdateUser={handleUpdateUser}
               />
             }
           />
@@ -1100,10 +1134,7 @@ export default function App() {
                   onNavigateAdmin={() => navigateTo('admin')}
                   onNavigateHome={() => navigateTo('home')}
                   onLogout={handleLogout}
-                  onUpdateUser={(updated) => {
-                    setUser((prev) => ({ ...prev, ...updated }));
-                    addToast('Đã cập nhật thông tin tài khoản thành công!', 'info');
-                  }}
+                  onUpdateUser={handleUpdateUser}
                 />
               )
             }

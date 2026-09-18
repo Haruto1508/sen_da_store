@@ -446,13 +446,40 @@ export async function updateUserProfile(profileData) {
     return profileData;
   }
 
+  const token = localStorage.getItem('senxinh_auth_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_BASE}/users/profile`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(profileData)
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Không thể cập nhật thông tin');
+  return data.data;
+}
+
+/**
+ * Lấy thông tin tài khoản người dùng từ Backend hoặc Mock
+ */
+export async function getUserProfile(email) {
+  if (USE_MOCK_DATA) {
+    const users = getStoredUsers();
+    return users.find((u) => u.email && u.email.toLowerCase() === (email || '').toLowerCase()) || null;
+  }
+
+  const token = localStorage.getItem('senxinh_auth_token');
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/users/profile?email=${encodeURIComponent(email || '')}`, { headers });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Không thể lấy thông tin tài khoản');
   return data.data;
 }
 
@@ -1183,7 +1210,18 @@ export async function loginUser(email, password = '') {
     error.data = data.data;
     throw error;
   }
-  return data;
+  // Chuẩn hóa cấu trúc: Backend trả về { user: {...}, token: "..." }
+  const userPayload = (data.data && data.data.user) ? data.data.user : data.data;
+  const token = data.data?.token || data.token;
+  if (token) {
+    localStorage.setItem('senxinh_auth_token', token);
+  }
+  return {
+    success: true,
+    message: data.message || 'Đăng nhập thành công!',
+    data: { ...userPayload, token },
+    token
+  };
 }
 
 export async function loginWithGoogle({ idToken, accessToken, profile = null } = {}) {
@@ -1267,7 +1305,17 @@ export async function loginWithGoogle({ idToken, accessToken, profile = null } =
     error.code = data.code;
     throw error;
   }
-  return data;
+  const userPayload = (data.data && data.data.user) ? data.data.user : data.data;
+  const token = data.data?.token || data.token;
+  if (token) {
+    localStorage.setItem('senxinh_auth_token', token);
+  }
+  return {
+    success: true,
+    message: data.message || 'Đăng nhập Google thành công!',
+    data: { ...userPayload, token },
+    token
+  };
 }
 
 export async function registerUser(userData) {
@@ -1320,7 +1368,17 @@ export async function registerUser(userData) {
   if (!res.ok) {
     throw new Error(data.message || 'Đăng ký không thành công');
   }
-  return data;
+  const userPayload = (data.data && data.data.user) ? data.data.user : data.data;
+  const token = data.data?.token || data.token;
+  if (token) {
+    localStorage.setItem('senxinh_auth_token', token);
+  }
+  return {
+    success: true,
+    message: data.message || 'Đăng ký thành công!',
+    data: { ...userPayload, token },
+    token
+  };
 }
 
 /**
