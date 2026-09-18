@@ -975,7 +975,15 @@ export async function simulateMoMoPayment(orderCode) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orderCode })
     });
-    return await res.json();
+    const json = await res.json();
+    // Backend trả về ApiResult wrapper: { message, data: { resultCode, ... } }
+    // Chuẩn hóa response để frontend luôn nhận được { success: true/false }
+    if (res.ok) {
+      const inner = json.data || {};
+      const resultCode = inner.resultCode !== undefined ? inner.resultCode : 0;
+      return { success: resultCode === 0, message: json.message || inner.message || 'Thành công', data: inner };
+    }
+    return { success: false, message: json.message || 'Lỗi xác nhận thanh toán MoMo' };
   } catch (error) {
     console.error('Lỗi khi mô phỏng IPN MoMo:', error);
     return { success: false, message: 'Lỗi kết nối máy chủ MoMo' };
@@ -1034,7 +1042,19 @@ export async function simulateBankTransferPayment(orderCode) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orderCode })
     });
-    return await res.json();
+    const json = await res.json();
+    // Backend trả về ApiResult wrapper: { message, data: { success, status, orderCode, ... } }
+    // Chuẩn hóa để frontend luôn nhận được { success: true/false, status: 'PAID' }
+    if (res.ok) {
+      const inner = json.data || {};
+      return {
+        success: inner.success !== false,
+        status: inner.status || 'PAID',
+        message: json.message || inner.message || 'Mô phỏng chuyển khoản thành công',
+        orderCode: inner.orderCode || orderCode
+      };
+    }
+    return { success: false, message: json.message || 'Lỗi xác nhận chuyển khoản' };
   } catch (error) {
     console.error('Lỗi khi mô phỏng Webhook chuyển khoản:', error);
     return { success: false, message: 'Lỗi kết nối máy chủ' };

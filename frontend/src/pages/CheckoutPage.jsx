@@ -113,31 +113,7 @@ export default function CheckoutPage({
     }
   }, [initialOrderCode]);
 
-  // Polling tự động kiểm tra trạng thái đơn hàng khi đang chờ thanh toán
-  useEffect(() => {
-    if (!isCompleted || !orderCode || orderStatus === 'PAID') return;
-
-    const interval = setInterval(async () => {
-      try {
-        const fetchedOrder = await lookupOrder(orderCode);
-        if (fetchedOrder && (fetchedOrder.status === 'PAID' || fetchedOrder.status === 'CONFIRMED')) {
-          setOrderStatus('PAID');
-          setPlacedOrder((prev) => ({ ...prev, status: 'PAID' }));
-          try {
-            confetti({
-              particleCount: 160,
-              spread: 90,
-              origin: { y: 0.6 }
-            });
-          } catch (e) {}
-        }
-      } catch (err) {
-        // Yên lặng bỏ qua lỗi kết nối polling ngầm
-      }
-    }, 2500);
-
-    return () => clearInterval(interval);
-  }, [isCompleted, orderCode, orderStatus]);
+  // Polling trạng thái đơn hàng được xử lý bởi useEffect bên dưới (checkOrderStatus)
 
   const formatPrice = (amount) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);

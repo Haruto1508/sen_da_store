@@ -115,8 +115,22 @@ public class OrderService {
         int totalAmount = Math.max(0, subtotal - discountAmount + shippingFee);
 
         Order order = new Order();
-        int randomDigits = 100000 + new Random().nextInt(900000);
-        String orderCode = "SX" + randomDigits;
+        // Ưu tiên dùng mã đơn từ frontend (để QR code và polling khớp với DB)
+        // Nếu không có hoặc rỗng, backend tự tạo mã mới
+        String orderCode;
+        String requestOrderCode = request.getOrderCode();
+        if (requestOrderCode != null && !requestOrderCode.trim().isEmpty() &&
+                requestOrderCode.trim().toUpperCase().startsWith("SX")) {
+            orderCode = requestOrderCode.trim().toUpperCase();
+            // Kiểm tra trùng mã — nếu trùng thì tạo mã mới
+            if (orderRepository.findByOrderCode(orderCode).isPresent()) {
+                int randomDigits = 100000 + new Random().nextInt(900000);
+                orderCode = "SX" + randomDigits;
+            }
+        } else {
+            int randomDigits = 100000 + new Random().nextInt(900000);
+            orderCode = "SX" + randomDigits;
+        }
 
         order.setOrderCode(orderCode);
         order.setCustomerName(request.getCustomerName().trim());

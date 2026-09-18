@@ -11,6 +11,7 @@ public class CreateOrderRequest {
     private String note;
     private String paymentMethod; // 'vietqr' | 'cod'
     private String discountCode;
+    private String orderCode; // Mã đơn hàng từ frontend (nếu có)
     private List<OrderItemDto> items;
 
     public static class OrderItemDto {
@@ -60,4 +61,7 @@ public class CreateOrderRequest {
 
     public List<OrderItemDto> getItems() { return items; }
     public void setItems(List<OrderItemDto> items) { this.items = items; }
+
+    public String getOrderCode() { return orderCode; }
+    public void setOrderCode(String orderCode) { this.orderCode = orderCode; }
 }
