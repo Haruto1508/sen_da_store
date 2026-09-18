@@ -4,6 +4,21 @@ import { CATEGORIES } from '../../data/products';
 import { SAMPLE_IMAGES } from './adminConstants';
 import { uploadProductImage, deleteProductImage } from '../../services/api';
 
+// Hàm format số thành chuỗi hiển thị có dấu chấm phân cách hàng nghìn (VD: 5000 -> 5.000)
+const formatVNDInput = (val) => {
+  if (val === undefined || val === null || val === '') return '';
+  const numStr = String(val).replace(/\D/g, '');
+  if (!numStr) return '';
+  return Number(numStr).toLocaleString('vi-VN');
+};
+
+// Hàm chuyển đổi chuỗi định dạng về lại số nguyên để lưu state
+const parseVNDInput = (str) => {
+  if (!str) return 0;
+  const digits = String(str).replace(/\D/g, '');
+  return digits ? Number(digits) : 0;
+};
+
 export default function ProductModal({
   isOpen,
   editingProduct,
@@ -204,29 +219,101 @@ export default function ProductModal({
             {/* Pricing & Stock */}
             <div className="admin-form-row">
               <div className="admin-form-control">
-                <label>Giá Bán (VNĐ) *</label>
-                <input
-                  type="number"
-                  required
-                  min="1000"
-                  step="1000"
-                  value={productFormData.price}
-                  onChange={(e) =>
-                    setProductFormData({ ...productFormData, price: Number(e.target.value) })
-                  }
-                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ margin: 0, fontWeight: 700, fontSize: '0.88rem' }}>
+                    Giá Bán (VNĐ) <span style={{ color: '#E11D48' }}>*</span>
+                  </label>
+                  {productFormData.price > 0 && (
+                    <span style={{
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      color: 'var(--primary, #2D5A3F)',
+                      background: 'rgba(45, 90, 63, 0.08)',
+                      padding: '2px 8px',
+                      borderRadius: '6px'
+                    }}>
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(productFormData.price)}
+                    </span>
+                  )}
+                </div>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    placeholder="VD: 50.000"
+                    value={formatVNDInput(productFormData.price)}
+                    onChange={(e) =>
+                      setProductFormData({ ...productFormData, price: parseVNDInput(e.target.value) })
+                    }
+                    style={{ width: '100%', paddingRight: '52px', fontWeight: 600, fontSize: '0.95rem' }}
+                  />
+                  <span style={{
+                    position: 'absolute',
+                    right: '12px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    color: 'var(--text-muted, #64748B)',
+                    pointerEvents: 'none',
+                    userSelect: 'none'
+                  }}>
+                    VNĐ
+                  </span>
+                </div>
               </div>
+
               <div className="admin-form-control">
-                <label>Giá Gốc (Trước giảm)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={productFormData.originalPrice}
-                  onChange={(e) =>
-                    setProductFormData({ ...productFormData, originalPrice: Number(e.target.value) })
-                  }
-                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ margin: 0, fontWeight: 700, fontSize: '0.88rem' }}>
+                    Giá Gốc (Trước giảm)
+                  </label>
+                  {productFormData.originalPrice > 0 && (
+                    <span style={{
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      color: '#64748B',
+                      background: '#F1F5F9',
+                      padding: '2px 8px',
+                      borderRadius: '6px'
+                    }}>
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(productFormData.originalPrice)}
+                    </span>
+                  )}
+                </div>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="VD: 75.000 (không bắt buộc)"
+                    value={formatVNDInput(productFormData.originalPrice)}
+                    onChange={(e) =>
+                      setProductFormData({ ...productFormData, originalPrice: parseVNDInput(e.target.value) })
+                    }
+                    style={{ width: '100%', paddingRight: '52px', fontWeight: 600, fontSize: '0.95rem' }}
+                  />
+                  <span style={{
+                    position: 'absolute',
+                    right: '12px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    color: 'var(--text-muted, #64748B)',
+                    pointerEvents: 'none',
+                    userSelect: 'none'
+                  }}>
+                    VNĐ
+                  </span>
+                </div>
+                {productFormData.originalPrice > productFormData.price && productFormData.price > 0 && (
+                  <span style={{
+                    fontSize: '0.78rem',
+                    color: '#E11D48',
+                    fontWeight: 600,
+                    marginTop: '4px',
+                    display: 'inline-block'
+                  }}>
+                    🔥 Đang giảm {Math.round((1 - productFormData.price / productFormData.originalPrice) * 100)}% so với giá gốc
+                  </span>
+                )}
               </div>
             </div>
 
