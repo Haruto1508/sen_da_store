@@ -540,10 +540,29 @@ export default function App() {
   };
 
   const handleBuyNow = (product, qty = 1) => {
-    const success = handleAddToCart(product, qty, false);
-    if (success !== false) {
-      navigateTo('checkout');
+    const liveProduct = productList.find(
+      (p) => String(p.id) === String(product.id) || (p.publicId && String(p.publicId) === String(product.publicId))
+    ) || product;
+
+    const availableStock = liveProduct.inStock !== undefined && liveProduct.inStock !== null ? Number(liveProduct.inStock) : 999;
+    if (availableStock <= 0) {
+      addToast('Sản phẩm tạm hết hàng trong kho!', 'error');
+      return;
     }
+
+    const buyQty = Math.max(1, Math.min(Number(qty) || 1, availableStock));
+    const buyNowItem = {
+      id: liveProduct.id || liveProduct.publicId,
+      publicId: liveProduct.publicId,
+      name: liveProduct.name,
+      price: liveProduct.price,
+      originalPrice: liveProduct.originalPrice,
+      quantity: buyQty,
+      image: liveProduct.image,
+      inStock: availableStock
+    };
+
+    navigate('/checkout', { state: { buyNowItem } });
   };
 
   const handleUpdateQty = (productId, newQty) => {
@@ -892,8 +911,18 @@ export default function App() {
                 cartItems={cartItems}
                 discountCode={discountCode}
                 discountPercent={discountPercent}
-                onOrderSuccess={(order) => {
-                  setCartItems([]);
+                onOrderSuccess={(order, isDirectBuy, directBuyItem) => {
+                  if (isDirectBuy && directBuyItem) {
+                    setCartItems((prev) =>
+                      prev.filter(
+                        (it) =>
+                          String(it.id) !== String(directBuyItem.id) &&
+                          (!directBuyItem.publicId || String(it.publicId) !== String(directBuyItem.publicId))
+                      )
+                    );
+                  } else {
+                    setCartItems([]);
+                  }
                   if (order?.orderCode) {
                     navigateTo('order-success', order.orderCode);
                   }

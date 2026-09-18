@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   CreditCard, 
   Truck, 
@@ -47,6 +47,10 @@ export default function CheckoutPage({
   initialOrderCode = null
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const directBuyItem = location.state?.buyNowItem || location.state?.directBuyItem;
+  const isDirectBuy = Boolean(directBuyItem);
+  const checkoutItems = isDirectBuy ? [directBuyItem] : (cartItems || []);
   const isAdmin = Boolean(
     user && (user.role?.toLowerCase().includes('admin') || user.email === 'admin@senxinh.vn')
   );
@@ -118,13 +122,13 @@ export default function CheckoutPage({
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
   };
 
-  const subtotal = (cartItems || []).reduce((sum, item) => sum + (item?.price || 0) * (item?.quantity || 1), 0);
+  const subtotal = checkoutItems.reduce((sum, item) => sum + (item?.price || 0) * (item?.quantity || 1), 0);
   const discountAmount = Math.round(subtotal * (discountPercent / 100));
   const freeShippingThreshold = 200000;
   const isFreeShipping = subtotal >= freeShippingThreshold || subtotal === 0;
   const shippingFee = isFreeShipping ? 0 : 30000;
   const total = Math.max(0, subtotal - discountAmount + shippingFee);
-  const totalItemCount = (cartItems || []).reduce((cnt, it) => cnt + (it.quantity || 1), 0);
+  const totalItemCount = checkoutItems.reduce((cnt, it) => cnt + (it.quantity || 1), 0);
 
   const bankInfo = {
     bankName: 'MBBank',
@@ -181,7 +185,7 @@ export default function CheckoutPage({
         subtotal: subtotal,
         totalAmount: total,
         orderCode: currentCode,
-        items: cartItems.map(it => ({
+        items: checkoutItems.map(it => ({
           id: it.id,
           name: it.name,
           price: it.price,
@@ -225,9 +229,9 @@ export default function CheckoutPage({
       setIsCompleted(true);
 
       if (onOrderSuccess) {
-        onOrderSuccess(result.order);
+        onOrderSuccess(result.order, isDirectBuy, directBuyItem);
       }
-      if (onClearCart) {
+      if (onClearCart && !isDirectBuy) {
         onClearCart();
       }
     } catch (err) {
@@ -691,14 +695,14 @@ export default function CheckoutPage({
   // =========================================================================
   // Screen 2: Empty Cart in Checkout
   // =========================================================================
-  if (!cartItems || cartItems.length === 0) {
+  if (!checkoutItems || checkoutItems.length === 0) {
     return (
       <div className="chk-page">
         <div className="chk-empty">
           <ShoppingBag size={64} style={{ color: 'var(--moss)', opacity: 0.35, marginBottom: '16px' }} />
           <h2 style={{ fontSize: '1.6rem', marginBottom: '12px' }}>Không có sản phẩm nào để thanh toán</h2>
           <p style={{ color: 'var(--text-muted)', marginBottom: '28px', lineHeight: 1.65 }}>
-            Giỏ hàng của bạn đang trống. Hãy chọn thêm các cây sen đá bạn yêu thích trước khi tiến hành đặt hàng nhé!
+            Chưa có sản phẩm được chọn để thanh toán. Hãy chọn thêm các cây sen đá bạn yêu thích nhé!
           </p>
           <button className="btn-primary" onClick={onNavigateShop} style={{ padding: '14px 28px' }}>
             <span>Quay Lại Cửa Hàng</span>
@@ -721,7 +725,9 @@ export default function CheckoutPage({
           <div className="breadcrumb">
             <button className="breadcrumb-link" onClick={onNavigateHome}>Trang Chủ</button>
             <span className="breadcrumb-separator">/</span>
-            <button className="breadcrumb-link" onClick={onNavigateCart}>Giỏ Hàng</button>
+            <button className="breadcrumb-link" onClick={isDirectBuy ? onNavigateShop : onNavigateCart}>
+              {isDirectBuy ? 'Cửa Hàng' : 'Giỏ Hàng'}
+            </button>
             <span className="breadcrumb-separator">/</span>
             <span className="breadcrumb-current">Thanh Toán Đơn Hàng</span>
           </div>
@@ -951,7 +957,7 @@ export default function CheckoutPage({
 
               {/* Items preview */}
               <div className="chk-items-preview">
-                {cartItems.map((item) => (
+                {checkoutItems.map((item) => (
                   <div key={item.id} className="chk-preview-item">
                     <div className="chk-preview-item-left">
                       <div className="chk-preview-thumb-wrap">
@@ -1017,9 +1023,9 @@ export default function CheckoutPage({
               <button
                 type="button"
                 className="chk-back-link"
-                onClick={onNavigateCart}
+                onClick={isDirectBuy ? () => navigate(-1) : onNavigateCart}
               >
-                ← Quay Lại Giỏ Hàng
+                {isDirectBuy ? '← Quay Lại Chọn Cây' : '← Quay Lại Giỏ Hàng'}
               </button>
 
               {/* Guarantee */}
