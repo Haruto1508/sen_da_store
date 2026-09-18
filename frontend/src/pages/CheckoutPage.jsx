@@ -17,7 +17,8 @@ import {
   Zap,
   Loader2,
   Package,
-  Check
+  Check,
+  RefreshCw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { 
@@ -57,9 +58,14 @@ export default function CheckoutPage({
     user && (user.role?.toLowerCase().includes('admin') || user.email === 'admin@senxinh.vn')
   );
 
-  // Chỉ hiển thị công cụ test thanh toán khi đang ở chế độ Mock Data VÀ user đăng nhập qua Mock Data
+  // Cho phép hiển thị công cụ test thanh toán khi ở localhost hoặc chế độ Mock Data
   const isMockActive = getUseMockData();
-  const canShowPaymentSimulation = Boolean(isMockActive && user && isMockUser(user));
+  const isLocalOrMock = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    isMockActive
+  );
+  const canShowPaymentSimulation = isLocalOrMock || Boolean(user && isMockUser(user));
 
   // Notification Modal
   const { modalProps, showModal } = useModal();
@@ -321,6 +327,38 @@ export default function CheckoutPage({
     }
   };
 
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+
+  // Kiểm tra trạng thái thanh toán thủ công (nhận diện SePay / MoMo)
+  const handleManualCheckPayment = async () => {
+    setIsCheckingPayment(true);
+    try {
+      const targetCode = orderCode || placedOrder?.orderCode || currentCode;
+      const res = await checkOrderStatus(targetCode);
+      if (res && res.success && res.status === 'PAID') {
+        setOrderStatus('PAID');
+        setPlacedOrder((prev) => ({ ...prev, status: 'PAID' }));
+        try {
+          confetti({
+            particleCount: 180,
+            spread: 100,
+            origin: { y: 0.6 }
+          });
+        } catch (e) {}
+        showModal('success', 'Tuyệt vời! Giao dịch đã được hệ thống ghi nhận thành công! Đơn hàng đã chuyển sang trạng thái ĐÃ THANH TOÁN.');
+      } else {
+        showModal(
+          'info',
+          'Hệ thống đang đối soát số dư cho đơn #' + targetCode + '. Nếu bạn vừa chuyển tiền qua App Ngân Hàng, vui lòng đợi 15 - 30 giây để SePay xử lý. Bạn cũng có thể bấm nút "Test Sandbox" bên dưới để kích hoạt ngay!'
+        );
+      }
+    } catch (err) {
+      showModal('warning', 'Không thể kết nối máy chủ để kiểm tra trạng thái lúc này. Vui lòng thử lại sau giây lát!');
+    } finally {
+      setIsCheckingPayment(false);
+    }
+  };
+
   // Mô phỏng chuyển khoản ngân hàng thành công qua SePay Webhook (Sandbox / Demo)
   const handleSimulateBankTransfer = async () => {
     setIsSimulating(true);
@@ -336,9 +374,13 @@ export default function CheckoutPage({
             origin: { y: 0.6 }
           });
         } catch (e) {}
+        showModal('success', 'Mô phỏng SePay Webhook thành công! Đơn hàng #' + currentCode + ' đã được tự động kích hoạt sang trạng thái ĐÃ THANH TOÁN (PAID)!');
+      } else {
+        showModal('error', res?.message || 'Không thể mô phỏng chuyển khoản');
       }
     } catch (err) {
       console.error('Lỗi mô phỏng Webhook chuyển khoản:', err);
+      showModal('error', 'Lỗi mô phỏng Webhook: ' + (err.message || err));
     } finally {
       setIsSimulating(false);
     }
@@ -526,22 +568,47 @@ export default function CheckoutPage({
                     </a>
                   )}
 
-                  {canShowPaymentSimulation && (
-                    <div className="pay-sandbox-box">
-                      <button 
-                        type="button" 
-                        className="pay-sandbox-btn momo-sim" 
-                        onClick={handleSimulateMoMo}
-                        disabled={isSimulating}
-                      >
-                        {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                        <span>{isSimulating ? 'Đang gửi Webhook...' : '⚡ Test Sandbox: Mô phỏng quét MoMo thành công'}</span>
-                      </button>
-                      <div className="pay-sandbox-hint">
-                        💡 Webhook IPN kết nối trực tiếp: Sau khi thanh toán thành công, hệ thống tự động đổi sang trạng thái PAID.
+                  <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <button 
+                      type="button" 
+                      className="btn-primary"
+                      onClick={handleManualCheckPayment}
+                      disabled={isCheckingPayment}
+                      style={{
+                        width: '100%',
+                        padding: '12px 18px',
+                        fontSize: '0.96rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        borderRadius: 'var(--radius-md)',
+                        background: '#A50064',
+                        borderColor: '#A50064'
+                      }}
+                    >
+                      {isCheckingPayment ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                      <span>{isCheckingPayment ? 'Đang kiểm tra MoMo...' : 'Tôi Đã Quét MoMo Xong - Kiểm Tra Ngay'}</span>
+                    </button>
+
+                    {canShowPaymentSimulation && (
+                      <div className="pay-sandbox-box" style={{ marginTop: 0 }}>
+                        <button 
+                          type="button" 
+                          className="pay-sandbox-btn momo-sim" 
+                          onClick={handleSimulateMoMo}
+                          disabled={isSimulating}
+                        >
+                          {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                          <span>{isSimulating ? 'Đang gửi Webhook...' : '⚡ Test Sandbox: Mô phỏng quét MoMo thành công'}</span>
+                        </button>
+                        <div className="pay-sandbox-hint">
+                          💡 Webhook IPN kết nối trực tiếp: Sau khi thanh toán thành công, hệ thống tự động đổi sang trạng thái PAID.
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -642,23 +709,47 @@ export default function CheckoutPage({
                     </div>
                   </div>
 
-                  {canShowPaymentSimulation && (
-                    <div className="pay-sandbox-box">
-                      <button 
-                        type="button" 
-                        className="pay-sandbox-btn vqr-sim" 
-                        onClick={handleSimulateBankTransfer}
-                        disabled={isSimulating}
-                        title="Bấm để mô phỏng Webhook SePay bắt giao dịch và tự động duyệt đơn PAID"
-                      >
-                        {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                        <span>{isSimulating ? 'Đang gửi Webhook...' : '⚡ Test Demo: Xác nhận đã chuyển khoản thành công'}</span>
-                      </button>
-                      <div className="pay-sandbox-hint">
-                        💡 Hệ thống tự động bắt biến động số dư qua <strong>SePay Webhook</strong> và cập nhật trạng thái đơn ngay khi tiền vào tài khoản.
+                  <div style={{ marginTop: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <button 
+                      type="button" 
+                      className="btn-primary"
+                      onClick={handleManualCheckPayment}
+                      disabled={isCheckingPayment}
+                      style={{
+                        width: '100%',
+                        padding: '12px 18px',
+                        fontSize: '0.96rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        borderRadius: 'var(--radius-md)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                    >
+                      {isCheckingPayment ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                      <span>{isCheckingPayment ? 'Đang kiểm tra giao dịch...' : 'Tôi Đã Chuyển Khoản Xong - Kiểm Tra Ngay'}</span>
+                    </button>
+
+                    {canShowPaymentSimulation && (
+                      <div className="pay-sandbox-box" style={{ marginTop: 0 }}>
+                        <button 
+                          type="button" 
+                          className="pay-sandbox-btn vqr-sim" 
+                          onClick={handleSimulateBankTransfer}
+                          disabled={isSimulating}
+                          title="Bấm để mô phỏng Webhook SePay bắt giao dịch và tự động duyệt đơn PAID"
+                        >
+                          {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                          <span>{isSimulating ? 'Đang gửi Webhook...' : '⚡ [Test Sandbox] Mô phỏng SePay xác nhận nhận tiền thành công'}</span>
+                        </button>
+                        <div className="pay-sandbox-hint">
+                          💡 <strong>Lưu ý kiểm thử:</strong> Khi chạy trên Localhost, hệ thống SePay trên internet không thể gửi Webhook trực tiếp vào máy tính cục bộ nếu chưa có public domain (ngrok/tunnel). Hãy bấm nút <strong>Test Sandbox</strong> ở trên để trải nghiệm ngay quy trình tự động cập nhật đơn hàng sang ĐÃ THANH TOÁN!
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
