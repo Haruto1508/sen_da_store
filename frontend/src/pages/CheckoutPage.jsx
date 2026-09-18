@@ -28,7 +28,9 @@ import {
   simulateBankTransferPayment,
   checkOrderStatus,
   getUseMockData,
-  isMockUser
+  isMockUser,
+  getShippingConfig,
+  fetchShippingConfig
 } from '../services/api';
 import useModal from '../components/useModal';
 import NotificationModal from '../components/NotificationModal';
@@ -124,9 +126,34 @@ export default function CheckoutPage({
 
   const subtotal = checkoutItems.reduce((sum, item) => sum + (item?.price || 0) * (item?.quantity || 1), 0);
   const discountAmount = Math.round(subtotal * (discountPercent / 100));
-  const freeShippingThreshold = 200000;
-  const isFreeShipping = subtotal >= freeShippingThreshold || subtotal === 0;
-  const shippingFee = isFreeShipping ? 0 : 30000;
+
+  const [shippingConfig, setShippingConfig] = useState(getShippingConfig());
+
+  useEffect(() => {
+    fetchShippingConfig().then((cfg) => {
+      if (cfg) setShippingConfig(cfg);
+    });
+  }, []);
+
+  const freeShippingThreshold = shippingConfig?.freeShippingThreshold || 200000;
+  const freeShippingEnabled = shippingConfig?.freeShippingEnabled !== false;
+  const isFreeShipping = (freeShippingEnabled && subtotal >= freeShippingThreshold) || subtotal === 0;
+
+  // Tra cứu cước phí vận chuyển theo Tỉnh / Thành phố đã chọn
+  const getCityShippingFee = (cityName) => {
+    if (!cityName) return shippingConfig?.defaultShippingFee || 35000;
+    const rates = shippingConfig?.provinceRates || [];
+    const matched = rates.find((r) =>
+      r.province.toLowerCase() === cityName.toLowerCase() ||
+      cityName.toLowerCase().includes(r.province.toLowerCase()) ||
+      r.province.toLowerCase().includes(cityName.toLowerCase())
+    );
+    if (matched) return matched.fee;
+    return shippingConfig?.defaultShippingFee || 35000;
+  };
+
+  const currentCityFee = getCityShippingFee(formData.city);
+  const shippingFee = isFreeShipping ? 0 : currentCityFee;
   const total = Math.max(0, subtotal - discountAmount + shippingFee);
   const totalItemCount = checkoutItems.reduce((cnt, it) => cnt + (it.quantity || 1), 0);
 
@@ -175,6 +202,7 @@ export default function CheckoutPage({
         customerName: formData.name,
         customerPhone: formData.phone,
         customerAddress: formData.address,
+        city: formData.city,
         customerEmail: user?.email || formData.email || '',
         note: formData.note,
         paymentMethod: formData.paymentMethod,
@@ -841,13 +869,14 @@ export default function CheckoutPage({
                     value={formData.city}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   >
-                    <option value="Hà Nội">Hà Nội</option>
-                    <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
-                    <option value="Đà Lạt">Đà Lạt - Lâm Đồng</option>
-                    <option value="Đà Nẵng">Đà Nẵng</option>
-                    <option value="Hải Phòng">Hải Phòng</option>
-                    <option value="Cần Thơ">Cần Thơ</option>
-                    <option value="Khác">Tỉnh thành khác</option>
+                    {(shippingConfig?.provinceRates || []).map((r) => (
+                      <option key={r.id || r.province} value={r.province}>
+                        {r.province} ({formatPrice(r.fee)})
+                      </option>
+                    ))}
+                    {formData.city && !(shippingConfig?.provinceRates || []).some(r => r.province.toLowerCase() === formData.city.toLowerCase()) && (
+                      <option value={formData.city}>{formData.city} ({formatPrice(shippingConfig?.defaultShippingFee || 35000)})</option>
+                    )}
                   </select>
                 </div>
 
@@ -990,8 +1019,8 @@ export default function CheckoutPage({
                 )}
 
                 <div className="chk-price-row">
-                  <span>Phí vận chuyển:</span>
-                  <span>{isFreeShipping ? <strong style={{ color: 'var(--primary)' }}>Miễn Phí</strong> : formatPrice(shippingFee)}</span>
+                  <span>Phí vận chuyển ({formData.city || 'Khu vực'}):</span>
+                  <span>{isFreeShipping ? <strong style={{ color: 'var(--primary)' }}>Miễn Phí (0₫)</strong> : formatPrice(shippingFee)}</span>
                 </div>
               </div>
 

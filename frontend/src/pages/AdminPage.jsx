@@ -18,7 +18,11 @@ import {
   updateCustomerRole,
   updateCustomerStatus,
   deleteAdminCustomer,
-  deleteProductImage
+  deleteProductImage,
+  getShippingConfig,
+  fetchShippingConfig,
+  saveShippingConfig,
+  resetShippingConfig
 } from '../services/api';
 
 import { ORDER_STATUS_LABELS, SAMPLE_IMAGES } from '../components/admin/adminConstants';
@@ -30,6 +34,7 @@ import OrdersTab from '../components/admin/OrdersTab';
 import ProductsTab from '../components/admin/ProductsTab';
 import CouponsTab from '../components/admin/CouponsTab';
 import CustomersTab from '../components/admin/CustomersTab';
+import ShippingTab from '../components/admin/ShippingTab';
 import CustomerOrdersView from '../components/admin/CustomerOrdersView';
 import OrderDetailView from '../components/admin/OrderDetailView';
 import ProductModal from '../components/admin/ProductModal';
@@ -114,6 +119,9 @@ export default function AdminPage({
   const [customers, setCustomers] = useState([]);
   const [customerSearch, setCustomerSearch] = useState('');
 
+  // Shipping Rates Configuration State
+  const [shippingConfig, setShippingConfig] = useState(getShippingConfig());
+
   // Dedicated View Navigation State: 'tabs' | 'customer-orders' | 'order-detail'
   const [viewMode, setViewMode] = useState('tabs');
   const [activeCustomer, setActiveCustomer] = useState(null);
@@ -163,13 +171,14 @@ export default function AdminPage({
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [statsData, ordersData, productsData, couponsData, customersData, allOrdersData] = await Promise.all([
+      const [statsData, ordersData, productsData, couponsData, customersData, allOrdersData, shippingData] = await Promise.all([
         getAdminStats(),
         getAdminOrders(orderFilterStatus),
         getAdminProducts(),
         getAdminCoupons(),
         getAdminCustomers(),
-        getAdminOrders('all')
+        getAdminOrders('all'),
+        fetchShippingConfig()
       ]);
 
       setStats(statsData);
@@ -178,6 +187,9 @@ export default function AdminPage({
       setProducts(productsData);
       setCoupons(couponsData);
       setCustomers(customersData);
+      if (shippingData) {
+        setShippingConfig(shippingData);
+      }
 
       if (onProductsChange) {
         onProductsChange(productsData);
@@ -594,6 +606,23 @@ export default function AdminPage({
                   onRoleChange={handleRoleChange}
                   onStatusChange={handleCustomerStatusChange}
                   onDeleteCustomer={handleDeleteCustomer}
+                />
+              )}
+
+              {/* TAB 5: SHIPPING RATES MANAGEMENT */}
+              {activeTab === 'shipping' && (
+                <ShippingTab
+                  shippingConfig={shippingConfig}
+                  onUpdateShippingConfig={async (newCfg) => {
+                    const saved = await saveShippingConfig(newCfg);
+                    setShippingConfig(saved || newCfg);
+                  }}
+                  onResetShippingConfig={async () => {
+                    const def = await resetShippingConfig();
+                    setShippingConfig(def);
+                    return def;
+                  }}
+                  addToast={addToast}
                 />
               )}
             </React.Fragment>

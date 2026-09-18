@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ShoppingBag,
   Trash2,
@@ -15,6 +15,7 @@ import {
   Loader2,
   Leaf
 } from "lucide-react";
+import { getShippingConfig, fetchShippingConfig } from "../services/api";
 
 export default function CartPage({
   cartItems = [],
@@ -40,12 +41,23 @@ export default function CartPage({
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
   const discountAmount = Math.round(subtotal * (discountPercent / 100));
-  const freeShippingThreshold = 200000;
-  const isFreeShipping = subtotal >= freeShippingThreshold || subtotal === 0;
-  const shippingFee = isFreeShipping ? 0 : 30000;
+
+  const [shippingConfig, setShippingConfig] = useState(getShippingConfig());
+
+  useEffect(() => {
+    fetchShippingConfig().then((cfg) => {
+      if (cfg) setShippingConfig(cfg);
+    });
+  }, []);
+
+  const freeShippingThreshold = shippingConfig?.freeShippingThreshold || 200000;
+  const freeShippingEnabled = shippingConfig?.freeShippingEnabled !== false;
+  const defaultFee = shippingConfig?.defaultShippingFee || 35000;
+  const isFreeShipping = (freeShippingEnabled && subtotal >= freeShippingThreshold) || subtotal === 0;
+  const shippingFee = isFreeShipping ? 0 : defaultFee;
   const total = Math.max(0, subtotal - discountAmount + shippingFee);
-  const progressPercent = Math.min(100, Math.round((subtotal / freeShippingThreshold) * 100));
-  const remainingForFreeShip = Math.max(0, freeShippingThreshold - subtotal);
+  const progressPercent = freeShippingEnabled ? Math.min(100, Math.round((subtotal / freeShippingThreshold) * 100)) : 100;
+  const remainingForFreeShip = freeShippingEnabled ? Math.max(0, freeShippingThreshold - subtotal) : 0;
   const totalItemCount = cartItems.reduce((cnt, it) => cnt + it.quantity, 0);
 
   const hasUnavailableItem = cartItems.some(

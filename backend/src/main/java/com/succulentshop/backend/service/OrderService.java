@@ -33,6 +33,7 @@ public class OrderService {
     private final CouponService couponService;
     private final UserRepository userRepository;
     private final BankTransferConfig bankTransferConfig;
+    private final ShippingService shippingService;
 
     private static final String BANK_NAME = "MBBank";
     private static final String BANK_CODE = "MBBank";
@@ -44,19 +45,21 @@ public class OrderService {
                         ProductService productService,
                         CouponService couponService,
                         UserRepository userRepository,
-                        @Autowired(required = false) BankTransferConfig bankTransferConfig) {
+                        @Autowired(required = false) BankTransferConfig bankTransferConfig,
+                        @Autowired(required = false) ShippingService shippingService) {
         this.orderRepository = orderRepository;
         this.productService = productService;
         this.couponService = couponService;
         this.userRepository = userRepository;
         this.bankTransferConfig = bankTransferConfig;
+        this.shippingService = shippingService;
     }
 
     public OrderService(OrderRepository orderRepository,
                         ProductService productService,
                         CouponService couponService,
                         UserRepository userRepository) {
-        this(orderRepository, productService, couponService, userRepository, null);
+        this(orderRepository, productService, couponService, userRepository, null, null);
     }
 
     @Transactional
@@ -111,7 +114,12 @@ public class OrderService {
         }
 
         int discountAmount = (int) Math.round(subtotal * (discountPercent / 100.0));
-        int shippingFee = subtotal >= 200000 ? 0 : 30000;
+        int shippingFee;
+        if (shippingService != null) {
+            shippingFee = shippingService.calculateShippingFee(subtotal, request.getCity(), request.getCustomerAddress());
+        } else {
+            shippingFee = request.getShippingFee() != null ? request.getShippingFee() : (subtotal >= 200000 ? 0 : 35000);
+        }
         int totalAmount = Math.max(0, subtotal - discountAmount + shippingFee);
 
         Order order = new Order();

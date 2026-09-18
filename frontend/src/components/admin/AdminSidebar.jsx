@@ -5,7 +5,8 @@ import {
   Tag,
   Users,
   PanelLeft,
-  Store
+  Store,
+  Truck
 } from 'lucide-react';
 import { USE_MOCK_DATA } from '../../services/api';
 
@@ -105,6 +106,22 @@ export default function AdminSidebar({
             <Sprout size={19} className="nav-icon" />
             {!sidebarCollapsed && (
               <span className="nav-text">Sen Đá & Tồn Kho</span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            className={`admin-nav-item ${(viewMode === 'tabs' && activeTab === 'shipping') ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('shipping');
+              setViewMode('tabs');
+              setMobileSidebarOpen(false);
+            }}
+            title="Cấu Hình Phí Vận Chuyển"
+          >
+            <Truck size={19} className="nav-icon" />
+            {!sidebarCollapsed && (
+              <span className="nav-text">Phí Vận Chuyển</span>
             )}
           </button>
 

@@ -12,6 +12,8 @@ public class CreateOrderRequest {
     private String paymentMethod; // 'vietqr' | 'cod'
     private String discountCode;
     private String orderCode; // Mã đơn hàng từ frontend (nếu có)
+    private Integer shippingFee;
+    private String city;
     private List<OrderItemDto> items;
 
     public static class OrderItemDto {
@@ -64,4 +66,10 @@ public class CreateOrderRequest {
 
     public String getOrderCode() { return orderCode; }
     public void setOrderCode(String orderCode) { this.orderCode = orderCode; }
+
+    public Integer getShippingFee() { return shippingFee; }
+    public void setShippingFee(Integer shippingFee) { this.shippingFee = shippingFee; }
+
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
 }

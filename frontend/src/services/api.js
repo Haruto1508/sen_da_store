@@ -1346,3 +1346,121 @@ export async function changePassword() {
   return { success: true, message: 'Tính năng mật khẩu đã được lược bỏ.' };
 }
 
+// ==============================================================================
+// CẤU HÌNH PHÍ VẬN CHUYỂN THEO TỈNH / THÀNH PHỐ
+// ==============================================================================
+
+export const DEFAULT_SHIPPING_CONFIG = {
+  freeShippingEnabled: true,
+  freeShippingThreshold: 200000,
+  defaultShippingFee: 35000,
+  provinceRates: [
+    { id: 'rate_hn', province: 'Hà Nội', fee: 25000, estimatedDays: '1 - 2 ngày', note: 'Nội & ngoại thành Hà Nội' },
+    { id: 'rate_hcm', province: 'TP. Hồ Chí Minh', fee: 30000, estimatedDays: '2 - 3 ngày', note: 'Toàn khu vực TP. Hồ Chí Minh' },
+    { id: 'rate_dl', province: 'Đà Lạt - Lâm Đồng', fee: 20000, estimatedDays: 'Trong ngày / 1 ngày', note: 'Khu vực gần nhà vườn ươm' },
+    { id: 'rate_dn', province: 'Đà Nẵng', fee: 28000, estimatedDays: '2 - 3 ngày', note: 'Khu vực miền Trung' },
+    { id: 'rate_hp', province: 'Hải Phòng', fee: 26000, estimatedDays: '1 - 2 ngày', note: 'Khu vực duyên hải Bắc Bộ' },
+    { id: 'rate_ct', province: 'Cần Thơ', fee: 32000, estimatedDays: '2 - 3 ngày', note: 'Khu vực Tây Nam Bộ' },
+    { id: 'rate_bd', province: 'Bình Dương', fee: 28000, estimatedDays: '2 ngày', note: 'Khu vực Đông Nam Bộ' },
+    { id: 'rate_dna', province: 'Đồng Nai', fee: 28000, estimatedDays: '2 ngày', note: 'Khu vực Đông Nam Bộ' },
+    { id: 'rate_kh', province: 'Khánh Hòa (Nha Trang)', fee: 25000, estimatedDays: '1 - 2 ngày', note: 'Khu vực Nam Trung Bộ' },
+    { id: 'rate_other', province: 'Khác', fee: 35000, estimatedDays: '2 - 4 ngày', note: 'Áp dụng cho các tỉnh thành khác toàn quốc' }
+  ]
+};
+
+const SHIPPING_STORAGE_KEY = 'senxinh_shipping_config';
+
+export function getShippingConfig() {
+  if (typeof window === 'undefined') return DEFAULT_SHIPPING_CONFIG;
+  try {
+    const raw = localStorage.getItem(SHIPPING_STORAGE_KEY);
+    if (!raw) return DEFAULT_SHIPPING_CONFIG;
+    const parsed = JSON.parse(raw);
+    return {
+      ...DEFAULT_SHIPPING_CONFIG,
+      ...parsed,
+      provinceRates: Array.isArray(parsed.provinceRates) && parsed.provinceRates.length > 0
+        ? parsed.provinceRates
+        : DEFAULT_SHIPPING_CONFIG.provinceRates
+    };
+  } catch (e) {
+    return DEFAULT_SHIPPING_CONFIG;
+  }
+}
+
+/**
+ * Tải biểu phí vận chuyển từ máy chủ PostgreSQL (có fallback cache)
+ */
+export async function fetchShippingConfig() {
+  if (USE_MOCK_DATA) {
+    return getShippingConfig();
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/shipping-rates`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.data) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(SHIPPING_STORAGE_KEY, JSON.stringify(json.data));
+        }
+        return {
+          ...DEFAULT_SHIPPING_CONFIG,
+          ...json.data
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('Không thể kết nối máy chủ để lấy cước phí ship, dùng cache:', e);
+  }
+  return getShippingConfig();
+}
+
+/**
+ * Lưu biểu phí vận chuyển lên Database PostgreSQL và đồng bộ cache
+ */
+export async function saveShippingConfig(newConfig) {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(SHIPPING_STORAGE_KEY, JSON.stringify(newConfig));
+    } catch (e) {
+      console.warn('Lỗi lưu cấu hình phí ship vào localStorage:', e);
+    }
+  }
+
+  if (!USE_MOCK_DATA) {
+    try {
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/admin/shipping-rates`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(newConfig)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.data) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(SHIPPING_STORAGE_KEY, JSON.stringify(json.data));
+          }
+          return json.data;
+        }
+      }
+    } catch (err) {
+      console.warn('Lỗi đồng bộ cấu hình phí ship lên Server DB:', err);
+    }
+  }
+
+  return newConfig;
+}
+
+/**
+ * Khôi phục biểu phí mặc định
+ */
+export async function resetShippingConfig() {
+  return await saveShippingConfig(DEFAULT_SHIPPING_CONFIG);
+}
+
+

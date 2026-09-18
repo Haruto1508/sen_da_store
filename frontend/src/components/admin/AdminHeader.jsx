@@ -36,6 +36,7 @@ export default function AdminHeader({
                   {activeTab === 'products' && 'Kho Sen Đá & Tồn Kho'}
                   {activeTab === 'coupons' && 'Mã Ưu Đãi & Voucher'}
                   {activeTab === 'customers' && 'Khách Hàng & Phân Quyền'}
+                  {activeTab === 'shipping' && 'Cấu Hình Phí Vận Chuyển'}
                 </>
               )}
             </span>
@@ -49,6 +50,7 @@ export default function AdminHeader({
                 {activeTab === 'products' && 'Kho Sen Đá & Quản Lý Tồn Kho'}
                 {activeTab === 'coupons' && 'Mã Ưu Đãi & Voucher Giảm Giá'}
                 {activeTab === 'customers' && 'Khách Hàng & Phân Quyền Quản Trị'}
+                {activeTab === 'shipping' && 'Cấu Hình Phí Vận Chuyển Từng Tỉnh / Thành Phố'}
               </>
             )}
           </h1>

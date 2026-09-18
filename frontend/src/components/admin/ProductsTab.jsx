@@ -1,23 +1,29 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import {
   Search,
   Plus,
   Edit2,
-  Trash2
+  Trash2,
+  Sprout,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Sun,
+  Droplets
 } from 'lucide-react';
 import Pagination from '../Pagination';
 import { CATEGORIES } from '../../data/products';
 import { formatPrice } from './adminConstants';
 
 export default function ProductsTab({
-  products,
-  productSearch,
+  products = [],
+  productSearch = '',
   setProductSearch,
-  productCategory,
+  productCategory = 'all',
   setProductCategory,
-  productStockFilter,
+  productStockFilter = 'all',
   setProductStockFilter,
-  productPage,
+  productPage = 1,
   setProductPage,
   itemsPerPage = 10,
   onOpenAddProduct,
@@ -25,6 +31,11 @@ export default function ProductsTab({
   onQuickStockChange,
   onDeleteProduct
 }) {
+  // Reset page when any filter changes
+  useEffect(() => {
+    if (setProductPage) setProductPage(1);
+  }, [productSearch, productCategory, productStockFilter, setProductPage]);
+
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       const matchSearch =
@@ -43,13 +54,17 @@ export default function ProductsTab({
   }, [products, productSearch, productCategory, productStockFilter]);
 
   const productTotalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const pagedProducts = filteredProducts.slice((productPage - 1) * itemsPerPage, productPage * itemsPerPage);
+  const pagedProducts = filteredProducts.slice(
+    (productPage - 1) * itemsPerPage,
+    productPage * itemsPerPage
+  );
 
   return (
-    <div>
-      <div className="admin-toolbar">
-        <div className="admin-search-wrapper">
-          <Search size={17} />
+    <div className="admin-tab-content">
+      {/* Toolbar */}
+      <div className="admin-toolbar" style={{ marginBottom: '18px' }}>
+        <div className="admin-search-wrapper" style={{ maxWidth: '360px' }}>
+          <Search size={16} />
           <input
             type="text"
             className="admin-search-input"
@@ -64,7 +79,7 @@ export default function ProductsTab({
             value={productCategory}
             onChange={(e) => setProductCategory(e.target.value)}
             className="select-filter"
-            style={{ padding: '8px 28px 8px 12px', fontSize: '0.85rem' }}
+            style={{ padding: '8px 28px 8px 12px', fontSize: '0.84rem' }}
           >
             <option value="all">Tất Cả Danh Mục</option>
             {CATEGORIES.filter((c) => c.id !== 'all').map((cat) => (
@@ -78,17 +93,31 @@ export default function ProductsTab({
             value={productStockFilter}
             onChange={(e) => setProductStockFilter(e.target.value)}
             className="select-filter"
-            style={{ padding: '8px 28px 8px 12px', fontSize: '0.85rem' }}
+            style={{ padding: '8px 28px 8px 12px', fontSize: '0.84rem' }}
           >
             <option value="all">Tất Cả Tồn Kho</option>
             <option value="low">⚠️ Sắp Hết (≤ 10)</option>
             <option value="out">❌ Hết Hàng (0)</option>
           </select>
 
+          <span
+            style={{
+              fontSize: '0.82rem',
+              color: 'var(--text-muted)',
+              background: 'var(--bg-main)',
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-full)',
+              border: '1px solid var(--border-light)'
+            }}
+          >
+            Tổng: <strong style={{ color: 'var(--primary)' }}>{filteredProducts.length}</strong> / {products.length} cây
+          </span>
+
           <button
+            type="button"
             className="btn-primary"
             onClick={onOpenAddProduct}
-            style={{ padding: '9px 18px', fontSize: '0.88rem' }}
+            style={{ padding: '9px 18px', fontSize: '0.86rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
             <Plus size={16} />
             <span>Thêm Cây Mới</span>
@@ -96,26 +125,31 @@ export default function ProductsTab({
         </div>
       </div>
 
-      {/* Products Table */}
+      {/* Products Table Card */}
       <div className="admin-table-wrapper">
         <div className="admin-table-responsive">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Sen Đá</th>
-                <th>Danh Mục</th>
-                <th>Giá Bán</th>
-                <th>Tồn Kho</th>
-                <th>Đặc Tính</th>
-                <th>Huy Hiệu</th>
-                <th style={{ textAlign: 'center' }}>Thao Tác</th>
+                <th style={{ width: '32%' }}>Sen Đá & Giống Loài</th>
+                <th style={{ width: '16%' }}>Phân Loại</th>
+                <th style={{ width: '14%' }}>Giá Bán</th>
+                <th style={{ width: '18%' }}>Tồn Kho & Điều Chỉnh</th>
+                <th style={{ width: '12%' }}>Chăm Sóc</th>
+                <th style={{ textAlign: 'right', width: '8%' }}>Thao Tác</th>
               </tr>
             </thead>
             <tbody>
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-light)' }}>
-                    Chưa có sản phẩm nào phù hợp với bộ lọc tìm kiếm
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+                    <Sprout size={44} style={{ opacity: 0.25, marginBottom: '10px' }} />
+                    <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '1rem' }}>
+                      Không tìm thấy cây sen đá nào phù hợp
+                    </div>
+                    <small style={{ color: 'var(--text-light)' }}>
+                      Thử đổi từ khóa hoặc điều chỉnh bộ lọc danh mục và tồn kho
+                    </small>
                   </td>
                 </tr>
               ) : (
@@ -124,7 +158,7 @@ export default function ProductsTab({
                   const isOut = (prod.inStock || 0) === 0;
 
                   return (
-                    <tr key={prod.id}>
+                    <tr key={prod.id} style={{ transition: 'background 0.2s' }}>
                       <td>
                         <div className="admin-prod-cell">
                           <img
@@ -134,17 +168,41 @@ export default function ProductsTab({
                             }
                             alt={prod.name}
                             className="admin-prod-thumb"
+                            style={{
+                              width: '46px',
+                              height: '46px',
+                              borderRadius: '10px',
+                              objectFit: 'cover',
+                              border: '1px solid var(--border-light)'
+                            }}
                           />
                           <div>
-                            <strong style={{ color: 'var(--text-main)', display: 'block', fontSize: '0.95rem' }}>
-                              {prod.name}
-                            </strong>
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', fontStyle: 'italic' }}>
-                              {prod.scientificName || 'Sen mọng nước'}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <strong style={{ color: 'var(--text-main)', fontSize: '0.94rem' }}>
+                                {prod.name}
+                              </strong>
+                              {prod.badge && (
+                                <span
+                                  style={{
+                                    background: '#FEF3C7',
+                                    color: '#B45309',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 700
+                                  }}
+                                >
+                                  {prod.badge}
+                                </span>
+                              )}
+                            </div>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', fontStyle: 'italic', display: 'block' }}>
+                              {prod.scientificName || 'Echeveria spp.'}
                             </span>
                           </div>
                         </div>
                       </td>
+
                       <td>
                         <span
                           style={{
@@ -153,21 +211,23 @@ export default function ProductsTab({
                             borderRadius: 'var(--radius-full)',
                             fontSize: '0.8rem',
                             color: 'var(--text-muted)',
-                            fontWeight: 500
+                            fontWeight: 600,
+                            border: '1px solid var(--border-light)'
                           }}
                         >
                           {CATEGORIES.find((c) => c.id === prod.category)?.name || prod.category}
                         </span>
                       </td>
+
                       <td>
                         <div>
-                          <strong style={{ color: 'var(--primary)', fontSize: '0.98rem' }}>
+                          <strong style={{ color: 'var(--primary)', fontSize: '1rem', fontFamily: 'Outfit, sans-serif' }}>
                             {formatPrice(prod.price)}
                           </strong>
                           {prod.originalPrice > prod.price && (
                             <span
                               style={{
-                                fontSize: '0.78rem',
+                                fontSize: '0.76rem',
                                 color: 'var(--text-light)',
                                 textDecoration: 'line-through',
                                 display: 'block'
@@ -178,73 +238,92 @@ export default function ProductsTab({
                           )}
                         </div>
                       </td>
+
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span
                             className={`stock-pill ${
                               isOut ? 'out-of-stock' : isLow ? 'low-stock' : 'in-stock'
                             }`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '3px 9px',
+                              borderRadius: 'var(--radius-full)',
+                              fontSize: '0.78rem',
+                              fontWeight: 700
+                            }}
                           >
-                            {isOut ? 'Hết hàng' : isLow ? `Còn ít (${prod.inStock})` : `Còn ${prod.inStock}`}
+                            {isOut ? (
+                              <>
+                                <XCircle size={12} />
+                                <span>Hết hàng</span>
+                              </>
+                            ) : isLow ? (
+                              <>
+                                <AlertTriangle size={12} />
+                                <span>Còn {prod.inStock}</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle size={12} />
+                                <span>Còn {prod.inStock}</span>
+                              </>
+                            )}
                           </span>
 
                           <div className="stock-stepper">
                             <button
+                              type="button"
                               className="stock-step-btn"
                               onClick={() => onQuickStockChange(prod, -1)}
-                              title="Giảm 1 cây"
+                              title="Giảm tồn kho 1 cây"
                             >
                               -
                             </button>
                             <button
+                              type="button"
                               className="stock-step-btn"
                               onClick={() => onQuickStockChange(prod, 1)}
-                              title="Tăng 1 cây"
+                              title="Tăng tồn kho 1 cây"
                             >
                               +
                             </button>
                           </div>
                         </div>
                       </td>
+
                       <td>
-                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                          <div>☀️ {prod.light || 'Nắng nhẹ'}</div>
-                          <div>💧 {prod.watering || '1 tuần/lần'}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Sun size={12} color="#D97706" />
+                            <span>{prod.light || 'Nắng nhẹ'}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                            <Droplets size={12} color="#2563EB" />
+                            <span>{prod.watering || '1 tuần/lần'}</span>
+                          </div>
                         </div>
                       </td>
-                      <td>
-                        {prod.badge ? (
-                          <span
-                            style={{
-                              background: '#FEF3C7',
-                              color: '#B45309',
-                              padding: '3px 8px',
-                              borderRadius: 'var(--radius-sm)',
-                              fontSize: '0.75rem',
-                              fontWeight: 700
-                            }}
-                          >
-                            {prod.badge}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-light)', fontSize: '0.8rem' }}>—</span>
-                        )}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
+
+                      <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '6px' }}>
                           <button
+                            type="button"
                             className="btn-icon-action"
                             onClick={() => onOpenEditProduct(prod)}
-                            title="Chỉnh sửa sản phẩm"
+                            title="Chỉnh sửa thông tin cây"
                           >
-                            <Edit2 size={16} />
+                            <Edit2 size={15} />
                           </button>
                           <button
+                            type="button"
                             className="btn-icon-action delete"
                             onClick={() => onDeleteProduct(prod)}
-                            title="Xóa sản phẩm"
+                            title="Xóa cây khỏi vườn"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>
@@ -255,6 +334,8 @@ export default function ProductsTab({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
         <Pagination
           currentPage={productPage}
           totalPages={productTotalPages}
