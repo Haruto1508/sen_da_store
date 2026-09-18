@@ -1,27 +1,27 @@
-import React, { useState } from 'react';
-import { 
-  ShoppingBag, 
-  Trash2, 
-  ArrowRight, 
-  ArrowLeft, 
-  Sparkles, 
-  Plus, 
-  Minus, 
-  ShieldCheck, 
-  Truck, 
-  Tag, 
+import React, { useState } from "react";
+import {
+  ShoppingBag,
+  Trash2,
+  ArrowRight,
+  ArrowLeft,
+  Plus,
+  Minus,
+  ShieldCheck,
+  Truck,
+  Tag,
   Check,
   X,
   AlertTriangle,
-  Loader2
-} from 'lucide-react';
+  Loader2,
+  Leaf
+} from "lucide-react";
 
 export default function CartPage({
   cartItems = [],
   onUpdateQty,
   onRemoveItem,
   onClearCart,
-  discountCode = '',
+  discountCode = "",
   discountPercent = 0,
   onApplyCoupon,
   onRemoveCoupon,
@@ -30,14 +30,13 @@ export default function CartPage({
   onNavigateHome,
   onOpenProductDetail
 }) {
-  const [couponInput, setCouponInput] = useState('');
-  const [couponError, setCouponError] = useState('');
+  const [couponInput, setCouponInput] = useState("");
+  const [couponError, setCouponError] = useState("");
   const [couponSuccess, setCouponSuccess] = useState(false);
   const [couponLoading, setCouponLoading] = useState(false);
 
-  const formatPrice = (amount) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
-  };
+  const formatPrice = (amount) =>
+    new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
   const discountAmount = Math.round(subtotal * (discountPercent / 100));
@@ -45,46 +44,37 @@ export default function CartPage({
   const isFreeShipping = subtotal >= freeShippingThreshold || subtotal === 0;
   const shippingFee = isFreeShipping ? 0 : 30000;
   const total = Math.max(0, subtotal - discountAmount + shippingFee);
-
   const progressPercent = Math.min(100, Math.round((subtotal / freeShippingThreshold) * 100));
   const remainingForFreeShip = Math.max(0, freeShippingThreshold - subtotal);
   const totalItemCount = cartItems.reduce((cnt, it) => cnt + it.quantity, 0);
 
-  // Kiểm tra xem có sản phẩm nào trong giỏ bị ngừng kinh doanh hoặc hết hàng không
   const hasUnavailableItem = cartItems.some(
-    (item) => item.available === false || item.status === 'DELETED' || item.status === 'INACTIVE'
+    (item) => item.available === false || item.status === "DELETED" || item.status === "INACTIVE"
   );
   const hasOutOfStockItem = cartItems.some(
-    (item) => (item.available !== false && item.status !== 'DELETED') && item.inStock !== undefined && item.inStock <= 0
+    (item) => (item.available !== false && item.status !== "DELETED") && item.inStock !== undefined && item.inStock <= 0
   );
 
   const handleApplyCouponSubmit = async (e) => {
     e.preventDefault();
     const cleanCode = couponInput.trim();
     if (!cleanCode || couponLoading) return;
-
     setCouponLoading(true);
-    setCouponError('');
+    setCouponError("");
     setCouponSuccess(false);
-
     try {
       if (onApplyCoupon) {
         const res = await onApplyCoupon(cleanCode);
         if (res && (res.success || res === true)) {
           setCouponSuccess(true);
-          setCouponError('');
-          setCouponInput('');
+          setCouponInput("");
           setTimeout(() => setCouponSuccess(false), 4000);
         } else {
-          setCouponError(
-            res?.message || 'Mã ưu đãi không hợp lệ. Hãy thử mã SENXANH10 (-10%) hoặc SENXANH20 (-20%)!'
-          );
-          setCouponSuccess(false);
+          setCouponError(res?.message || "Mã ưu đãi không hợp lệ. Thử SENXANH10 hoặc SENXANH20!");
         }
       }
     } catch (err) {
-      setCouponError(err.message || 'Lỗi khi kiểm tra mã ưu đãi');
-      setCouponSuccess(false);
+      setCouponError(err.message || "Lỗi kiểm tra mã ưu đãi");
     } finally {
       setCouponLoading(false);
     }
@@ -92,7 +82,6 @@ export default function CartPage({
 
   return (
     <div className="cart-page">
-      {/* Header Banner */}
       <div className="page-header-banner">
         <div className="container">
           <div className="breadcrumb">
@@ -100,37 +89,24 @@ export default function CartPage({
             <span className="breadcrumb-separator">/</span>
             <button className="breadcrumb-link" onClick={onNavigateShop}>Cửa Hàng</button>
             <span className="breadcrumb-separator">/</span>
-            <span className="breadcrumb-current">Giỏ Hàng Của Bạn</span>
+            <span className="breadcrumb-current">Giỏ Hàng</span>
           </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px', marginTop: '14px' }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "16px", marginTop: "14px" }}>
             <div>
-              <span className="section-subtitle" style={{ color: 'var(--accent)' }}>Túi Mầm Xanh</span>
-              <h1 className="page-title" style={{ fontSize: '1.65rem', marginTop: '4px' }}>
-                Giỏ Hàng Của Bạn ({totalItemCount} sản phẩm)
+              <span className="section-subtitle" style={{ color: "var(--accent)" }}>Túi Mầm Xanh</span>
+              <h1 className="page-title" style={{ fontSize: "1.65rem", marginTop: "4px" }}>
+                Giỏ Hàng ({totalItemCount} sản phẩm)
               </h1>
             </div>
-
             {cartItems.length > 0 && (
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                 {onClearCart && (
-                  <button
-                    className="btn-secondary"
-                    onClick={onClearCart}
-                    style={{ padding: '10px 18px', fontSize: '0.9rem', color: '#DC2626' }}
-                    title="Xóa toàn bộ sản phẩm khỏi giỏ hàng"
-                  >
-                    <Trash2 size={16} />
-                    <span>Xóa Sạch Giỏ Hàng</span>
+                  <button className="btn-secondary" onClick={onClearCart} style={{ padding: "10px 18px", fontSize: "0.9rem", color: "#DC2626" }}>
+                    <Trash2 size={16} /><span>Xóa Sạch</span>
                   </button>
                 )}
-                <button
-                  className="btn-secondary"
-                  onClick={onNavigateShop}
-                  style={{ padding: '10px 20px', fontSize: '0.9rem' }}
-                >
-                  <ArrowLeft size={16} />
-                  <span>Tiếp Tục Chọn Cây</span>
+                <button className="btn-secondary" onClick={onNavigateShop} style={{ padding: "10px 20px", fontSize: "0.9rem" }}>
+                  <ArrowLeft size={16} /><span>Tiếp Tục Chọn Cây</span>
                 </button>
               </div>
             )}
@@ -138,344 +114,203 @@ export default function CartPage({
         </div>
       </div>
 
-      <div className="container" style={{ padding: '36px 24px 80px' }}>
-        {/* Free Shipping Banner */}
-        {cartItems.length > 0 && (
-          <div className="cart-freeship-banner">
-            <div className="freeship-info">
-              <Truck size={20} color="var(--primary)" />
-              <span>
-                {remainingForFreeShip === 0 ? (
-                  <strong style={{ color: 'var(--primary)' }}>
-                    🎉 Tuyệt vời! Đơn hàng của bạn đã đủ điều kiện MIỄN PHÍ VẬN CHUYỂN toàn quốc!
-                  </strong>
-                ) : (
-                  <span>
-                    Mua thêm <strong>{formatPrice(remainingForFreeShip)}</strong> để nhận ưu đãi <strong>Miễn Phí Giao Hàng</strong>!
-                  </span>
-                )}
-              </span>
-              <span className="freeship-percent">{progressPercent}%</span>
-            </div>
-            <div className="freeship-progress-track">
-              <div className="freeship-progress-bar" style={{ width: `${progressPercent}%` }} />
-            </div>
-          </div>
-        )}
-
+      <div className="container" style={{ padding: "32px 24px 80px" }}>
         {cartItems.length === 0 ? (
-          /* Empty Cart State */
-          <div className="cart-empty-box">
-            <div className="cart-empty-icon">
-              <ShoppingBag size={56} />
-            </div>
-            <h2>Giỏ hàng của bạn đang trống</h2>
-            <p>
-              Góc ban công hay bàn làm việc của bạn vẫn đang chờ một chậu sen đá đáng yêu đấy! Hãy ghé thăm vườn cây của Sen Xinh Garden để chọn ngay nhé.
+          <div className="cx-empty">
+            <div className="cx-empty-icon"><ShoppingBag size={48} /></div>
+            <h2 style={{ fontSize: "1.5rem", marginBottom: "12px" }}>Giỏ hàng đang trống</h2>
+            <p style={{ color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.65 }}>
+              Góc ban công hay bàn làm việc của bạn vẫn đang chờ một chậu sen đá đáng yêu! Hãy ghé thăm vườn cây Sen Xinh Garden để chọn ngay nhé.
             </p>
-            <button className="btn-primary" onClick={onNavigateShop} style={{ padding: '14px 32px', fontSize: '1rem', marginTop: '12px' }}>
-              <span>Khám Phá Cửa Hàng Ngay</span>
-              <ArrowRight size={18} />
+            <button className="btn-primary" onClick={onNavigateShop} style={{ padding: "14px 32px", fontSize: "1rem" }}>
+              <span>Khám Phá Cửa Hàng</span><ArrowRight size={18} />
             </button>
           </div>
         ) : (
-          /* Cart Content Layout: 2 Columns */
-          <div className="cart-layout">
-            {/* Left Column: Items List */}
-            <div className="cart-items-column">
-              <div className="cart-table-header">
-                <span style={{ flex: 3 }}>Sản Phẩm</span>
-                <span style={{ flex: 1.2, textAlign: 'center' }}>Đơn Giá</span>
-                <span style={{ flex: 1.5, textAlign: 'center' }}>Số Lượng</span>
-                <span style={{ flex: 1.2, textAlign: 'right' }}>Tạm Tính</span>
-                <span style={{ width: '40px' }}></span>
+          <>
+            <div className="cx-freeship">
+              <div className="cx-freeship-top">
+                <span className="cx-freeship-label">
+                  <Truck size={18} color="var(--primary)" />
+                  {remainingForFreeShip === 0
+                    ? <span><strong>Tuyệt vời!</strong> Đơn hàng đủ điều kiện <strong>Miễn Phí Vận Chuyển</strong> toàn quốc!</span>
+                    : <span>Mua thêm <strong style={{ color: "var(--primary)" }}>{formatPrice(remainingForFreeShip)}</strong> để nhận <strong>Miễn Phí Giao Hàng</strong>!</span>
+                  }
+                </span>
+                <span className="cx-freeship-pct">{progressPercent}%</span>
               </div>
+              <div className="cx-freeship-bar">
+                <div className="cx-freeship-fill" style={{ width: `${progressPercent}%` }} />
+              </div>
+            </div>
 
-              <div className="cart-items-list">
-                {cartItems.map((item) => {
-                  const isUnavailable = item.available === false || item.status === 'DELETED' || item.status === 'INACTIVE';
-                  const isOutOfStock = !isUnavailable && item.inStock !== undefined && item.inStock <= 0;
-                  const isLowStock = !isUnavailable && item.inStock !== undefined && item.inStock > 0 && item.inStock <= 5;
-                  const maxAllowed = item.inStock !== undefined ? item.inStock : 999;
-                  const isMaxReached = item.quantity >= maxAllowed;
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="cart-item-row"
-                      style={
-                        isUnavailable
-                          ? { opacity: 0.85, background: '#FFF5F5', borderColor: '#FCA5A5' }
-                          : isOutOfStock
-                          ? { opacity: 0.75, background: '#FFF8F8', borderColor: '#FECACA' }
-                          : {}
-                      }
-                    >
-                      {/* Item info */}
-                      <div className="cart-item-info" onClick={() => !isUnavailable && onOpenProductDetail && onOpenProductDetail(item.id)}>
-                        <img src={item.image} alt={item.name} className="cart-item-thumb" />
-                        <div>
-                          <h3 className="cart-item-name">{item.name}</h3>
-                          {item.scientificName && (
-                            <p className="cart-item-latin">{item.scientificName}</p>
-                          )}
-                          <div className="cart-item-price-mobile">
-                            <span>{formatPrice(item.price)}</span>
-                            {item.originalPrice > item.price && (
-                              <del style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginLeft: '6px' }}>
-                                {formatPrice(item.originalPrice)}
-                              </del>
+            <div className="cx-layout">
+              <div className="cx-items-col">
+                <div className="cx-items-head">
+                  <span>Sản Phẩm</span>
+                  <span>Đơn Giá</span>
+                  <span>Số Lượng</span>
+                  <span>Tạm Tính</span>
+                  <span />
+                </div>
+                <div className="cx-items-list">
+                  {cartItems.map((item, idx) => {
+                    const isUnavailable = item.available === false || item.status === "DELETED" || item.status === "INACTIVE";
+                    const isOutOfStock = !isUnavailable && item.inStock !== undefined && item.inStock <= 0;
+                    const isLowStock = !isUnavailable && item.inStock !== undefined && item.inStock > 0 && item.inStock <= 5;
+                    const maxAllowed = item.inStock !== undefined ? item.inStock : 999;
+                    const isMaxReached = item.quantity >= maxAllowed;
+                    return (
+                      <div key={item.id}
+                        className={`cx-item${isUnavailable ? " unavailable" : isOutOfStock ? " outofstock" : ""}`}
+                        style={{ animationDelay: `${idx * 0.05}s` }}>
+                        <div className="cx-item-info"
+                          onClick={() => !isUnavailable && onOpenProductDetail && onOpenProductDetail(item.id)}>
+                          <img src={item.image} alt={item.name} className="cx-item-img" />
+                          <div style={{ minWidth: 0 }}>
+                            <div className="cx-item-name">{item.name}</div>
+                            {item.scientificName && <div className="cx-item-latin">{item.scientificName}</div>}
+                            <div className="cx-item-price-mobile">{formatPrice(item.price)}</div>
+                            {isUnavailable ? (
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px", flexWrap: "wrap" }}>
+                                <span className="cx-item-status-badge error">
+                                  <AlertTriangle size={12} /> {item.message || "Sản phẩm không còn kinh doanh"}
+                                </span>
+                                <button type="button"
+                                  onClick={(e) => { e.stopPropagation(); onRemoveItem && onRemoveItem(item.id); }}
+                                  style={{ fontSize: "0.76rem", color: "#DC2626", background: "transparent", border: "none", textDecoration: "underline", cursor: "pointer", fontWeight: 600 }}>
+                                  [Xóa]
+                                </button>
+                              </div>
+                            ) : item.inStock !== undefined && (
+                              <div style={{ marginTop: "3px" }}>
+                                {isOutOfStock && <span className="cx-item-status-badge error"><AlertTriangle size={12} /> Tạm hết hàng</span>}
+                                {isLowStock && <span className="cx-item-status-badge warn">Chỉ còn {item.inStock} cây</span>}
+                                {!isOutOfStock && !isLowStock && <span className="cx-item-status-badge info">Kho còn {item.inStock} cây</span>}
+                              </div>
                             )}
                           </div>
-
-                          {/* Live stock & availability indicator */}
-                          {isUnavailable ? (
-                            <div style={{ marginTop: '6px' }}>
-                              <span style={{ fontSize: '0.78rem', color: '#B91C1C', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FEE2E2', padding: '3px 8px', borderRadius: '4px', border: '1px solid #FCA5A5' }}>
-                                <AlertTriangle size={13} /> {item.message || 'Sản phẩm không còn được bán'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onRemoveItem && onRemoveItem(item.id);
-                                }}
-                                style={{
-                                  display: 'inline-block',
-                                  marginLeft: '8px',
-                                  fontSize: '0.78rem',
-                                  color: '#DC2626',
-                                  background: 'transparent',
-                                  border: 'none',
-                                  textDecoration: 'underline',
-                                  cursor: 'pointer',
-                                  fontWeight: 600
-                                }}
-                              >
-                                [Xóa khỏi giỏ hàng]
-                              </button>
-                            </div>
-                          ) : item.inStock !== undefined && (
-                            <div style={{ marginTop: '4px' }}>
-                              {isOutOfStock ? (
-                                <span style={{ fontSize: '0.78rem', color: '#DC2626', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                  <AlertTriangle size={12} /> Tạm hết hàng trong kho
-                                </span>
-                              ) : isLowStock ? (
-                                <span style={{ fontSize: '0.78rem', color: '#D97706', fontWeight: 600 }}>
-                                  Chỉ còn {item.inStock} cây trong kho
-                                </span>
-                              ) : (
-                                <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
-                                  Kho còn {item.inStock} cây
-                                </span>
-                              )}
-                            </div>
-                          )}
                         </div>
-                      </div>
-
-                      {/* Unit price */}
-                      <div className="cart-item-unit-price">
-                        <div>{formatPrice(item.price)}</div>
-                        {item.originalPrice > item.price && (
-                          <del style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: 400 }}>
-                            {formatPrice(item.originalPrice)}
-                          </del>
-                        )}
-                      </div>
-
-                      {/* Qty control */}
-                      <div className="cart-item-qty-wrap" style={{ flexDirection: 'column', alignItems: 'center' }}>
-                        <div className="qty-control">
-                          <button
-                            className="qty-btn"
-                            onClick={() => onUpdateQty && onUpdateQty(item.id, item.quantity - 1)}
-                            disabled={item.quantity <= 1 || isOutOfStock || isUnavailable}
-                            title="Giảm số lượng"
-                            aria-label="Giảm"
-                          >
-                            <Minus size={14} />
-                          </button>
-                          <span className="qty-value">{item.quantity}</span>
-                          <button
-                            className="qty-btn"
-                            onClick={() => onUpdateQty && onUpdateQty(item.id, item.quantity + 1)}
-                            disabled={isMaxReached || isOutOfStock || isUnavailable}
-                            title={isMaxReached ? `Đã đạt giới hạn tối đa có trong kho (${maxAllowed} cây)` : 'Tăng số lượng'}
-                            aria-label="Tăng"
-                          >
-                            <Plus size={14} />
-                          </button>
+                        <div className="cx-item-unit">
+                          {formatPrice(item.price)}
+                          {item.originalPrice > item.price && <del>{formatPrice(item.originalPrice)}</del>}
                         </div>
-                        {isMaxReached && !isOutOfStock && (
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: '4px' }}>
-                            Tối đa trong kho
-                          </span>
-                        )}
+                        <div className="cx-qty-wrap">
+                          <div className="cx-qty-control">
+                            <button className="cx-qty-btn"
+                              onClick={() => onUpdateQty && onUpdateQty(item.id, item.quantity - 1)}
+                              disabled={item.quantity <= 1 || isOutOfStock || isUnavailable} aria-label="Giảm">
+                              <Minus size={14} />
+                            </button>
+                            <span className="cx-qty-val">{item.quantity}</span>
+                            <button className="cx-qty-btn"
+                              onClick={() => onUpdateQty && onUpdateQty(item.id, item.quantity + 1)}
+                              disabled={isMaxReached || isOutOfStock || isUnavailable}
+                              title={isMaxReached ? `Tối đa ${maxAllowed} cây` : "Tăng"} aria-label="Tăng">
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                          {isMaxReached && !isOutOfStock && <span className="cx-qty-max">Tối đa kho</span>}
+                        </div>
+                        <div className="cx-item-total">{formatPrice(item.price * item.quantity)}</div>
+                        <button className="cx-item-remove"
+                          onClick={() => onRemoveItem && onRemoveItem(item.id)}
+                          title="Xóa khỏi giỏ hàng" aria-label="Xóa">
+                          <Trash2 size={17} />
+                        </button>
                       </div>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: "20px" }}>
+                  <button className="btn-secondary" onClick={onNavigateShop} style={{ padding: "10px 20px", fontSize: "0.9rem" }}>
+                    <ArrowLeft size={16} /><span>Tiếp Tục Chọn Cây Khác</span>
+                  </button>
+                </div>
+              </div>
 
-                      {/* Line total */}
-                      <div className="cart-item-line-total">
-                        {formatPrice(item.price * item.quantity)}
-                      </div>
-
-                      {/* Delete button */}
-                      <button
-                        className="cart-item-remove-btn"
-                        onClick={() => onRemoveItem && onRemoveItem(item.id)}
-                        title="Xóa khỏi giỏ hàng"
-                        aria-label="Xóa"
-                      >
-                        <Trash2 size={18} />
+              <div className="cx-summary-col">
+                <div className="cx-summary-card">
+                  <div className="cx-summary-title">Tóm Tắt Đơn Hàng</div>
+                  <form onSubmit={handleApplyCouponSubmit} className="cx-coupon-form">
+                    <div className="cx-coupon-row">
+                      <Tag size={16} className="cx-coupon-icon" />
+                      <input type="text" className="cx-coupon-input" placeholder="Nhập mã ưu đãi..."
+                        value={couponInput}
+                        onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(""); }}
+                        disabled={couponLoading} />
+                      <button type="submit" className="cx-coupon-btn" disabled={couponLoading}>
+                        {couponLoading ? <Loader2 size={14} className="animate-spin" /> : "Áp Dụng"}
                       </button>
                     </div>
-                  );
-                })}
-              </div>
-
-              {/* Back to shop link */}
-              <div style={{ marginTop: '24px' }}>
-                <button className="btn-secondary" onClick={onNavigateShop} style={{ padding: '10px 20px', fontSize: '0.9rem' }}>
-                  <ArrowLeft size={16} />
-                  <span>Tiếp Tục Chọn Cây Khác</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Right Column: Order Summary Card */}
-            <div className="cart-summary-column">
-              <div className="cart-summary-card">
-                <h3 className="summary-title">Tóm Tắt Đơn Hàng</h3>
-
-                {/* Coupon Box */}
-                <form onSubmit={handleApplyCouponSubmit} className="coupon-form">
-                  <div className="coupon-input-wrap">
-                    <Tag size={16} color="var(--text-muted)" />
-                    <input
-                      type="text"
-                      placeholder="Nhập mã ưu đãi (SENXANH10)..."
-                      value={couponInput}
-                      onChange={(e) => {
-                        setCouponInput(e.target.value.toUpperCase());
-                        setCouponError('');
-                      }}
-                      disabled={couponLoading}
-                    />
-                    <button type="submit" className="coupon-apply-btn" disabled={couponLoading}>
-                      {couponLoading ? <Loader2 size={14} className="spin" /> : 'Áp Dụng'}
-                    </button>
-                  </div>
-
-                  {couponError && <p className="coupon-msg-error">{couponError}</p>}
-                  {couponSuccess && (
-                    <p className="coupon-msg-success">
-                      <Check size={14} /> Đã áp dụng mã ưu đãi thành công!
-                    </p>
-                  )}
-
-                  {discountCode && (
-                    <div className="coupon-applied-pill" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span>Mã đang dùng: <strong>{discountCode}</strong> (-{discountPercent}%)</span>
-                      {onRemoveCoupon && (
-                        <button
-                          type="button"
-                          onClick={onRemoveCoupon}
-                          style={{ background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '2px' }}
-                          title="Gỡ mã ưu đãi"
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
+                    {couponError && <p className="cx-coupon-msg-error">{couponError}</p>}
+                    {couponSuccess && <p className="cx-coupon-msg-ok"><Check size={14} /> Đã áp dụng mã thành công!</p>}
+                    {discountCode && (
+                      <div className="cx-coupon-applied">
+                        <span>Mã: <strong>{discountCode}</strong> (-{discountPercent}%)</span>
+                        {onRemoveCoupon && (
+                          <button type="button" className="cx-coupon-remove" onClick={onRemoveCoupon}><X size={15} /></button>
+                        )}
+                      </div>
+                    )}
+                  </form>
+                  <div className="cx-summary-rows">
+                    <div className="cx-summary-row">
+                      <span>Tổng tiền hàng:</span><span>{formatPrice(subtotal)}</span>
                     </div>
-                  )}
-                </form>
-
-                {/* Summary rows */}
-                <div className="summary-rows">
-                  <div className="summary-row">
-                    <span>Tổng tiền hàng:</span>
-                    <span>{formatPrice(subtotal)}</span>
-                  </div>
-
-                  {discountAmount > 0 && (
-                    <div className="summary-row discount">
-                      <span>Giảm giá voucher ({discountPercent}%):</span>
-                      <span>-{formatPrice(discountAmount)}</span>
+                    {discountAmount > 0 && (
+                      <div className="cx-summary-row discount">
+                        <span>Giảm giá ({discountPercent}%):</span><span>-{formatPrice(discountAmount)}</span>
+                      </div>
+                    )}
+                    <div className="cx-summary-row">
+                      <span>Phí vận chuyển:</span>
+                      <span>{isFreeShipping ? <strong style={{ color: "var(--primary)" }}>Miễn Phí</strong> : formatPrice(shippingFee)}</span>
                     </div>
-                  )}
-
-                  <div className="summary-row">
-                    <span>Phí vận chuyển:</span>
-                    <span>
-                      {isFreeShipping ? (
-                        <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Miễn Phí</span>
-                      ) : (
-                        formatPrice(shippingFee)
-                      )}
-                    </span>
                   </div>
-
-                  <div className="summary-divider" />
-
-                  <div className="summary-row total">
+                  <div className="cx-summary-sep" style={{ margin: "14px 0" }} />
+                  <div className="cx-summary-total">
                     <span>Tổng thanh toán:</span>
-                    <span className="summary-total-price">{formatPrice(total)}</span>
+                    <span className="cx-summary-total-price">{formatPrice(total)}</span>
                   </div>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '4px', textAlign: 'right' }}>
-                    (Đã bao gồm thuế GTGT nếu có)
-                  </p>
-                </div>
-
-                {/* Warning if any item is unavailable */}
-                {hasUnavailableItem && (
-                  <div style={{ marginTop: '16px', padding: '10px 14px', background: '#FEE2E2', border: '1px solid #F87171', borderRadius: 'var(--radius-sm)', color: '#991B1B', fontSize: '0.85rem', lineHeight: 1.4 }}>
-                    <AlertTriangle size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} />
-                    Trong giỏ có sản phẩm không còn kinh doanh. Vui lòng xóa khỏi giỏ trước khi thanh toán.
-                  </div>
-                )}
-
-                {/* Warning if any item is out of stock */}
-                {!hasUnavailableItem && hasOutOfStockItem && (
-                  <div style={{ marginTop: '16px', padding: '10px 14px', background: '#FEE2E2', border: '1px solid #F87171', borderRadius: 'var(--radius-sm)', color: '#991B1B', fontSize: '0.85rem' }}>
-                    <AlertTriangle size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} />
-                    Có sản phẩm trong giỏ đã hết hàng. Vui lòng xóa trước khi thanh toán.
-                  </div>
-                )}
-
-                {/* Checkout button */}
-                <button
-                  className="btn-primary"
-                  onClick={onNavigateCheckout}
-                  disabled={hasUnavailableItem || hasOutOfStockItem || cartItems.length === 0}
-                  style={{
-                    width: '100%',
-                    padding: '16px 20px',
-                    fontSize: '1.05rem',
-                    fontWeight: 700,
-                    marginTop: '20px',
-                    opacity: (hasUnavailableItem || hasOutOfStockItem) ? 0.6 : 1,
-                    cursor: (hasUnavailableItem || hasOutOfStockItem) ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  <span>Tiến Hành Đặt Hàng & Thanh Toán</span>
-                  <ArrowRight size={18} />
-                </button>
-
-                {/* Trust Badges */}
-                <div className="cart-trust-badges">
-                  <div className="trust-item">
-                    <ShieldCheck size={18} color="var(--primary)" />
-                    <span>Bảo hành hoàn tiền 100% nếu cây bị gãy hỏng</span>
-                  </div>
-                  <div className="trust-item">
-                    <Truck size={18} color="var(--primary)" />
-                    <span>Đóng gói chuyên dụng giữ ẩm và bảo vệ bầu đất</span>
+                  <p className="cx-vat-note">(Đã bao gồm thuế GTGT nếu có)</p>
+                  {hasUnavailableItem && (
+                    <div className="cx-warning-box danger">
+                      <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+                      <span>Có sản phẩm không còn kinh doanh. Xóa trước khi thanh toán.</span>
+                    </div>
+                  )}
+                  {!hasUnavailableItem && hasOutOfStockItem && (
+                    <div className="cx-warning-box warn">
+                      <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+                      <span>Có sản phẩm hết hàng. Xóa trước khi thanh toán.</span>
+                    </div>
+                  )}
+                  <button className="btn-primary" onClick={onNavigateCheckout}
+                    disabled={hasUnavailableItem || hasOutOfStockItem || cartItems.length === 0}
+                    style={{ width: "100%", padding: "16px 20px", fontSize: "1rem", fontWeight: 700, marginTop: "20px",
+                      opacity: (hasUnavailableItem || hasOutOfStockItem) ? 0.6 : 1,
+                      cursor: (hasUnavailableItem || hasOutOfStockItem) ? "not-allowed" : "pointer" }}>
+                    <span>Tiến Hành Đặt Hàng</span><ArrowRight size={18} />
+                  </button>
+                  <div className="cx-trust">
+                    <div className="cx-trust-item">
+                      <div className="cx-trust-icon"><ShieldCheck size={16} /></div>
+                      <span>Bảo hành hoàn tiền 100% nếu cây bị gãy hỏng</span>
+                    </div>
+                    <div className="cx-trust-item">
+                      <div className="cx-trust-icon"><Truck size={16} /></div>
+                      <span>Đóng gói chuyên dụng giữ ẩm bảo vệ bầu đất</span>
+                    </div>
+                    <div className="cx-trust-item">
+                      <div className="cx-trust-icon"><Leaf size={16} /></div>
+                      <span>Giao hàng toàn quốc 2-5 ngày làm việc</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>

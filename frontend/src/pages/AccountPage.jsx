@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   User, 
   Mail, 
@@ -66,6 +66,7 @@ export default function AccountPage({
   onUpdateUser
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(location.state?.tab || initialTab || 'profile');
   // Notification Modal
   const { modalProps, showModal } = useModal();
@@ -801,9 +802,22 @@ export default function AccountPage({
                                   'Tiền mặt khi nhận (COD)'
                                 }</strong>
                               </span>
-                              <div style={{ textAlign: 'right' }}>
-                                <span style={{ fontSize: '0.82rem', color: 'var(--text-light)', display: 'block' }}>Tổng thanh toán</span>
-                                <span style={{ color: 'var(--primary)', fontSize: '1.15rem' }}>{formatPrice(order.totalAmount)}</span>
+                              <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                {order.status === 'PENDING' && order.paymentMethod !== 'cod' && (
+                                  <button
+                                    className="btn-primary"
+                                    onClick={() => navigate(`/order-success/${order.orderCode || order.id}`)}
+                                    style={{ padding: '6px 14px', fontSize: '0.82rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                    title="Quét mã QR để hoàn tất thanh toán"
+                                  >
+                                    <span>Thanh Toán Ngay</span>
+                                    <ArrowRight size={14} />
+                                  </button>
+                                )}
+                                <div>
+                                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)', display: 'block' }}>Tổng thanh toán</span>
+                                  <span style={{ color: 'var(--primary)', fontSize: '1.15rem' }}>{formatPrice(order.totalAmount)}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
