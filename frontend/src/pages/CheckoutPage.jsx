@@ -410,24 +410,6 @@ export default function CheckoutPage({
         </div>
 
         <div className="pay-container">
-          {/* Step indicator */}
-          <div className="chk-steps" style={{ marginBottom: '28px', padding: 0 }}>
-            <div className="chk-step done">
-              <div className="chk-step-circle"><Check size={16} /></div>
-              <span className="chk-step-label">Thông tin</span>
-            </div>
-            <div className="chk-step-line done" />
-            <div className="chk-step done">
-              <div className="chk-step-circle"><Check size={16} /></div>
-              <span className="chk-step-label">Thanh toán</span>
-            </div>
-            <div className="chk-step-line done" />
-            <div className="chk-step active">
-              <div className="chk-step-circle">3</div>
-              <span className="chk-step-label">Xác nhận</span>
-            </div>
-          </div>
-
           {/* Header Card */}
           <div className="pay-header-card">
             <div className={`pay-icon-ring ${isPaid ? 'paid' : ''}`}>
@@ -441,7 +423,7 @@ export default function CheckoutPage({
               {isPaid ? 'Đơn Hàng Đã Được Thanh Toán!' : 'Đặt Hàng Thành Công!'}
             </h1>
             <p className="pay-desc">
-              Nhà vườn Sen Xinh Garden đã tiếp nhận đơn hàng <strong>#{currentCode}</strong> và đang tiến hành chọn lọc những cây sen đá tươi khỏe nhất để đóng gói giao đến bạn.
+              Nhà vườn Sen Xinh Garden đã tiếp nhận đơn <strong>#{currentCode}</strong> và đang chuẩn bị những cây sen đá tươi khỏe nhất để giao đến bạn.
             </p>
 
             {/* Info strip */}
@@ -457,7 +439,7 @@ export default function CheckoutPage({
               <div className="pay-info-item">
                 <div className="pay-info-label">Hình thức</div>
                 <div className="pay-info-val">
-                  {isMoMo ? 'Cổng MoMo (Ví & QR)' : isVietQr ? 'Chuyển Khoản VietQR' : 'Tiền Mặt (COD)'}
+                  {isMoMo ? 'MoMo / VietQR' : isVietQr ? 'Chuyển Khoản VietQR' : 'Tiền Mặt (COD)'}
                 </div>
               </div>
               <div className="pay-info-item">
@@ -484,11 +466,11 @@ export default function CheckoutPage({
               </div>
               <h2>Giao Dịch Đã Được Xác Nhận Thành Công!</h2>
               <p>
-                Hệ thống Sen Xinh Garden đã tự động ghi nhận số tiền <strong>{formatPrice(finalTotalAmount)}</strong>. Đơn hàng <strong>#{currentCode}</strong> đã được chuyển sang trạng thái <strong>ĐÃ THANH TOÁN (PAID)</strong>.
+                Hệ thống đã ghi nhận <strong>{formatPrice(finalTotalAmount)}</strong>. Đơn <strong>#{currentCode}</strong> đã chuyển sang <strong>ĐÃ THANH TOÁN</strong>.
               </p>
               <div className="pay-ipn-note">
                 <Sparkles size={16} color="#10B981" />
-                <span>Hệ thống Webhook IPN tự động xác nhận • Quý khách không cần gửi biên lai</span>
+                <span>Webhook IPN tự động xác nhận — không cần gửi biên lai</span>
               </div>
             </div>
           )}
@@ -502,14 +484,14 @@ export default function CheckoutPage({
                     <Smartphone size={22} />
                   </div>
                   <div>
-                    <div className="pay-qr-brand-name">Cổng Thanh Toán MoMo</div>
-                    <div className="pay-qr-brand-sub">Quét bằng App MoMo hoặc bất kỳ App Ngân Hàng nào hỗ trợ VietQR</div>
+                    <div className="pay-qr-brand-name">Thanh Toán MoMo</div>
+                    <div className="pay-qr-brand-sub">Quét bằng App MoMo hoặc App Ngân Hàng hỗ trợ VietQR</div>
                   </div>
                 </div>
 
                 <div className="pay-status-pill waiting">
                   <span className="pay-pulse" />
-                  <span>Tự động phát hiện thanh toán...</span>
+                  <span>Đang chờ thanh toán...</span>
                 </div>
               </div>
 
@@ -526,11 +508,6 @@ export default function CheckoutPage({
                 </div>
 
                 <div className="pay-qr-info">
-                  <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Cổng thanh toán</div>
-                    <div className="pay-qr-row-val momo-color">MoMo Payment Gateway v2</div>
-                  </div>
-
                   <div className="pay-qr-row">
                     <div className="pay-qr-row-label">Đơn vị thụ hưởng</div>
                     <div className="pay-qr-row-val">Nhà Vườn Sen Xinh Garden</div>
@@ -577,36 +554,30 @@ export default function CheckoutPage({
                       style={{
                         width: '100%',
                         padding: '12px 18px',
-                        fontSize: '0.96rem',
+                        fontSize: '0.95rem',
                         fontWeight: 700,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '8px',
-                        borderRadius: 'var(--radius-md)',
                         background: '#A50064',
                         borderColor: '#A50064'
                       }}
                     >
                       {isCheckingPayment ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                      <span>{isCheckingPayment ? 'Đang kiểm tra MoMo...' : 'Tôi Đã Quét MoMo Xong - Kiểm Tra Ngay'}</span>
+                      <span>{isCheckingPayment ? 'Đang kiểm tra...' : 'Đã Thanh Toán Xong — Kiểm Tra Ngay'}</span>
                     </button>
 
                     {canShowPaymentSimulation && (
-                      <div className="pay-sandbox-box" style={{ marginTop: 0 }}>
-                        <button 
-                          type="button" 
-                          className="pay-sandbox-btn momo-sim" 
-                          onClick={handleSimulateMoMo}
-                          disabled={isSimulating}
-                        >
-                          {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                          <span>{isSimulating ? 'Đang gửi Webhook...' : '⚡ Test Sandbox: Mô phỏng quét MoMo thành công'}</span>
-                        </button>
-                        <div className="pay-sandbox-hint">
-                          💡 Webhook IPN kết nối trực tiếp: Sau khi thanh toán thành công, hệ thống tự động đổi sang trạng thái PAID.
-                        </div>
-                      </div>
+                      <button 
+                        type="button" 
+                        className="pay-sandbox-btn momo-sim" 
+                        onClick={handleSimulateMoMo}
+                        disabled={isSimulating}
+                      >
+                        {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                        <span>{isSimulating ? 'Đang xử lý...' : '⚡ [Dev] Mô phỏng MoMo thành công'}</span>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -623,14 +594,14 @@ export default function CheckoutPage({
                     <QrCode size={22} />
                   </div>
                   <div>
-                    <div className="pay-qr-brand-name">Chuyển Khoản Ngân Hàng VietQR 24/7</div>
-                    <div className="pay-qr-brand-sub">Hỗ trợ 40+ ngân hàng (MBBank, Vietcombank, Techcombank, VPBank...)</div>
+                    <div className="pay-qr-brand-name">Chuyển Khoản VietQR</div>
+                    <div className="pay-qr-brand-sub">Hỗ trợ 40+ ngân hàng • Tự động xác nhận qua SePay</div>
                   </div>
                 </div>
 
                 <div className="pay-status-pill waiting">
                   <span className="pay-pulse" />
-                  <span>Tự động nhận diện giao dịch SePay...</span>
+                  <span>Đang chờ giao dịch...</span>
                 </div>
               </div>
 
@@ -639,7 +610,7 @@ export default function CheckoutPage({
                   <div className="pay-qr-frame vqr-border">
                     <img src={vietQrUrl} alt="Mã VietQR Chuyển Khoản" className="pay-qr-img" />
                   </div>
-                  <div className="pay-qr-caption">Quét bằng App Ngân Hàng tự động điền số tiền và mã đơn</div>
+                  <div className="pay-qr-caption">Quét bằng App Ngân Hàng — tự động điền số tiền & mã đơn</div>
                 </div>
 
                 <div className="pay-qr-info">
@@ -654,7 +625,7 @@ export default function CheckoutPage({
                   </div>
 
                   <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Số tài khoản ảo (VA SePay)</div>
+                    <div className="pay-qr-row-label">Số tài khoản</div>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                       <span className="pay-qr-row-val" style={{ fontSize: '1.2rem', color: 'var(--primary)' }}>
                         {activeBankInfo.accountNumber}
@@ -670,24 +641,6 @@ export default function CheckoutPage({
                       </button>
                     </div>
                   </div>
-
-                  {activeBankInfo.primaryAccountNumber && activeBankInfo.primaryAccountNumber !== activeBankInfo.accountNumber && (
-                    <div className="pay-qr-row">
-                      <div className="pay-qr-row-label">Số tài khoản MBBank gốc</div>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <span className="pay-qr-row-val">{activeBankInfo.primaryAccountNumber}</span>
-                        <button 
-                          type="button" 
-                          className="pay-copy-btn"
-                          onClick={() => handleCopyAccount(activeBankInfo.primaryAccountNumber)}
-                          title="Sao chép số tài khoản MBBank"
-                        >
-                          <Copy size={13} />
-                          <span>Sao chép</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
                   <div className="pay-qr-row">
                     <div className="pay-qr-row-label">Số tiền cần chuyển</div>
@@ -718,36 +671,28 @@ export default function CheckoutPage({
                       style={{
                         width: '100%',
                         padding: '12px 18px',
-                        fontSize: '0.96rem',
+                        fontSize: '0.95rem',
                         fontWeight: 700,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '8px',
-                        borderRadius: 'var(--radius-md)',
-                        boxShadow: 'var(--shadow-sm)'
+                        gap: '8px'
                       }}
                     >
                       {isCheckingPayment ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                      <span>{isCheckingPayment ? 'Đang kiểm tra giao dịch...' : 'Tôi Đã Chuyển Khoản Xong - Kiểm Tra Ngay'}</span>
+                      <span>{isCheckingPayment ? 'Đang kiểm tra...' : 'Đã Chuyển Khoản Xong — Kiểm Tra Ngay'}</span>
                     </button>
 
                     {canShowPaymentSimulation && (
-                      <div className="pay-sandbox-box" style={{ marginTop: 0 }}>
-                        <button 
-                          type="button" 
-                          className="pay-sandbox-btn vqr-sim" 
-                          onClick={handleSimulateBankTransfer}
-                          disabled={isSimulating}
-                          title="Bấm để mô phỏng Webhook SePay bắt giao dịch và tự động duyệt đơn PAID"
-                        >
-                          {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                          <span>{isSimulating ? 'Đang gửi Webhook...' : '⚡ [Test Sandbox] Mô phỏng SePay xác nhận nhận tiền thành công'}</span>
-                        </button>
-                        <div className="pay-sandbox-hint">
-                          💡 <strong>Lưu ý kiểm thử:</strong> Khi chạy trên Localhost, hệ thống SePay trên internet không thể gửi Webhook trực tiếp vào máy tính cục bộ nếu chưa có public domain (ngrok/tunnel). Hãy bấm nút <strong>Test Sandbox</strong> ở trên để trải nghiệm ngay quy trình tự động cập nhật đơn hàng sang ĐÃ THANH TOÁN!
-                        </div>
-                      </div>
+                      <button 
+                        type="button" 
+                        className="pay-sandbox-btn vqr-sim" 
+                        onClick={handleSimulateBankTransfer}
+                        disabled={isSimulating}
+                      >
+                        {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+                        <span>{isSimulating ? 'Đang xử lý...' : '⚡ [Dev] Mô phỏng SePay xác nhận chuyển khoản'}</span>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -788,13 +733,13 @@ export default function CheckoutPage({
           <div className="pay-actions">
             <button className="btn-primary" onClick={onNavigateShop}>
               <ShoppingBag size={18} />
-              <span>Tiếp Tục Khám Phá Cửa Hàng</span>
+              <span>Tiếp Tục Mua Sắm</span>
             </button>
 
             {isAdmin ? (
               <button className="btn-secondary" onClick={onNavigateAdmin}>
                 <ShieldCheck size={18} color="var(--primary)" />
-                <span>Xem Đơn Trên Trang Quản Trị</span>
+                <span>Xem Trang Quản Trị</span>
               </button>
             ) : (
               <button
@@ -890,7 +835,7 @@ export default function CheckoutPage({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Sparkles size={18} color="var(--primary)" />
                   <span>
-                    <strong>Mua ngay không cần tài khoản!</strong> Hoặc đăng nhập để tự động điền và tích lũy điểm Mầm Xanh.
+                    <strong>Mua ngay không cần tài khoản!</strong> Hoặc đăng nhập để tự động điền thông tin.
                   </span>
                 </div>
                 <button
@@ -1009,13 +954,13 @@ export default function CheckoutPage({
                   </div>
                   <div className="chk-pay-body">
                     <div className="chk-pay-name">
-                      <span>Cổng Thanh Toán MoMo (Ví MoMo & VietQR MoMo)</span>
+                      <span>Ví MoMo & VietQR MoMo</span>
                       <span className="chk-pay-badge" style={{ background: '#FFF0F6', color: '#D82D8B', border: '1px solid #FBCFE8' }}>
-                        Khuyên Dùng • Tự Động
+                        Khuyên Dùng
                       </span>
                     </div>
                     <p className="chk-pay-desc">
-                      Quét bằng App MoMo hoặc 40+ App Ngân Hàng. Hệ thống nhận diện thanh toán tự động trong vài giây.
+                      Quét bằng App MoMo hoặc 40+ App Ngân Hàng. Xác nhận tự động trong vài giây.
                     </p>
                   </div>
                   <div className="chk-radio-dot" />
@@ -1035,10 +980,10 @@ export default function CheckoutPage({
                   </div>
                   <div className="chk-pay-body">
                     <div className="chk-pay-name">
-                      <span>Chuyển Khoản Ngân Hàng Qua Mã VietQR</span>
+                      <span>Chuyển Khoản Ngân Hàng (VietQR)</span>
                     </div>
                     <p className="chk-pay-desc">
-                      Quét mã QR 24/7 tự động điền số tiền và mã đơn. Tự động xác nhận biến động số dư qua SePay.
+                      Quét mã QR 24/7 — tự động điền số tiền và mã đơn, xác nhận ngay qua SePay.
                     </p>
                   </div>
                   <div className="chk-radio-dot" />
@@ -1061,7 +1006,7 @@ export default function CheckoutPage({
                       <span>Thanh Toán Khi Nhận Hàng (COD)</span>
                     </div>
                     <p className="chk-pay-desc">
-                      Nhận cây, kiểm tra bầu đất và sen đá tận nơi rồi thanh toán tiền mặt cho nhân viên giao hàng.
+                      Nhận cây, kiểm tra bầu đất tận nơi rồi mới thanh toán tiền mặt cho shipper.
                     </p>
                   </div>
                   <div className="chk-radio-dot" />
@@ -1111,7 +1056,7 @@ export default function CheckoutPage({
 
                 <div className="chk-price-row">
                   <span>Phí vận chuyển ({formData.city || 'Khu vực'}):</span>
-                  <span>{isFreeShipping ? <strong style={{ color: 'var(--primary)' }}>Miễn Phí (0₫)</strong> : formatPrice(shippingFee)}</span>
+                  <span>{isFreeShipping ? <strong style={{ color: 'var(--primary)' }}>Miễn Phí</strong> : formatPrice(shippingFee)}</span>
                 </div>
               </div>
 
@@ -1151,7 +1096,7 @@ export default function CheckoutPage({
               {/* Guarantee */}
               <div className="chk-guarantee">
                 <ShieldCheck size={20} color="var(--primary)" style={{ flexShrink: 0 }} />
-                <span>Bảo mật 100%. Được mở gói đồng kiểm tra cây trước khi nhận.</span>
+                <span>Bảo mật 100% — Được kiểm tra cây trước khi nhận hàng.</span>
               </div>
             </div>
           </div>
