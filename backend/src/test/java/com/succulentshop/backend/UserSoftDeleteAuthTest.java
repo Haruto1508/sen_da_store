@@ -67,13 +67,10 @@ public class UserSoftDeleteAuthTest {
 
         when(userRepository.findByEmail("user.active@gmail.com")).thenReturn(Optional.of(user));
 
-        Map<String, Object> result = authService.login("user.active@gmail.com", "secret123");
+        com.succulentshop.backend.dto.AuthResponse result = authService.login("user.active@gmail.com", "secret123");
         assertNotNull(result);
-        assertNotNull(result.get("user"));
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> userMap = (Map<String, Object>) result.get("user");
-        assertEquals("ACTIVE", userMap.get("status"));
+        assertNotNull(result.getUser());
+        assertEquals("ACTIVE", result.getUser().getStatus());
     }
 
     @Test
@@ -125,7 +122,7 @@ public class UserSoftDeleteAuthTest {
         when(userRepository.findById(20L)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenReturn(user);
 
-        ResponseEntity<ApiResult<Map<String, Object>>> response = adminController.deleteCustomer(20L);
+        ResponseEntity<ApiResult<com.succulentshop.backend.dto.UserResponse>> response = adminController.deleteCustomer(20L);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("DELETED", user.getStatus());
@@ -145,8 +142,8 @@ public class UserSoftDeleteAuthTest {
         when(userRepository.findById(21L)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenReturn(user);
 
-        ResponseEntity<ApiResult<Map<String, Object>>> response = adminController.updateCustomerStatus(
-            21L, Map.of("status", "BANNED")
+        ResponseEntity<ApiResult<com.succulentshop.backend.dto.UserResponse>> response = adminController.updateCustomerStatus(
+            21L, new com.succulentshop.backend.dto.UpdateUserStatusRequest("BANNED")
         );
 
         assertEquals(HttpStatus.OK, response.getStatusCode());

@@ -1,6 +1,7 @@
 package com.succulentshop.backend.controller;
 
 import com.succulentshop.backend.dto.ApiResult;
+import com.succulentshop.backend.dto.CancelOrderRequest;
 import com.succulentshop.backend.dto.CreateOrderRequest;
 import com.succulentshop.backend.dto.CreateOrderResponse;
 import com.succulentshop.backend.dto.OrderResponse;
@@ -10,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -56,9 +56,9 @@ public class OrderController {
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<ApiResult<OrderResponse>> cancelOrder(
             @PathVariable Long id,
-            @RequestBody(required = false) Map<String, String> body
+            @RequestBody(required = false) CancelOrderRequest body
     ) {
-        String reason = (body != null) ? body.get("reason") : null;
+        String reason = (body != null) ? body.getReason() : null;
         OrderResponse result = orderService.cancelOrder(id, reason);
         return ResponseEntity.ok(ApiResult.ok("Đã hủy đơn hàng thành công", result));
     }

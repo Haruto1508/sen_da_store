@@ -4,6 +4,18 @@ public class AuthResponse {
     private UserResponse user;
     private String token;
 
+    public AuthResponse() {}
+
+    public AuthResponse(String token, UserResponse user) {
+        this.token = token;
+        this.user = user;
+    }
+
+    public AuthResponse(UserResponse user, String token) {
+        this.user = user;
+        this.token = token;
+    }
+
     public UserResponse getUser() { return user; }
     public void setUser(UserResponse user) { this.user = user; }
 

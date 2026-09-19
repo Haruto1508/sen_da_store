@@ -3,9 +3,6 @@ package com.succulentshop.backend;
 import com.succulentshop.backend.controller.*;
 import com.succulentshop.backend.dto.*;
 import com.succulentshop.backend.entity.Coupon;
-import com.succulentshop.backend.entity.Order;
-import com.succulentshop.backend.entity.Product;
-import com.succulentshop.backend.entity.User;
 import com.succulentshop.backend.repository.CouponRepository;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.repository.ProductRepository;
@@ -16,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import java.time.LocalDateTime;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,71 +25,91 @@ class ControllerApiResultTest {
     @DisplayName("ProductController trả về ApiResult thành công")
     void testProductController() {
         ProductService productService = mock(ProductService.class);
+        ProductResponse p1 = new ProductResponse();
+        p1.setId("sen-1");
+        p1.setName("Sen Đá Kim Cương");
+
         when(productService.getFilteredProducts(any(), any(), any(), any(), any()))
-                .thenReturn(List.of(Map.of("id", "sen-1", "name", "Sen Đá Kim Cương")));
+                .thenReturn(List.of(p1));
         when(productService.getProductDetail("sen-1"))
-                .thenReturn(Map.of("id", "sen-1", "name", "Sen Đá Kim Cương"));
+                .thenReturn(p1);
 
         ProductController controller = new ProductController(productService);
 
-        ResponseEntity<ApiResult<List<Map<String, Object>>>> listResp = controller.getProducts(null, null, null, null, "featured");
+        ResponseEntity<ApiResult<List<ProductResponse>>> listResp = controller.getProducts(null, null, null, null, "featured");
         assertEquals(HttpStatus.OK, listResp.getStatusCode());
         assertNotNull(listResp.getBody());
         assertTrue(listResp.getBody().isSuccess());
         assertEquals(1, listResp.getBody().getData().size());
 
-        ResponseEntity<ApiResult<Map<String, Object>>> detailResp = controller.getProductById("sen-1");
+        ResponseEntity<ApiResult<ProductResponse>> detailResp = controller.getProductById("sen-1");
         assertEquals(HttpStatus.OK, detailResp.getStatusCode());
         assertNotNull(detailResp.getBody());
         assertTrue(detailResp.getBody().isSuccess());
-        assertEquals("Sen Đá Kim Cương", detailResp.getBody().getData().get("name"));
+        assertEquals("Sen Đá Kim Cương", detailResp.getBody().getData().getName());
     }
 
     @Test
     @DisplayName("OrderController trả về ApiResult thành công")
     void testOrderController() {
         OrderService orderService = mock(OrderService.class);
-        when(orderService.createOrder(any())).thenReturn(Map.of(
-                "order", Map.of("orderCode", "SX-12345", "totalAmount", 100000),
-                "vietQr", "https://api.vietqr.io/image"
-        ));
-        when(orderService.getOrderByCode("SX-12345")).thenReturn(Map.of("orderCode", "SX-12345"));
+        OrderResponse mockOrder = new OrderResponse();
+        mockOrder.setOrderCode("SX-12345");
+        mockOrder.setTotalAmount(100000);
+
+        CreateOrderResponse mockCreateResp = new CreateOrderResponse();
+        mockCreateResp.setOrder(mockOrder);
+        VietQrResponse qr = new VietQrResponse();
+        qr.setQrImageUrl("https://api.vietqr.io/image");
+        mockCreateResp.setVietQr(qr);
+
+        when(orderService.createOrder(any())).thenReturn(mockCreateResp);
+        when(orderService.getOrderByCode("SX-12345")).thenReturn(mockOrder);
 
         OrderController controller = new OrderController(orderService);
 
         CreateOrderRequest req = new CreateOrderRequest();
-        ResponseEntity<ApiResult<Map<String, Object>>> createResp = controller.createOrder(req);
+        ResponseEntity<ApiResult<CreateOrderResponse>> createResp = controller.createOrder(req);
         assertEquals(HttpStatus.CREATED, createResp.getStatusCode());
         assertNotNull(createResp.getBody());
         assertTrue(createResp.getBody().isSuccess());
-        assertNotNull(createResp.getBody().getData().get("order"));
-        assertNotNull(createResp.getBody().getData().get("vietQr"));
+        assertNotNull(createResp.getBody().getData().getOrder());
+        assertNotNull(createResp.getBody().getData().getVietQr());
 
-        ResponseEntity<ApiResult<Map<String, Object>>> getResp = controller.getOrderByCode("SX-12345");
+        ResponseEntity<ApiResult<OrderResponse>> getResp = controller.getOrderByCode("SX-12345");
         assertEquals(HttpStatus.OK, getResp.getStatusCode());
         assertTrue(getResp.getBody().isSuccess());
+        assertEquals("SX-12345", getResp.getBody().getData().getOrderCode());
     }
 
     @Test
     @DisplayName("CouponController trả về ApiResult với mã hợp lệ và không hợp lệ")
     void testCouponController() {
         CouponService couponService = mock(CouponService.class);
-        Coupon sampleCoupon = new Coupon("GIAM10", 10, true, "Giảm 10%");
-        when(couponService.validateCoupon("GIAM10")).thenReturn(Optional.of(sampleCoupon));
-        when(couponService.validateCoupon("INVALID")).thenReturn(Optional.empty());
+        CouponValidationResponse validSample = new CouponValidationResponse();
+        validSample.setValid(true);
+        validSample.setCode("GIAM10");
+        validSample.setDiscountPercent(10);
+        validSample.setDescription("Giảm 10%");
+
+        CouponValidationResponse invalidSample = new CouponValidationResponse();
+        invalidSample.setValid(false);
+
+        when(couponService.validateCouponResponse("GIAM10")).thenReturn(validSample);
+        when(couponService.validateCouponResponse("INVALID")).thenReturn(invalidSample);
 
         CouponController controller = new CouponController(couponService);
 
         ValidateCouponRequest validReq = new ValidateCouponRequest();
         validReq.setCode("GIAM10");
-        ResponseEntity<ApiResult<Map<String, Object>>> validResp = controller.validateCoupon(validReq);
+        ResponseEntity<ApiResult<CouponValidationResponse>> validResp = controller.validateCoupon(validReq);
         assertEquals(HttpStatus.OK, validResp.getStatusCode());
         assertTrue(validResp.getBody().isSuccess());
-        assertEquals("GIAM10", validResp.getBody().getData().get("code"));
+        assertEquals("GIAM10", validResp.getBody().getData().getCode());
 
         ValidateCouponRequest invalidReq = new ValidateCouponRequest();
         invalidReq.setCode("INVALID");
-        ResponseEntity<ApiResult<Map<String, Object>>> invalidResp = controller.validateCoupon(invalidReq);
+        ResponseEntity<ApiResult<CouponValidationResponse>> invalidResp = controller.validateCoupon(invalidReq);
         assertEquals(HttpStatus.NOT_FOUND, invalidResp.getStatusCode());
         assertFalse(invalidResp.getBody().isSuccess());
     }
@@ -103,17 +119,24 @@ class ControllerApiResultTest {
     void testUserController() {
         AuthService authService = mock(AuthService.class);
         OrderService orderService = mock(OrderService.class);
-        when(authService.getProfile("user@gmail.com")).thenReturn(Map.of("email", "user@gmail.com", "name", "User 1"));
-        when(orderService.getOrdersByCustomer("0988123456")).thenReturn(List.of(Map.of("orderCode", "SX-001")));
+
+        UserResponse userResp = new UserResponse();
+        userResp.setEmail("user@gmail.com");
+        userResp.setName("User 1");
+        when(authService.getProfile("user@gmail.com")).thenReturn(userResp);
+
+        OrderResponse orderItem = new OrderResponse();
+        orderItem.setOrderCode("SX-001");
+        when(orderService.getOrdersByCustomer("0988123456")).thenReturn(List.of(orderItem));
 
         UserController controller = new UserController(authService, orderService);
 
-        ResponseEntity<ApiResult<Map<String, Object>>> profileResp = controller.getProfile("user@gmail.com");
+        ResponseEntity<ApiResult<UserResponse>> profileResp = controller.getProfile("user@gmail.com");
         assertEquals(HttpStatus.OK, profileResp.getStatusCode());
         assertTrue(profileResp.getBody().isSuccess());
-        assertEquals("user@gmail.com", profileResp.getBody().getData().get("email"));
+        assertEquals("user@gmail.com", profileResp.getBody().getData().getEmail());
 
-        ResponseEntity<ApiResult<List<Map<String, Object>>>> ordersResp = controller.getMyOrders("0988123456");
+        ResponseEntity<ApiResult<List<OrderResponse>>> ordersResp = controller.getMyOrders("0988123456");
         assertEquals(HttpStatus.OK, ordersResp.getStatusCode());
         assertTrue(ordersResp.getBody().isSuccess());
         assertEquals(1, ordersResp.getBody().getData().size());
@@ -123,32 +146,34 @@ class ControllerApiResultTest {
     @DisplayName("AuthController trả về ApiResult thành công")
     void testAuthController() {
         AuthService authService = mock(AuthService.class);
-        when(authService.login("admin@senxinh.vn")).thenReturn(Map.of(
-                "user", Map.of("email", "admin@senxinh.vn", "role", "ROLE_ADMIN"),
-                "token", "mock-token"
-        ));
+        UserResponse u = new UserResponse();
+        u.setEmail("admin@senxinh.vn");
+        u.setRole("ROLE_ADMIN");
+        AuthResponse authResp = new AuthResponse("mock-token", u);
+
+        when(authService.login("admin@senxinh.vn")).thenReturn(authResp);
 
         AuthController controller = new AuthController(authService);
 
         LoginRequest loginReq = new LoginRequest();
         loginReq.setEmail("admin@senxinh.vn");
 
-        ResponseEntity<ApiResult<Map<String, Object>>> loginResp = controller.login(loginReq);
+        ResponseEntity<ApiResult<AuthResponse>> loginResp = controller.login(loginReq);
         assertEquals(HttpStatus.OK, loginResp.getStatusCode());
         assertTrue(loginResp.getBody().isSuccess());
-        assertEquals("admin@senxinh.vn", loginResp.getBody().getData().get("email"));
-        assertEquals("mock-token", loginResp.getBody().getData().get("token"));
+        assertEquals("admin@senxinh.vn", loginResp.getBody().getData().getUser().getEmail());
+        assertEquals("mock-token", loginResp.getBody().getData().getToken());
     }
 
     @Test
     @DisplayName("HealthController trả về ApiResult với status OK")
     void testHealthController() {
         HealthController controller = new HealthController();
-        ResponseEntity<ApiResult<Map<String, Object>>> resp = controller.healthCheck();
+        ResponseEntity<ApiResult<HealthResponse>> resp = controller.healthCheck();
 
         assertEquals(HttpStatus.OK, resp.getStatusCode());
         assertTrue(resp.getBody().isSuccess());
-        assertEquals("ok", resp.getBody().getData().get("status"));
+        assertEquals("ok", resp.getBody().getData().getStatus());
     }
 
     @Test
@@ -164,14 +189,14 @@ class ControllerApiResultTest {
         when(orderRepository.findAll()).thenReturn(Collections.emptyList());
         when(productRepository.count()).thenReturn(20L);
         when(couponRepository.count()).thenReturn(5L);
-        when(userRepository.count()).thenReturn(8L);
+        when(userRepository.countByStatusNot(anyString())).thenReturn(8L);
 
         AdminController controller = new AdminController(orderRepository, productRepository, couponRepository, userRepository);
-        ResponseEntity<ApiResult<Map<String, Object>>> statsResp = controller.getStats();
+        ResponseEntity<ApiResult<AdminStatsResponse>> statsResp = controller.getStats();
 
         assertEquals(HttpStatus.OK, statsResp.getStatusCode());
         assertTrue(statsResp.getBody().isSuccess());
-        assertEquals(10L, statsResp.getBody().getData().get("totalOrders"));
-        assertEquals(20L, statsResp.getBody().getData().get("totalProducts"));
+        assertEquals(10L, statsResp.getBody().getData().getTotalOrders());
+        assertEquals(20L, statsResp.getBody().getData().getTotalProducts());
     }
 }

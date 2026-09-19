@@ -2,7 +2,9 @@ package com.succulentshop.backend;
 
 import com.succulentshop.backend.controller.CartController;
 import com.succulentshop.backend.dto.ApiResult;
+import com.succulentshop.backend.dto.CartItemValidationResult;
 import com.succulentshop.backend.dto.CartValidateRequest;
+import com.succulentshop.backend.dto.CartValidateResponse;
 import com.succulentshop.backend.dto.CreateOrderRequest;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.entity.OrderItem;
@@ -41,10 +43,10 @@ public class ProductCartOrderFlowTest {
     private OrderRepository orderRepository;
 
     @Mock
-    private CouponService couponService;
+    private UserRepository userRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private CouponService couponService;
 
     private ProductService productService;
     private OrderService orderService;
@@ -53,8 +55,9 @@ public class ProductCartOrderFlowTest {
     @BeforeEach
     void setUp() {
         productService = new ProductService(productRepository);
+        com.succulentshop.backend.service.CartService cartService = new com.succulentshop.backend.service.CartService(productRepository);
         orderService = new OrderService(orderRepository, productService, couponService, userRepository);
-        cartController = new CartController(productRepository);
+        cartController = new CartController(cartService);
     }
 
     @Test
@@ -72,22 +75,21 @@ public class ProductCartOrderFlowTest {
         CartValidateRequest request = new CartValidateRequest();
         request.setItems(List.of(new CartValidateRequest.CartItemDto("sen-da-kim-cuong", 2)));
 
-        ResponseEntity<ApiResult<Map<String, Object>>> response = cartController.validateCart(request);
+        ResponseEntity<ApiResult<CartValidateResponse>> response = cartController.validateCart(request);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        Map<String, Object> data = response.getBody().getData();
+        CartValidateResponse data = response.getBody().getData();
         assertNotNull(data);
-        assertEquals(true, data.get("valid"));
-        assertEquals(false, data.get("hasUnavailableItems"));
-        assertEquals(false, data.get("hasOutOfStockItems"));
+        assertTrue(data.isValid());
+        assertFalse(data.isHasUnavailableItems());
+        assertFalse(data.isHasOutOfStockItems());
 
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> items = (List<Map<String, Object>>) data.get("items");
+        List<CartItemValidationResult> items = data.getItems();
         assertEquals(1, items.size());
-        assertEquals("sen-da-kim-cuong", items.get(0).get("productId"));
-        assertEquals(true, items.get(0).get("available"));
-        assertEquals("ACTIVE", items.get(0).get("status"));
+        assertEquals("sen-da-kim-cuong", items.get(0).getProductId());
+        assertTrue(items.get(0).isAvailable());
+        assertEquals("ACTIVE", items.get(0).getStatus());
     }
 
     @Test
@@ -107,20 +109,19 @@ public class ProductCartOrderFlowTest {
 
         // Không được ném lỗi 500
         assertDoesNotThrow(() -> {
-            ResponseEntity<ApiResult<Map<String, Object>>> response = cartController.validateCart(request);
+            ResponseEntity<ApiResult<CartValidateResponse>> response = cartController.validateCart(request);
             assertEquals(HttpStatus.OK, response.getStatusCode());
             assertNotNull(response.getBody());
 
-            Map<String, Object> data = response.getBody().getData();
-            assertEquals(false, data.get("valid"));
-            assertEquals(true, data.get("hasUnavailableItems"));
+            CartValidateResponse data = response.getBody().getData();
+            assertFalse(data.isValid());
+            assertTrue(data.isHasUnavailableItems());
 
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> items = (List<Map<String, Object>>) data.get("items");
+            List<CartItemValidationResult> items = data.getItems();
             assertEquals(1, items.size());
-            assertEquals(false, items.get(0).get("available"));
-            assertEquals("DELETED", items.get(0).get("status"));
-            assertTrue(items.get(0).get("message").toString().contains("không còn được bán"));
+            assertFalse(items.get(0).isAvailable());
+            assertEquals("DELETED", items.get(0).getStatus());
+            assertTrue(items.get(0).getMessage().contains("không còn được bán"));
         });
     }
 
@@ -199,19 +200,18 @@ public class ProductCartOrderFlowTest {
         when(orderRepository.findByOrderCode("SX999111")).thenReturn(Optional.of(historicalOrder));
 
         // Xem lại chi tiết đơn hàng
-        Map<String, Object> orderDetail = orderService.getOrderByCode("SX999111");
+        com.succulentshop.backend.dto.OrderResponse orderDetail = orderService.getOrderByCode("SX999111");
 
         assertNotNull(orderDetail);
-        assertEquals("SX999111", orderDetail.get("orderCode"));
-        assertEquals("COMPLETED", orderDetail.get("status"));
+        assertEquals("SX999111", orderDetail.getOrderCode());
+        assertEquals("COMPLETED", orderDetail.getStatus());
 
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> items = (List<Map<String, Object>>) orderDetail.get("items");
+        List<com.succulentshop.backend.dto.OrderItemResponse> items = orderDetail.getItems();
         assertEquals(1, items.size());
-        assertEquals("sen-da-co-thu", items.get(0).get("productId"));
-        assertEquals("Sen Đá Cổ Thụ", items.get(0).get("productName"));
-        assertEquals(150000, items.get(0).get("price")); // unitPrice tại thời điểm mua được bảo toàn nguyên vẹn
-        assertEquals(1, items.get(0).get("quantity"));
+        assertEquals("sen-da-co-thu", items.get(0).getProductId());
+        assertEquals("Sen Đá Cổ Thụ", items.get(0).getProductName());
+        assertEquals(150000, items.get(0).getPrice()); // unitPrice tại thời điểm mua được bảo toàn nguyên vẹn
+        assertEquals(1, items.get(0).getQuantity());
     }
 
     @Test
@@ -239,15 +239,14 @@ public class ProductCartOrderFlowTest {
         itemDto.setQuantity(2);
         request.setItems(List.of(itemDto));
 
-        Map<String, Object> result = orderService.createOrder(request);
+        com.succulentshop.backend.dto.CreateOrderResponse result = orderService.createOrder(request);
 
         assertNotNull(result);
-        assertNotNull(result.get("order"));
+        assertNotNull(result.getOrder());
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> orderMap = (Map<String, Object>) result.get("order");
-        assertEquals("PENDING", orderMap.get("status"));
-        assertEquals("Phạm Văn D", orderMap.get("customerName"));
+        com.succulentshop.backend.dto.OrderResponse orderMap = result.getOrder();
+        assertEquals("PENDING", orderMap.getStatus());
+        assertEquals("Phạm Văn D", orderMap.getCustomerName());
 
         // Kiểm tra tồn kho đã bị trừ đúng 2 cây (10 - 2 = 8)
         assertEquals(8, p.getInStock());

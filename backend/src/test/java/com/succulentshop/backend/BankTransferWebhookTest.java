@@ -3,6 +3,9 @@ package com.succulentshop.backend;
 import com.succulentshop.backend.config.BankTransferConfig;
 import com.succulentshop.backend.controller.BankTransferWebhookController;
 import com.succulentshop.backend.dto.ApiResult;
+import com.succulentshop.backend.dto.BankTransferWebhookResponse;
+import com.succulentshop.backend.dto.SepayWebhookRequest;
+import com.succulentshop.backend.dto.SimulatePaymentRequest;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,7 +16,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -46,34 +48,36 @@ public class BankTransferWebhookTest {
         when(orderRepository.findByOrderCode("SX123456")).thenReturn(Optional.of(mockOrder));
         when(orderRepository.save(any(Order.class))).thenReturn(mockOrder);
 
-        Map<String, Object> payload = Map.of(
-                "gateway", "Vietcombank",
-                "transferType", "in",
-                "transferAmount", 150000,
-                "content", "Chuyen tien don hang SX123456 sen xinh",
-                "referenceCode", "VCB.999"
-        );
+        SepayWebhookRequest payload = new SepayWebhookRequest();
+        payload.setGateway("Vietcombank");
+        payload.setTransferType("in");
+        payload.setTransferAmount(150000L);
+        payload.setContent("Chuyen tien don hang SX123456 sen xinh");
+        payload.setReferenceCode("VCB.999");
 
-        ResponseEntity<Map<String, Object>> response = controller.handleSepayWebhook(null, payload);
+        ResponseEntity<ApiResult<BankTransferWebhookResponse>> response = controller.handleSepayWebhook(null, payload);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals(true, response.getBody().get("success"));
+        assertTrue(response.getBody().isSuccess());
+        assertNotNull(response.getBody().getData());
+        assertTrue(response.getBody().getData().isSuccess());
         assertEquals("PAID", mockOrder.getStatus());
         verify(orderRepository, times(1)).save(mockOrder);
     }
 
     @Test
     void testSepayWebhook_IgnoreOutTransfer() {
-        Map<String, Object> payload = Map.of(
-                "transferType", "out",
-                "transferAmount", 50000,
-                "content", "Rut tien"
-        );
+        SepayWebhookRequest payload = new SepayWebhookRequest();
+        payload.setTransferType("out");
+        payload.setTransferAmount(50000L);
+        payload.setContent("Rut tien");
 
-        ResponseEntity<Map<String, Object>> response = controller.handleSepayWebhook(null, payload);
+        ResponseEntity<ApiResult<BankTransferWebhookResponse>> response = controller.handleSepayWebhook(null, payload);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isSuccess());
         verify(orderRepository, never()).save(any());
     }
 
@@ -81,17 +85,17 @@ public class BankTransferWebhookTest {
     void testSepayWebhook_OrderNotFound() {
         when(orderRepository.findByOrderCode("SX999999")).thenReturn(Optional.empty());
 
-        Map<String, Object> payload = Map.of(
-                "transferType", "in",
-                "transferAmount", 100000,
-                "content", "Thanh toan SX999999"
-        );
+        SepayWebhookRequest payload = new SepayWebhookRequest();
+        payload.setTransferType("in");
+        payload.setTransferAmount(100000L);
+        payload.setContent("Thanh toan SX999999");
 
-        ResponseEntity<Map<String, Object>> response = controller.handleSepayWebhook(null, payload);
+        ResponseEntity<ApiResult<BankTransferWebhookResponse>> response = controller.handleSepayWebhook(null, payload);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals(false, response.getBody().get("success"));
+        assertNotNull(response.getBody().getData());
+        assertFalse(response.getBody().getData().isSuccess());
         verify(orderRepository, never()).save(any());
     }
 
@@ -99,13 +103,12 @@ public class BankTransferWebhookTest {
     void testSepayWebhook_ApiKeyValidation() {
         when(bankTransferConfig.getSepayApiKey()).thenReturn("secret_token_123");
 
-        Map<String, Object> payload = Map.of(
-                "transferType", "in",
-                "content", "SX123456"
-        );
+        SepayWebhookRequest payload = new SepayWebhookRequest();
+        payload.setTransferType("in");
+        payload.setContent("SX123456");
 
         // Invalid key
-        ResponseEntity<Map<String, Object>> resInvalid = controller.handleSepayWebhook("Apikey wrong_key", payload);
+        ResponseEntity<ApiResult<BankTransferWebhookResponse>> resInvalid = controller.handleSepayWebhook("Apikey wrong_key", payload);
         assertEquals(HttpStatus.UNAUTHORIZED, resInvalid.getStatusCode());
 
         // Valid key
@@ -114,7 +117,7 @@ public class BankTransferWebhookTest {
         mockOrder.setStatus("PENDING");
         when(orderRepository.findByOrderCode("SX123456")).thenReturn(Optional.of(mockOrder));
 
-        ResponseEntity<Map<String, Object>> resValid = controller.handleSepayWebhook("Apikey secret_token_123", payload);
+        ResponseEntity<ApiResult<BankTransferWebhookResponse>> resValid = controller.handleSepayWebhook("Apikey secret_token_123", payload);
         assertEquals(HttpStatus.OK, resValid.getStatusCode());
         assertEquals("PAID", mockOrder.getStatus());
     }
@@ -127,9 +130,8 @@ public class BankTransferWebhookTest {
 
         when(orderRepository.findByOrderCode("SX888888")).thenReturn(Optional.of(mockOrder));
 
-        ResponseEntity<ApiResult<Map<String, Object>>> response = controller.simulateBankTransferPayment(
-                Map.of("orderCode", "SX888888")
-        );
+        SimulatePaymentRequest simReq = new SimulatePaymentRequest("SX888888");
+        ResponseEntity<ApiResult<BankTransferWebhookResponse>> response = controller.simulateBankTransferPayment(simReq);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("PAID", mockOrder.getStatus());

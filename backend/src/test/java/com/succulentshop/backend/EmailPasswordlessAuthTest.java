@@ -1,5 +1,6 @@
 package com.succulentshop.backend;
 
+import com.succulentshop.backend.dto.AuthResponse;
 import com.succulentshop.backend.entity.User;
 import com.succulentshop.backend.exception.AppException;
 import com.succulentshop.backend.exception.ErrorCode;
@@ -11,8 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Map;
 
 @SpringBootTest
 @Transactional
@@ -29,10 +28,10 @@ public class EmailPasswordlessAuthTest {
     public void testEmailLoginAutoRegistersNewUser() {
         String testEmail = "new_customer_" + System.currentTimeMillis() + "@gmail.com";
 
-        Map<String, Object> result = authService.login(testEmail);
+        AuthResponse result = authService.login(testEmail);
         Assertions.assertNotNull(result);
-        Assertions.assertTrue(result.containsKey("user"));
-        Assertions.assertTrue(result.containsKey("token"));
+        Assertions.assertNotNull(result.getUser());
+        Assertions.assertNotNull(result.getToken());
 
         User createdUser = userRepository.findByEmail(testEmail).orElseThrow();
         Assertions.assertEquals(testEmail, createdUser.getEmail());
@@ -48,13 +47,11 @@ public class EmailPasswordlessAuthTest {
         User user = new User("Khách Thân Thiết", testEmail, "0911222333", null, "Hà Nội", "Thành viên thân thiết", null, 100);
         userRepository.save(user);
 
-        Map<String, Object> result = authService.login(testEmail);
+        AuthResponse result = authService.login(testEmail);
         Assertions.assertNotNull(result);
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> userData = (Map<String, Object>) result.get("user");
-        Assertions.assertEquals(testEmail, userData.get("email"));
-        Assertions.assertEquals("Khách Thân Thiết", userData.get("name"));
+        Assertions.assertEquals(testEmail, result.getUser().getEmail());
+        Assertions.assertEquals("Khách Thân Thiết", result.getUser().getName());
     }
 
     @Test
@@ -62,7 +59,7 @@ public class EmailPasswordlessAuthTest {
     public void testRegisterWithoutPassword() {
         String testEmail = "reg_user_" + System.currentTimeMillis() + "@gmail.com";
 
-        Map<String, Object> registerResult = authService.register(
+        AuthResponse registerResult = authService.register(
                 "Đặng Thu Thảo",
                 testEmail,
                 "0988777666",

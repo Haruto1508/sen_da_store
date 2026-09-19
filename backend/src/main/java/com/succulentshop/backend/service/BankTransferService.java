@@ -4,6 +4,7 @@ import com.succulentshop.backend.config.BankTransferConfig;
 import com.succulentshop.backend.dto.BankTransferWebhookResponse;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.repository.OrderRepository;
+import com.succulentshop.backend.dto.SepayWebhookRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,100 @@ public class BankTransferService {
     public BankTransferService(BankTransferConfig bankTransferConfig, OrderRepository orderRepository) {
         this.bankTransferConfig = bankTransferConfig;
         this.orderRepository = orderRepository;
+    }
+
+    public BankTransferWebhookResponse handleWebhook(String authHeader, SepayWebhookRequest request) {
+        log.info("📩 [SePay Webhook Nhận được DTO]: id={}, transferAmount={}, content={}",
+                request != null ? request.getId() : null,
+                request != null ? request.getTransferAmount() : null,
+                request != null ? request.getContent() : null);
+
+        String configuredApiKey = bankTransferConfig.getSepayApiKey();
+        if (configuredApiKey != null && !configuredApiKey.isBlank()) {
+            boolean validKey = false;
+            if (authHeader != null) {
+                String cleanHeader = authHeader.replace("Apikey ", "").replace("Bearer ", "").trim();
+                validKey = configuredApiKey.equals(cleanHeader);
+            }
+            if (!validKey) {
+                log.warn("⚠️ [SePay Webhook] Từ chối request do sai hoặc thiếu API Key trong Authorization header");
+                BankTransferWebhookResponse response = new BankTransferWebhookResponse();
+                response.setSuccess(false);
+                response.setMessage("Unauthorized API Key");
+                return response;
+            }
+        }
+
+        if (request == null) {
+            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
+            response.setSuccess(false);
+            response.setMessage("Payload trống");
+            return response;
+        }
+
+        String transferType = request.getTransferType() != null ? request.getTransferType() : "in";
+        if ("out".equalsIgnoreCase(transferType)) {
+            log.info("ℹ️ [SePay Webhook] Bỏ qua giao dịch tiền ra (transferType = out)");
+            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
+            response.setSuccess(true);
+            response.setMessage("Bỏ qua giao dịch tiền ra");
+            return response;
+        }
+
+        String content = request.getContent() != null ? request.getContent() : "";
+        String description = request.getDescription() != null ? request.getDescription() : "";
+        String code = request.getCode() != null ? request.getCode() : "";
+
+        long transferAmount = request.getTransferAmount() != null ? request.getTransferAmount() : 0L;
+
+        String foundOrderCode = extractOrderCode(content, description, code);
+        if (foundOrderCode == null) {
+            log.warn("⚠️ [SePay Webhook] Không tìm thấy mã đơn hàng SX... trong nội dung: content='{}', desc='{}'",
+                    content, description);
+            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
+            response.setSuccess(false);
+            response.setMessage("Không tìm thấy mã đơn hàng phù hợp trong nội dung chuyển khoản");
+            return response;
+        }
+
+        Optional<Order> orderOpt = orderRepository.findByOrderCode(foundOrderCode.toUpperCase());
+        if (orderOpt.isEmpty()) {
+            log.warn("⚠️ [SePay Webhook] Không tìm thấy đơn hàng trong Database với mã: {}", foundOrderCode);
+            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
+            response.setSuccess(false);
+            response.setMessage("Đơn hàng không tồn tại: " + foundOrderCode);
+            return response;
+        }
+
+        Order order = orderOpt.get();
+        if ("PAID".equalsIgnoreCase(order.getStatus()) || "COMPLETED".equalsIgnoreCase(order.getStatus())) {
+            log.info("ℹ️ [SePay Webhook] Đơn hàng #{} đã ở trạng thái {}", foundOrderCode, order.getStatus());
+            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
+            response.setSuccess(true);
+            response.setMessage("Đơn hàng đã được xác nhận thanh toán từ trước");
+            response.setOrderCode(order.getOrderCode());
+            response.setStatus(order.getStatus());
+            return response;
+        }
+
+        if (transferAmount > 0 && order.getTotalAmount() != null && transferAmount < order.getTotalAmount()) {
+            log.warn("⚠️ [SePay Webhook] Số tiền chuyển ({}) nhỏ hơn giá trị đơn hàng ({})",
+                    transferAmount, order.getTotalAmount());
+        }
+
+        order.setStatus("PAID");
+        orderRepository.save(order);
+
+        log.info("🎉 [SePay Webhook THÀNH CÔNG] Đơn hàng #{} đã tự động cập nhật sang trạng thái PAID!",
+                order.getOrderCode());
+
+        BankTransferWebhookResponse response = new BankTransferWebhookResponse();
+        response.setSuccess(true);
+        response.setMessage("Xác nhận thanh toán đơn hàng thành công");
+        response.setOrderCode(order.getOrderCode());
+        response.setStatus("PAID");
+        response.setTransferAmount(transferAmount);
+        return response;
     }
 
     public BankTransferWebhookResponse handleWebhook(String authHeader, Map<String, Object> payload) {

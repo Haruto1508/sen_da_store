@@ -1,13 +1,13 @@
 package com.succulentshop.backend.controller;
 
 import com.succulentshop.backend.dto.ApiResult;
+import com.succulentshop.backend.dto.CalculateShippingRequest;
+import com.succulentshop.backend.dto.CalculateShippingResponse;
 import com.succulentshop.backend.dto.ShippingConfigResponse;
 import com.succulentshop.backend.dto.UpdateShippingConfigRequest;
 import com.succulentshop.backend.service.ShippingService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -47,16 +47,14 @@ public class ShippingController {
      * Tính toán phí vận chuyển chính xác theo subtotal và tỉnh thành
      */
     @PostMapping("/shipping-rates/calculate")
-    public ResponseEntity<ApiResult<Map<String, Integer>>> calculateShippingFee(
-            @RequestBody Map<String, Object> body
+    public ResponseEntity<ApiResult<CalculateShippingResponse>> calculateShippingFee(
+            @RequestBody CalculateShippingRequest request
     ) {
-        int subtotal = body.get("subtotal") instanceof Number
-                ? ((Number) body.get("subtotal")).intValue()
-                : 0;
-        String city = body.get("city") != null ? body.get("city").toString() : null;
-        String address = body.get("address") != null ? body.get("address").toString() : null;
+        int subtotal = (request != null && request.getSubtotal() != null) ? request.getSubtotal() : 0;
+        String city = request != null ? request.getCity() : null;
+        String address = request != null ? request.getAddress() : null;
 
         int fee = shippingService.calculateShippingFee(subtotal, city, address);
-        return ResponseEntity.ok(ApiResult.ok("Tính phí vận chuyển thành công", Map.of("shippingFee", fee)));
+        return ResponseEntity.ok(ApiResult.ok("Tính phí vận chuyển thành công", new CalculateShippingResponse(fee)));
     }
 }

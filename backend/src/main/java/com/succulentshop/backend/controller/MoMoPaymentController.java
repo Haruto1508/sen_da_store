@@ -1,7 +1,6 @@
 package com.succulentshop.backend.controller;
 
-import com.succulentshop.backend.dto.ApiResult;
-import com.succulentshop.backend.dto.MoMoPaymentResponse;
+import com.succulentshop.backend.dto.*;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.service.MoMoService;
@@ -9,7 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -28,8 +26,8 @@ public class MoMoPaymentController {
      * Khởi tạo giao dịch thanh toán qua Cổng MoMo (Ví MoMo / VietQR MoMo)
      */
     @PostMapping("/momo/create")
-    public ResponseEntity<ApiResult<MoMoPaymentResponse>> createMoMoPayment(@RequestBody Map<String, String> request) {
-        String orderCode = request.get("orderCode");
+    public ResponseEntity<ApiResult<MoMoPaymentResponse>> createMoMoPayment(@RequestBody CreateMoMoPaymentRequest request) {
+        String orderCode = request != null ? request.getOrderCode() : null;
         if (orderCode == null || orderCode.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResult.error("Thiếu mã đơn hàng orderCode"));
         }
@@ -51,20 +49,14 @@ public class MoMoPaymentController {
      * (Tuân thủ đặc tả giao thức MoMo IPN: trả về resultCode và message)
      */
     @PostMapping("/momo-ipn")
-    public ResponseEntity<Map<String, Object>> handleMoMoIpn(@RequestBody Map<String, Object> ipnData) {
+    public ResponseEntity<MoMoIpnResponse> handleMoMoIpn(@RequestBody MoMoIpnRequest ipnData) {
         System.out.println("📩 [MoMo Webhook IPN Nhận được]: " + ipnData);
         boolean success = moMoService.processIpn(ipnData);
 
         if (success) {
-            return ResponseEntity.ok(Map.of(
-                    "resultCode", 0,
-                    "message", "Xác nhận IPN MoMo thành công"
-            ));
+            return ResponseEntity.ok(new MoMoIpnResponse(0, "Xác nhận IPN MoMo thành công"));
         } else {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "resultCode", 99,
-                    "message", "Xử lý IPN thất bại hoặc chữ ký không hợp lệ"
-            ));
+            return ResponseEntity.badRequest().body(new MoMoIpnResponse(99, "Xử lý IPN thất bại hoặc chữ ký không hợp lệ"));
         }
     }
 
@@ -72,8 +64,8 @@ public class MoMoPaymentController {
      * API Hỗ trợ kiểm thử/demo nhanh trên Localhost (Mô phỏng Webhook MoMo xác nhận tiền về)
      */
     @PostMapping("/momo/simulate-ipn")
-    public ResponseEntity<ApiResult<MoMoPaymentResponse>> simulateMoMoPayment(@RequestBody Map<String, String> request) {
-        String orderCode = request.get("orderCode");
+    public ResponseEntity<ApiResult<MoMoPaymentResponse>> simulateMoMoPayment(@RequestBody SimulatePaymentRequest request) {
+        String orderCode = request != null ? request.getOrderCode() : null;
         if (orderCode == null || orderCode.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResult.error("Thiếu orderCode"));
         }

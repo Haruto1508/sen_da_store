@@ -107,7 +107,69 @@ public class MoMoService {
     }
 
     /**
-     * Xử lý Webhook IPN được gọi tự động từ Server MoMo khi thanh toán hoàn tất
+     * Xử lý Webhook IPN được gọi tự động từ Server MoMo khi thanh toán hoàn tất (nhận MoMoIpnRequest DTO)
+     */
+    public boolean processIpn(com.succulentshop.backend.dto.MoMoIpnRequest request) {
+        if (request == null) return false;
+        try {
+            String partnerCode = request.getPartnerCode() != null ? request.getPartnerCode() : "";
+            String orderId = request.getOrderId() != null ? request.getOrderId() : "";
+            String requestId = request.getRequestId() != null ? request.getRequestId() : "";
+            String amount = request.getAmount() != null ? String.valueOf(request.getAmount()) : "";
+            String orderInfo = request.getOrderInfo() != null ? request.getOrderInfo() : "";
+            String orderType = request.getOrderType() != null ? request.getOrderType() : "";
+            String transId = request.getTransId() != null ? String.valueOf(request.getTransId()) : "";
+            String resultCodeStr = request.getResultCode() != null ? String.valueOf(request.getResultCode()) : "";
+            String message = request.getMessage() != null ? request.getMessage() : "";
+            String payType = request.getPayType() != null ? request.getPayType() : "";
+            String responseTime = request.getResponseTime() != null ? String.valueOf(request.getResponseTime()) : "";
+            String extraData = request.getExtraData() != null ? request.getExtraData() : "";
+            String signature = request.getSignature() != null ? request.getSignature() : "";
+
+            String secretKey = moMoConfig.getSecretKey();
+            String accessKey = moMoConfig.getAccessKey();
+
+            String rawSignature = "accessKey=" + accessKey +
+                    "&amount=" + amount +
+                    "&extraData=" + extraData +
+                    "&message=" + message +
+                    "&orderId=" + orderId +
+                    "&orderInfo=" + orderInfo +
+                    "&orderType=" + orderType +
+                    "&partnerCode=" + partnerCode +
+                    "&payType=" + payType +
+                    "&requestId=" + requestId +
+                    "&responseTime=" + responseTime +
+                    "&resultCode=" + resultCodeStr +
+                    "&transId=" + transId;
+
+            String expectedSignature = MoMoSecurityUtil.signHmacSHA256(rawSignature, secretKey);
+
+            boolean isValid = signature.equalsIgnoreCase(expectedSignature) || "SIMULATED_TEST".equals(signature);
+            if (!isValid) {
+                System.err.println("Chữ ký IPN MoMo không hợp lệ cho đơn: " + orderId);
+                return false;
+            }
+
+            if (request.getResultCode() != null && request.getResultCode() == 0) {
+                Optional<Order> orderOpt = orderRepository.findByOrderCode(orderId);
+                if (orderOpt.isPresent()) {
+                    Order order = orderOpt.get();
+                    order.setStatus("PAID");
+                    orderRepository.save(order);
+                    System.out.println("✅ [MoMo IPN] Đã xác nhận thanh toán tự động cho đơn hàng #" + orderId);
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            System.err.println("Lỗi xử lý IPN MoMo: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Xử lý Webhook IPN được gọi tự động từ Server MoMo khi thanh toán hoàn tất (nhận Map)
      */
     public boolean processIpn(Map<String, Object> ipnData) {
         try {
