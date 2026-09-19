@@ -13,7 +13,8 @@ import {
   Copy,
   Check,
   Calendar,
-  MessageSquare
+  MessageSquare,
+  CheckCircle2
 } from 'lucide-react';
 import Pagination from '../Pagination';
 import { ORDER_STATUS_LABELS, formatPrice } from './adminConstants';
@@ -434,15 +435,59 @@ export default function OrdersTab({
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    className="btn-open-detail"
-                    onClick={() => onOpenOrderDetail(order, 'tabs')}
-                    title="Mở trang chi tiết toàn diện của đơn hàng này"
-                  >
-                    <span>Xem Chi Tiết Đơn Hàng</span>
-                    <ChevronRight size={15} />
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {order.status === 'SHIPPING' && (
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={() => onStatusChange(order.id, 'COMPLETED')}
+                        style={{ padding: '6px 14px', fontSize: '0.82rem', background: '#059669', borderColor: '#059669', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+                        title="Xác nhận đơn hàng đã giao thành công cho khách"
+                      >
+                        <CheckCircle2 size={14} />
+                        <span>Xác Nhận Đã Giao</span>
+                      </button>
+                    )}
+
+                    {order.status === 'PAID' && (
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={() => onStatusChange(order.id, 'SHIPPING')}
+                        style={{ padding: '6px 14px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+                        title="Bắt đầu xuất kho giao hàng cho khách"
+                      >
+                        <Truck size={14} />
+                        <span>Giao Hàng Ngay</span>
+                      </button>
+                    )}
+
+                    {(order.status === 'PENDING' || order.status === 'PAID') && (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => {
+                          if (window.confirm(`Bạn có chắc chắn muốn hủy đơn hàng #${order.orderCode}? Hệ thống sẽ tự động hoàn trả tồn kho sản phẩm.`)) {
+                            onStatusChange(order.id, 'CANCELLED');
+                          }
+                        }}
+                        style={{ padding: '6px 12px', fontSize: '0.8rem', color: '#DC2626', borderColor: '#FCA5A5' }}
+                        title="Hủy đơn hàng này"
+                      >
+                        Hủy Đơn
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      className="btn-open-detail"
+                      onClick={() => onOpenOrderDetail(order, 'tabs')}
+                      title="Mở trang chi tiết toàn diện của đơn hàng này"
+                    >
+                      <span>Xem Chi Tiết</span>
+                      <ChevronRight size={15} />
+                    </button>
+                  </div>
                 </div>
               </div>
             );

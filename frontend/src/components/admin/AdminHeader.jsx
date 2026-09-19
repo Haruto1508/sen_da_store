@@ -32,7 +32,8 @@ export default function AdminHeader({
               {viewMode === 'order-detail' && `Đơn Hàng / #${activeOrder?.orderCode || ''}`}
               {viewMode === 'tabs' && (
                 <>
-                  {activeTab === 'orders' && 'Đơn Hàng & Vận Chuyển'}
+                  {activeTab === 'orders' && 'Đơn Hàng Cần Xử Lý'}
+                  {activeTab === 'delivered' && 'Đơn Hàng Đã Giao'}
                   {activeTab === 'products' && 'Kho Sen Đá & Tồn Kho'}
                   {activeTab === 'coupons' && 'Mã Ưu Đãi & Voucher'}
                   {activeTab === 'customers' && 'Khách Hàng & Phân Quyền'}
@@ -46,7 +47,8 @@ export default function AdminHeader({
             {viewMode === 'order-detail' && `Chi Tiết Đơn Hàng #${activeOrder?.orderCode || ''}`}
             {viewMode === 'tabs' && (
               <>
-                {activeTab === 'orders' && 'Quản Lý Đơn Hàng & Vận Chuyển'}
+                {activeTab === 'orders' && 'Quản Lý Đơn Hàng Cần Xử Lý'}
+                {activeTab === 'delivered' && 'Đối Soát Đơn Hàng Đã Giao Thành Công'}
                 {activeTab === 'products' && 'Kho Sen Đá & Quản Lý Tồn Kho'}
                 {activeTab === 'coupons' && 'Mã Ưu Đãi & Voucher Giảm Giá'}
                 {activeTab === 'customers' && 'Khách Hàng & Phân Quyền Quản Trị'}

@@ -407,28 +407,74 @@ export async function getCustomerOrders(identifier, email) {
 }
 
 /**
- * Khách hàng hủy đơn hàng (khi đang PENDING)
+ * Khách hàng hủy đơn hàng (kèm lý do và tự động hoàn trả tồn kho)
  */
-export async function cancelCustomerOrder(orderId) {
+export async function cancelCustomerOrder(orderId, reason = '') {
   if (USE_MOCK_DATA) {
     const orders = getStoredOrders();
-    const target = orders.find((o) => o.id === orderId || o.orderCode === orderId);
+    const target = orders.find((o) => String(o.id) === String(orderId) || o.orderCode === orderId);
     if (!target) throw new Error('Không tìm thấy đơn hàng để hủy');
-    if (target.status !== 'PENDING') {
-      throw new Error('Đơn hàng đã được xử lý, không thể tự hủy');
+    if (target.status === 'COMPLETED') {
+      throw new Error('Đơn hàng đã hoàn tất giao hàng, không thể tự hủy.');
+    }
+    if (target.status === 'SHIPPING') {
+      throw new Error('Đơn hàng đang trên đường giao. Quý khách vui lòng liên hệ hotline để được hỗ trợ!');
     }
     target.status = 'CANCELLED';
+    if (reason && reason.trim()) {
+      target.note = target.note ? `${target.note} [Lý do hủy: ${reason.trim()}]` : `[Lý do hủy: ${reason.trim()}]`;
+    }
     saveStoredOrders(orders);
     return { success: true, message: 'Đã hủy đơn hàng thành công', data: target };
   }
 
-  const res = await fetch(`${API_BASE}/orders/${orderId}/status`, {
+  const res = await fetch(`${API_BASE}/orders/${orderId}/cancel`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: 'CANCELLED' })
+    body: JSON.stringify({ reason: reason || '' })
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Không thể hủy đơn hàng');
+  return data;
+}
+
+/**
+ * Khách hàng xác nhận "Đã Nhận Được Hàng" (chuyển sang COMPLETED và tích Điểm Sen)
+ */
+export async function confirmReceivedOrder(orderId) {
+  if (USE_MOCK_DATA) {
+    const orders = getStoredOrders();
+    const target = orders.find((o) => String(o.id) === String(orderId) || o.orderCode === orderId);
+    if (!target) throw new Error('Không tìm thấy đơn hàng để xác nhận');
+    if (target.status === 'CANCELLED') {
+      throw new Error('Đơn hàng này đã bị hủy trước đó.');
+    }
+    target.status = 'COMPLETED';
+    saveStoredOrders(orders);
+
+    // Tích điểm Sen thưởng vào tài khoản đăng nhập nếu có
+    try {
+      const userKey = 'senxinh_user_mock';
+      const savedUser = localStorage.getItem(userKey);
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        const earned = Math.max(5, Math.round((target.totalAmount || 0) / 10000));
+        u.points = (u.points || 0) + earned;
+        localStorage.setItem(userKey, JSON.stringify(u));
+      }
+    } catch (e) {
+      console.warn('Lỗi tích điểm mock:', e);
+    }
+
+    return { success: true, message: 'Xác nhận đã nhận hàng thành công! Quý khách được tích lũy Điểm Sen thưởng 🌿', data: target };
+  }
+
+  const res = await fetch(`${API_BASE}/orders/${orderId}/receive`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Không thể xác nhận nhận hàng');
   return data;
 }
 

@@ -20,11 +20,21 @@ import {
   RefreshCw,
   Trash2,
   Plus,
-  Tag
+  Tag,
+  X
 } from 'lucide-react';
-import { getAdminOrders, updateOrderStatus, getCustomerOrders, cancelCustomerOrder } from '../services/api';
+import { getAdminOrders, updateOrderStatus, getCustomerOrders, cancelCustomerOrder, confirmReceivedOrder } from '../services/api';
 import NotificationModal from '../components/NotificationModal';
 import useModal from '../components/useModal';
+
+const CANCEL_REASONS = [
+  'Đổi ý không muốn mua nữa',
+  'Muốn thay đổi địa chỉ hoặc số điện thoại nhận hàng',
+  'Muốn thêm hoặc bớt sản phẩm trong giỏ hàng',
+  'Thời gian giao hàng dự kiến quá lâu',
+  'Tìm thấy giá tốt hơn ở nơi khác',
+  'Khác (Vui lòng ghi rõ bên dưới)'
+];
 
 const STATUS_CONFIG = {
   PENDING: { label: 'Chờ Thanh Toán', color: '#D97706', bg: '#FEF3C7', icon: Clock, step: 1 },
@@ -108,6 +118,14 @@ export default function AccountPage({
   const [filterStatus, setFilterStatus] = useState('all');
   const [ordersLoading, setOrdersLoading] = useState(false);
 
+  // Modal hủy đơn hàng state
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [selectedCancelOrder, setSelectedCancelOrder] = useState(null);
+  const [cancelReason, setCancelReason] = useState(CANCEL_REASONS[0]);
+  const [customReason, setCustomReason] = useState('');
+  const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
+  const [isSubmittingReceive, setIsSubmittingReceive] = useState(false);
+
   // Sync tab if initialTab or location.state.tab changes
   useEffect(() => {
     if (location.state?.tab) {
@@ -152,8 +170,10 @@ export default function AccountPage({
       setStats({
         totalOrders: listForStats.length,
         pendingOrders: listForStats.filter(o => o.status === 'PENDING').length,
-        paidOrders: listForStats.filter(o => o.status === 'PAID' || o.status === 'SHIPPING').length,
-        completedOrders: listForStats.filter(o => o.status === 'COMPLETED').length
+        paidOrders: listForStats.filter(o => o.status === 'PAID').length,
+        shippingOrders: listForStats.filter(o => o.status === 'SHIPPING').length,
+        completedOrders: listForStats.filter(o => o.status === 'COMPLETED').length,
+        cancelledOrders: listForStats.filter(o => o.status === 'CANCELLED').length
       });
     } catch (err) {
       console.error('Lỗi tải danh sách đơn hàng:', err);
@@ -177,14 +197,53 @@ export default function AccountPage({
     }
   };
 
-  const handleCancelOrder = async (orderId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) return;
+  const handleOpenCancelModal = (order) => {
+    setSelectedCancelOrder(order);
+    setCancelReason(CANCEL_REASONS[0]);
+    setCustomReason('');
+    setCancelModalOpen(true);
+  };
+
+  const handleConfirmCancelOrder = async () => {
+    if (!selectedCancelOrder) return;
+    const finalReason = cancelReason.startsWith('Khác') ? customReason.trim() : cancelReason;
+    if (!finalReason) {
+      showModal('warning', 'Vui lòng điền chi tiết lý do bạn muốn hủy đơn.');
+      return;
+    }
+
+    setIsSubmittingCancel(true);
     try {
-      await cancelCustomerOrder(orderId);
-      showModal('success', 'Đã hủy đơn hàng thành công!');
+      await cancelCustomerOrder(selectedCancelOrder.id, finalReason);
+      setCancelModalOpen(false);
+      setSelectedCancelOrder(null);
+      showModal('success', 'Đã hủy đơn hàng thành công! Sản phẩm đã được hoàn trả về kho.');
       loadOrders();
     } catch (err) {
       showModal('error', err.message || 'Không thể hủy đơn hàng');
+    } finally {
+      setIsSubmittingCancel(false);
+    }
+  };
+
+  const handleConfirmReceived = async (orderId) => {
+    if (!window.confirm('Bạn xác nhận đã nhận được kiện hàng này nguyên vẹn và đầy đủ?')) return;
+    setIsSubmittingReceive(true);
+    try {
+      const res = await confirmReceivedOrder(orderId);
+      const pointsMsg = res?.pointsEarned ? ` và được cộng ${res.pointsEarned} Điểm Sen!` : '!';
+      showModal('success', `Cảm ơn bạn! Đã xác nhận nhận hàng thành công${pointsMsg}`);
+      
+      // Update local user points if available
+      const savedUser = JSON.parse(localStorage.getItem('user') || 'null');
+      if (savedUser && onUpdateUser) {
+        onUpdateUser(savedUser);
+      }
+      loadOrders();
+    } catch (err) {
+      showModal('error', err.message || 'Không thể xác nhận nhận hàng');
+    } finally {
+      setIsSubmittingReceive(false);
     }
   };
 
@@ -634,20 +693,31 @@ export default function AccountPage({
                 {/* Status Tabs Filter */}
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '6px' }}>
                   {[
-                    { id: 'all', label: 'Tất Cả' },
-                    { id: 'PENDING', label: 'Chờ Thanh Toán' },
-                    { id: 'PAID', label: 'Đã Thanh Toán' },
-                    { id: 'SHIPPING', label: 'Đang Giao Hàng' },
-                    { id: 'COMPLETED', label: 'Đã Hoàn Tất' },
-                    { id: 'CANCELLED', label: 'Đã Hủy' }
+                    { id: 'all', label: 'Tất Cả', count: stats?.totalOrders },
+                    { id: 'PENDING', label: 'Chờ Thanh Toán', count: stats?.pendingOrders },
+                    { id: 'PAID', label: 'Đã Thanh Toán', count: stats?.paidOrders },
+                    { id: 'SHIPPING', label: 'Đang Giao Hàng', count: stats?.shippingOrders },
+                    { id: 'COMPLETED', label: 'Đã Nhận Hàng (Đã Giao)', count: stats?.completedOrders },
+                    { id: 'CANCELLED', label: 'Đã Hủy', count: stats?.cancelledOrders }
                   ].map((tab) => (
                     <button
                       key={tab.id}
                       className={`cat-tab ${filterStatus === tab.id ? 'active' : ''}`}
                       onClick={() => setFilterStatus(tab.id)}
-                      style={{ padding: '8px 16px', fontSize: '0.86rem' }}
+                      style={{ padding: '8px 16px', fontSize: '0.86rem', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                     >
-                      {tab.label}
+                      <span>{tab.label}</span>
+                      {tab.count !== undefined && tab.count > 0 && (
+                        <span style={{
+                          background: filterStatus === tab.id ? 'rgba(255,255,255,0.25)' : 'var(--bg-alt)',
+                          fontSize: '0.75rem',
+                          padding: '2px 7px',
+                          borderRadius: '10px',
+                          fontWeight: 700
+                        }}>
+                          {tab.count}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -744,16 +814,56 @@ export default function AccountPage({
                                   <option value="CANCELLED">Hủy Đơn</option>
                                 </select>
                               ) : (
-                                order.status === 'PENDING' && (
-                                  <button
-                                    className="btn-secondary"
-                                    onClick={() => handleCancelOrder(order.id)}
-                                    style={{ padding: '6px 14px', fontSize: '0.8rem', color: '#DC2626', borderColor: '#FCA5A5' }}
-                                    title="Hủy đơn hàng này"
-                                  >
-                                    Hủy Đơn
-                                  </button>
-                                )
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {order.status === 'SHIPPING' && (
+                                    <button
+                                      className="btn-primary"
+                                      onClick={() => handleConfirmReceived(order.id)}
+                                      disabled={isSubmittingReceive}
+                                      style={{
+                                        padding: '7px 16px',
+                                        fontSize: '0.82rem',
+                                        fontWeight: 600,
+                                        background: '#059669',
+                                        borderColor: '#059669',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                      }}
+                                      title="Xác nhận bạn đã nhận được hàng và tích lũy Điểm Sen"
+                                    >
+                                      <CheckCircle2 size={15} />
+                                      <span>Đã Nhận Được Hàng</span>
+                                    </button>
+                                  )}
+
+                                  {(order.status === 'PENDING' || order.status === 'PAID') && (
+                                    <button
+                                      className="btn-secondary"
+                                      onClick={() => handleOpenCancelModal(order)}
+                                      style={{ padding: '6px 14px', fontSize: '0.8rem', color: '#DC2626', borderColor: '#FCA5A5' }}
+                                      title="Hủy đơn hàng này"
+                                    >
+                                      Hủy Đơn
+                                    </button>
+                                  )}
+
+                                  {order.status === 'COMPLETED' && (
+                                    <span style={{
+                                      fontSize: '0.8rem',
+                                      color: '#059669',
+                                      fontWeight: 600,
+                                      background: '#DCFCE7',
+                                      padding: '4px 10px',
+                                      borderRadius: 'var(--radius-full)',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px'
+                                    }}>
+                                      <CheckCircle2 size={13} /> Đã Giao Thành Công
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -1108,6 +1218,173 @@ export default function AccountPage({
         </div>
       </div>
     </div>
+
+    {/* Modal Xác Nhận Hủy Đơn Hàng */}
+    {cancelModalOpen && selectedCancelOrder && (
+      <div 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.55)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+          backdropFilter: 'blur(3px)'
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !isSubmittingCancel) {
+            setCancelModalOpen(false);
+          }
+        }}
+      >
+        <div 
+          style={{
+            background: '#ffffff',
+            borderRadius: 'var(--radius-lg, 16px)',
+            maxWidth: '520px',
+            width: '100%',
+            padding: '28px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            border: '1px solid var(--border-light, #e2e8f0)',
+            position: 'relative'
+          }}
+        >
+          {/* Modal Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+            <div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#DC2626', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                <AlertCircle size={22} />
+                Xác Nhận Hủy Đơn Hàng
+              </h3>
+              <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
+                Mã đơn: <strong style={{ color: 'var(--primary)' }}>#{selectedCancelOrder.orderCode || selectedCancelOrder.id}</strong>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => !isSubmittingCancel && setCancelModalOpen(false)}
+              disabled={isSubmittingCancel}
+              style={{
+                border: 'none',
+                background: '#F1F5F9',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#64748B'
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Warning notice */}
+          <div style={{ background: '#FEF2F2', border: '1px solid #FEE2E2', borderRadius: 'var(--radius-md, 8px)', padding: '12px 14px', marginBottom: '18px', fontSize: '0.84rem', color: '#991B1B', lineHeight: '1.5' }}>
+            ⚠️ <strong>Lưu ý:</strong> Khi bạn xác nhận hủy đơn, số lượng sản phẩm trong đơn sẽ được tự động hoàn trả vào kho của Sen Xinh và đơn hàng sẽ không thể khôi phục lại.
+          </div>
+
+          {/* Reasons form */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '10px' }}>
+              Vui lòng chọn lý do hủy đơn:
+            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {CANCEL_REASONS.map((reason, idx) => (
+                <label 
+                  key={idx} 
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-sm, 6px)',
+                    background: cancelReason === reason ? '#F8FAFC' : 'transparent',
+                    border: `1px solid ${cancelReason === reason ? 'var(--primary)' : 'var(--border-light, #E2E8F0)'}`,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="cancelReason"
+                    value={reason}
+                    checked={cancelReason === reason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    style={{ accentColor: 'var(--primary)' }}
+                  />
+                  <span>{reason}</span>
+                </label>
+              ))}
+            </div>
+
+            {cancelReason.startsWith('Khác') && (
+              <div style={{ marginTop: '12px' }}>
+                <textarea
+                  rows={3}
+                  value={customReason}
+                  onChange={(e) => setCustomReason(e.target.value)}
+                  placeholder="Nhập lý do chi tiết của bạn tại đây..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 'var(--radius-md, 8px)',
+                    border: '1px solid var(--border-light, #E2E8F0)',
+                    fontSize: '0.88rem',
+                    resize: 'none',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Modal Actions */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setCancelModalOpen(false)}
+              disabled={isSubmittingCancel}
+              style={{ padding: '10px 20px', fontSize: '0.88rem' }}
+            >
+              Không Hủy
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmCancelOrder}
+              disabled={isSubmittingCancel}
+              style={{
+                padding: '10px 22px',
+                fontSize: '0.88rem',
+                fontWeight: 600,
+                color: '#fff',
+                background: '#DC2626',
+                border: 'none',
+                borderRadius: 'var(--radius-md, 8px)',
+                cursor: isSubmittingCancel ? 'not-allowed' : 'pointer',
+                opacity: isSubmittingCancel ? 0.7 : 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              {isSubmittingCancel && <RefreshCw size={15} className="spin" />}
+              <span>{isSubmittingCancel ? 'Đang Hủy...' : 'Xác Nhận Hủy Đơn'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Notification Modal – thay thế window.alert() */}
     <NotificationModal {...modalProps} />

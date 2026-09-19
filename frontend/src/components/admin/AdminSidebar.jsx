@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Sprout,
   Package,
+  PackageCheck,
   Tag,
   Users,
   PanelLeft,
@@ -85,11 +86,27 @@ export default function AdminSidebar({
               setViewMode('tabs');
               setMobileSidebarOpen(false);
             }}
-            title="Đơn Hàng & Vận Chuyển"
+            title="Đơn Hàng Cần Xử Lý"
           >
             <Package size={19} className="nav-icon" />
             {!sidebarCollapsed && (
-              <span className="nav-text">Đơn Hàng & Vận Chuyển</span>
+              <span className="nav-text">Đơn Hàng Cần Xử Lý</span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            className={`admin-nav-item ${(viewMode === 'tabs' && activeTab === 'delivered') ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('delivered');
+              setViewMode('tabs');
+              setMobileSidebarOpen(false);
+            }}
+            title="Đơn Hàng Đã Giao & Hoàn Tất"
+          >
+            <PackageCheck size={19} className="nav-icon" />
+            {!sidebarCollapsed && (
+              <span className="nav-text">Đơn Đã Giao</span>
             )}
           </button>
 

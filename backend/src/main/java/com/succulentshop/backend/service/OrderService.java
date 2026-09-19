@@ -250,6 +250,57 @@ public class OrderService {
         return convertOrderToResponse(order);
     }
 
+    @Transactional
+    public OrderResponse cancelOrder(Long orderId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
+
+        if ("COMPLETED".equals(order.getStatus())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST, "Đơn hàng đã hoàn tất, không thể hủy.");
+        }
+        if ("CANCELLED".equals(order.getStatus())) {
+            return convertOrderToResponse(order);
+        }
+
+        // Hoàn trả tồn kho cho các sản phẩm
+        for (OrderItem it : order.getItems()) {
+            productService.restoreStock(it.getProductId(), it.getQuantity());
+        }
+
+        order.setStatus("CANCELLED");
+        if (reason != null && !reason.isBlank()) {
+            String currentNote = order.getNote() != null ? order.getNote() : "";
+            order.setNote((currentNote + " [Lý do hủy: " + reason.trim() + "]").trim());
+        }
+        orderRepository.save(order);
+        return convertOrderToResponse(order);
+    }
+
+    @Transactional
+    public OrderResponse confirmReceived(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
+
+        if ("CANCELLED".equals(order.getStatus())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST, "Đơn hàng đã bị hủy, không thể xác nhận nhận hàng.");
+        }
+
+        order.setStatus("COMPLETED");
+
+        // Tích lũy Điểm Sen thưởng cho khách hàng (10.000đ = 1 điểm Sen)
+        if (order.getCustomerEmail() != null && !order.getCustomerEmail().isBlank()) {
+            Optional<User> uOpt = userRepository.findByEmail(order.getCustomerEmail().trim().toLowerCase());
+            uOpt.ifPresent(u -> {
+                int earnedPoints = Math.max(5, (order.getTotalAmount() != null ? order.getTotalAmount() : 0) / 10000);
+                u.setPoints((u.getPoints() != null ? u.getPoints() : 0) + earnedPoints);
+                userRepository.save(u);
+            });
+        }
+
+        orderRepository.save(order);
+        return convertOrderToResponse(order);
+    }
+
     public OrderResponse convertOrderToResponse(Order o) {
         OrderResponse response = new OrderResponse();
         response.setId(o.getId());

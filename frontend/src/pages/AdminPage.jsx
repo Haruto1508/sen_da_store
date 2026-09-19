@@ -31,6 +31,7 @@ import AdminSidebar from '../components/admin/AdminSidebar';
 import AdminHeader from '../components/admin/AdminHeader';
 import AdminStatsCards from '../components/admin/AdminStatsCards';
 import OrdersTab from '../components/admin/OrdersTab';
+import DeliveredOrdersTab from '../components/admin/DeliveredOrdersTab';
 import ProductsTab from '../components/admin/ProductsTab';
 import CouponsTab from '../components/admin/CouponsTab';
 import CustomersTab from '../components/admin/CustomersTab';
@@ -554,6 +555,15 @@ export default function AdminPage({
                   setOrderPage={setOrderPage}
                   itemsPerPage={ITEMS_PER_PAGE}
                   onStatusChange={handleStatusChange}
+                  onOpenOrderDetail={handleOpenOrderDetail}
+                  onOpenCustomerOrders={handleOpenCustomerOrders}
+                />
+              )}
+
+              {/* TAB 1B: DELIVERED ORDERS MANAGEMENT (ĐƠN ĐÃ GIAO) */}
+              {activeTab === 'delivered' && (
+                <DeliveredOrdersTab
+                  orders={allOrders.length > 0 ? allOrders : orders}
                   onOpenOrderDetail={handleOpenOrderDetail}
                   onOpenCustomerOrders={handleOpenCustomerOrders}
                 />
