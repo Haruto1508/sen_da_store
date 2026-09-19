@@ -17,6 +17,7 @@ import {
   Layers
 } from 'lucide-react';
 import { CATEGORIES } from '../data/products';
+import webLogo from '../assets/logo/web_logo.png';
 
 export default function Navbar({ 
   currentRoute,
@@ -153,11 +154,13 @@ export default function Navbar({
               e.preventDefault(); 
               onNavigate('home'); 
             }}
+            style={{ padding: 0 }}
           >
-            <div className="logo-icon">
-              <Sprout size={24} />
-            </div>
-            <span>Sen Xinh <span style={{ color: 'var(--accent)', fontSize: '0.9em' }}>Garden</span></span>
+            <img 
+              src={webLogo} 
+              alt="Sen Xinh Garden" 
+              style={{ height: '48px', width: 'auto', objectFit: 'contain' }} 
+            />
           </a>
 
           {/* Navigation links */}
