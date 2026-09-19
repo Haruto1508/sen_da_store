@@ -14,7 +14,9 @@ import {
   ChevronDown, 
   LogIn,
   Sun,
-  Layers
+  Layers,
+  Menu,
+  Home
 } from 'lucide-react';
 import { CATEGORIES } from '../data/products';
 import webLogo from '../assets/logo/web_logo.png';
@@ -39,6 +41,7 @@ export default function Navbar({
   onResetFilters
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchQuery);
@@ -53,6 +56,23 @@ export default function Navbar({
   useEffect(() => {
     setLocalSearch(searchQuery);
   }, [searchQuery]);
+
+  // Close mobile drawer on route navigation
+  useEffect(() => {
+    setIsMobileDrawerOpen(false);
+  }, [currentRoute]);
+
+  // Lock body scroll when mobile drawer is open
+  useEffect(() => {
+    if (isMobileDrawerOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileDrawerOpen]);
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -146,22 +166,34 @@ export default function Navbar({
     <header className="header">
       <div className="container">
         <nav className="nav-container">
-          {/* Logo */}
-          <a 
-            href="/" 
-            className="logo" 
-            onClick={(e) => { 
-              e.preventDefault(); 
-              onNavigate('home'); 
-            }}
-            style={{ padding: 0 }}
-          >
-            <img 
-              src={webLogo} 
-              alt="Sen Xinh Garden" 
-              style={{ height: '48px', width: 'auto', objectFit: 'contain' }} 
-            />
-          </a>
+          {/* Logo & Mobile Hamburger */}
+          <div className="nav-left" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button 
+              type="button"
+              className="nav-hamburger-btn"
+              onClick={() => setIsMobileDrawerOpen(true)}
+              aria-label="Mở menu điều hướng"
+              title="Menu danh mục"
+            >
+              <Menu size={22} />
+            </button>
+
+            <a 
+              href="/" 
+              className="logo" 
+              onClick={(e) => { 
+                e.preventDefault(); 
+                onNavigate('home'); 
+              }}
+              style={{ padding: 0 }}
+            >
+              <img 
+                src={webLogo} 
+                alt="Sen Xinh Garden" 
+                style={{ height: '48px', width: 'auto', objectFit: 'contain' }} 
+              />
+            </a>
+          </div>
 
           {/* Navigation links */}
           <ul className="nav-menu">
@@ -483,6 +515,208 @@ export default function Navbar({
           </div>
         </nav>
       </div>
+
+      {/* Mobile Navigation Drawer & Backdrop */}
+      <div 
+        className={`mobile-nav-overlay ${isMobileDrawerOpen ? 'open' : ''}`}
+        onClick={() => setIsMobileDrawerOpen(false)}
+        aria-hidden="true"
+      />
+
+      <aside className={`mobile-nav-drawer ${isMobileDrawerOpen ? 'open' : ''}`} aria-hidden={!isMobileDrawerOpen}>
+        <div className="mobile-nav-header">
+          <img 
+            src={webLogo} 
+            alt="Sen Xinh Garden" 
+            style={{ height: '38px', width: 'auto', objectFit: 'contain' }} 
+          />
+          <button 
+            type="button"
+            className="mobile-nav-close"
+            onClick={() => setIsMobileDrawerOpen(false)}
+            aria-label="Đóng menu"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Search in Drawer */}
+        <div className="mobile-nav-search">
+          <form 
+            className="mobile-search-form" 
+            onSubmit={(e) => {
+              handleSearchSubmit(e);
+              setIsMobileDrawerOpen(false);
+            }}
+          >
+            <Search size={16} style={{ color: 'var(--text-muted)' }} />
+            <input 
+              type="text"
+              placeholder="Tìm sen đá, tiểu cảnh..."
+              value={localSearch}
+              onChange={(e) => {
+                setLocalSearch(e.target.value);
+                if (onSearchChange) onSearchChange(e.target.value);
+              }}
+            />
+            {localSearch && (
+              <button 
+                type="button" 
+                onClick={handleClearSearch}
+                style={{ border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </form>
+        </div>
+
+        {/* Links in Drawer */}
+        <div className="mobile-nav-links">
+          <button 
+            type="button"
+            className={`mobile-nav-item ${currentRoute === 'home' ? 'active' : ''}`}
+            onClick={() => {
+              setIsMobileDrawerOpen(false);
+              onNavigate('home');
+            }}
+          >
+            <Home size={18} />
+            <span>Trang Chủ</span>
+          </button>
+
+          <button 
+            type="button"
+            className={`mobile-nav-item ${currentRoute === 'shop' || currentRoute === 'product-detail' ? 'active' : ''}`}
+            onClick={() => {
+              setIsMobileDrawerOpen(false);
+              onNavigate('shop');
+            }}
+          >
+            <Sprout size={18} />
+            <span>Cửa Hàng Sen Đá</span>
+          </button>
+
+          <button 
+            type="button"
+            className={`mobile-nav-item ${currentRoute === 'news' || currentRoute === 'news-detail' ? 'active' : ''}`}
+            onClick={() => {
+              setIsMobileDrawerOpen(false);
+              onNavigate('news');
+            }}
+          >
+            <Layers size={18} />
+            <span>Tin Tức & Cẩm Nang</span>
+          </button>
+
+          <div className="mobile-nav-divider" />
+
+          <button 
+            type="button"
+            className="mobile-nav-item"
+            onClick={() => {
+              setIsMobileDrawerOpen(false);
+              if (onOpenWishlist) onOpenWishlist();
+            }}
+          >
+            <Heart size={18} color="#E63946" />
+            <span>Mục Yêu Thích</span>
+            {wishlistCount > 0 && (
+              <span className="mobile-nav-item-badge" style={{ background: '#E63946' }}>{wishlistCount}</span>
+            )}
+          </button>
+
+          <button 
+            type="button"
+            className={`mobile-nav-item ${currentRoute === 'cart' ? 'active' : ''}`}
+            onClick={() => {
+              setIsMobileDrawerOpen(false);
+              onNavigate('cart');
+            }}
+          >
+            <ShoppingBag size={18} color="var(--primary)" />
+            <span>Giỏ Hàng</span>
+            {cartCount > 0 && (
+              <span className="mobile-nav-item-badge">{cartCount}</span>
+            )}
+          </button>
+        </div>
+
+        {/* User Profile / Auth in Drawer */}
+        <div className="mobile-nav-user-section">
+          {currentUser ? (
+            <div>
+              <div className="mobile-user-profile">
+                <div className="mobile-user-avatar">
+                  {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : <User size={18} />}
+                </div>
+                <div className="mobile-user-details">
+                  <div className="mobile-user-name">{currentUser.name}</div>
+                  <div className="mobile-user-role">{currentUser.role || 'Thành viên'}</div>
+                </div>
+              </div>
+
+              {(currentUser.role?.includes('Admin') || currentUser.email === 'admin@senxinh.vn') && (
+                <button 
+                  type="button"
+                  className="mobile-nav-item"
+                  style={{ color: '#DC2626', background: 'rgba(220, 38, 38, 0.08)', marginBottom: '6px' }}
+                  onClick={() => {
+                    setIsMobileDrawerOpen(false);
+                    onNavigate('admin');
+                  }}
+                >
+                  <ShieldCheck size={18} />
+                  <span>Quản Trị Nhà Vườn</span>
+                </button>
+              )}
+
+              <button 
+                type="button"
+                className="mobile-nav-item"
+                onClick={() => {
+                  setIsMobileDrawerOpen(false);
+                  onNavigate('account');
+                }}
+              >
+                <User size={18} />
+                <span>Thông Tin Tài Khoản</span>
+              </button>
+
+              <button 
+                type="button"
+                className="mobile-nav-item"
+                style={{ color: '#DC2626', marginTop: '6px' }}
+                onClick={() => {
+                  setIsMobileDrawerOpen(false);
+                  if (onLogout) onLogout();
+                }}
+              >
+                <LogOut size={18} />
+                <span>Đăng Xuất</span>
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.5 }}>
+                Đăng nhập để lưu danh sách cây yêu thích và theo dõi trạng thái đơn hàng.
+              </p>
+              <button 
+                type="button"
+                className="btn-primary" 
+                style={{ width: '100%', justifyContent: 'center', padding: '12px' }}
+                onClick={() => {
+                  setIsMobileDrawerOpen(false);
+                  onNavigate('login');
+                }}
+              >
+                <LogIn size={18} />
+                <span>Đăng Nhập / Đăng Ký</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </aside>
     </header>
   );
 }
