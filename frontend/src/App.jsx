@@ -13,6 +13,7 @@ import ProductDetailPage from './pages/ProductDetailPage';
 import NewsPage from './pages/NewsPage';
 import NewsDetailPage from './pages/NewsDetailPage';
 import AdminPage from './pages/AdminPage';
+import AdminLoginPage from './pages/AdminLoginPage';
 import CheckoutPage from './pages/CheckoutPage';
 import AccountPage from './pages/AccountPage';
 import CartPage from './pages/CartPage';
@@ -226,6 +227,7 @@ export default function App() {
     if (path.startsWith('/product/')) return 'product-detail';
     if (path === '/news') return 'news';
     if (path.startsWith('/news/')) return 'news-detail';
+    if (path === '/admin/login') return 'admin-login';
     if (path === '/admin') return 'admin';
     if (path === '/cart') return 'cart';
     if (path === '/wishlist') return 'wishlist';
@@ -260,6 +262,9 @@ export default function App() {
         break;
       case 'admin':
         navigate('/admin');
+        break;
+      case 'admin-login':
+        navigate('/admin/login');
         break;
       case 'cart':
         navigate('/cart');
@@ -723,8 +728,8 @@ export default function App() {
 
   const cartTotalCount = cartItems.reduce((acc, it) => acc + it.quantity, 0);
 
-  const isAdminRoute = location.pathname.startsWith('/admin');
-  const isAuthRoute = currentRoute === 'login' || currentRoute === 'register' || currentRoute === 'password';
+  const isAdminRoute = location.pathname.startsWith('/admin') && location.pathname !== '/admin/login';
+  const isAuthRoute = currentRoute === 'login' || currentRoute === 'register' || currentRoute === 'password' || currentRoute === 'admin-login';
 
   const pageMeta = useMemo(() => {
     const path = location.pathname;
@@ -1011,18 +1016,33 @@ export default function App() {
           <Route
             path="/admin"
             element={
-              <AdminPage
+              user && (user.role?.toLowerCase().includes('admin') || user.email === 'admin@senxinh.vn') ? (
+                <AdminPage
+                  user={user}
+                  onLoginAsAdmin={handleAdminLoginSuccess}
+                  onLogout={handleLogout}
+                  onNavigateHome={() => navigateTo('home')}
+                  onNavigateShop={() => navigateTo('shop')}
+                  onProductsChange={(updated) => setProductList(updated)}
+                  addToast={addToast}
+                />
+              ) : (
+                <Navigate to="/admin/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/admin/login"
+            element={
+              <AdminLoginPage
                 user={user}
                 onLoginAsAdmin={handleAdminLoginSuccess}
                 onLogout={handleLogout}
                 onNavigateHome={() => navigateTo('home')}
-                onNavigateShop={() => navigateTo('shop')}
-                onProductsChange={(updated) => setProductList(updated)}
                 addToast={addToast}
               />
             }
           />
-          <Route path="/admin/login" element={<Navigate to="/admin" replace />} />
 
           {/* Dedicated Login Route */}
           <Route

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Navigate } from 'react-router-dom';
 import NotificationModal from '../components/NotificationModal';
 import useModal from '../components/useModal';
 import useOrderEvents from '../hooks/useOrderEvents';
@@ -205,8 +206,10 @@ export default function AdminPage({
   };
 
   useEffect(() => {
-    loadAllData();
-  }, [orderFilterStatus]);
+    if (isAdmin) {
+      loadAllData();
+    }
+  }, [orderFilterStatus, isAdmin]);
 
   // ----------------------------------------------------
   // REALTIME SSE ORDER STREAM (ADMIN)
@@ -587,16 +590,9 @@ export default function AdminPage({
     }
   };
 
-  // Unauthenticated Admin Gatekeeper
+  // Unauthenticated Admin Redirect
   if (!isAdmin) {
-    return (
-      <AdminGatekeeper
-        user={user}
-        onLoginAsAdmin={onLoginAsAdmin}
-        onNavigateHome={onNavigateHome}
-        addToast={addToast}
-      />
-    );
+    return <Navigate to="/admin/login" replace />;
   }
 
   return (
