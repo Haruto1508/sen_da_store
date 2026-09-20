@@ -21,6 +21,7 @@ public class CartService {
         this.productRepository = productRepository;
     }
 
+    // Validates the items in the cart and returns a response indicating whether the cart can proceed to checkout.
     public CartValidateResponse validateCart(CartValidateRequest request) {
         List<CartValidateRequest.CartItemDto> items = (request != null && request.getItems() != null)
                 ? request.getItems()
