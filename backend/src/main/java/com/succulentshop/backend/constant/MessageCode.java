@@ -68,9 +68,7 @@ public enum MessageCode {
     PAYMENT_CONFIRMED("PAY_MSG_001", "Xác nhận thanh toán đơn hàng thành công"),
     PAYMENT_SIMULATED("PAY_MSG_002", "Mô phỏng thanh toán chuyển khoản thành công"),
     HEALTH_CHECK_OK("SYS_MSG_001", "Hệ thống hoạt động bình thường"),
-    CART_VALIDATED("CART_MSG_001", "Kiểm tra giỏ hàng thành công"),
-    MOMO_PAYMENT_INITIALIZED("PAY_MSG_003", "Khởi tạo thanh toán MoMo thành công"),
-    MOMO_SIMULATED("PAY_MSG_004", "Mô phỏng thanh toán MoMo thành công");
+    CART_VALIDATED("CART_MSG_001", "Kiểm tra giỏ hàng thành công");
 
     private final String code;
     private final String message;

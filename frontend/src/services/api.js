@@ -1119,69 +1119,6 @@ export async function changeAdminPassword({ email, oldPassword = '', newPassword
   return data;
 }
 
-// ==============================================================================
-// MOMO PAYMENT APIs
-// ==============================================================================
-
-export async function createMoMoPayment(orderCode, amount = 0) {
-  const payAmount = Number(amount) > 0 ? Number(amount) : 150000;
-  if (USE_MOCK_DATA) {
-    return {
-      success: true,
-      data: {
-        payUrl: 'https://test-payment.momo.vn',
-        qrCodeUrl: `https://img.vietqr.io/image/970422-0988123456-compact2.png?amount=${payAmount}&addInfo=${orderCode}&accountName=MOMO%20SEN%20XINH%20GARDEN`,
-        deeplink: `momo://payment?orderId=${orderCode}`
-      }
-    };
-  }
-
-  try {
-    const res = await fetch(`${API_BASE}/payment/momo/create`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderCode, amount: payAmount })
-    });
-    return await res.json();
-  } catch (error) {
-    console.error('Lỗi khi khởi tạo thanh toán MoMo:', error);
-    return {
-      success: true,
-      data: {
-        payUrl: 'https://test-payment.momo.vn',
-        qrCodeUrl: `https://img.vietqr.io/image/970422-0988123456-compact2.png?amount=${payAmount}&addInfo=${orderCode}&accountName=MOMO%20SEN%20XINH%20GARDEN`,
-        deeplink: `momo://payment?orderId=${orderCode}`
-      }
-    };
-  }
-}
-
-export async function simulateMoMoPayment(orderCode) {
-  if (USE_MOCK_DATA) {
-    return { success: true, message: 'Thanh toán MoMo thành công (Chế độ Mock)' };
-  }
-
-  try {
-    const res = await fetch(`${API_BASE}/payment/momo/simulate-ipn`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderCode })
-    });
-    const json = await res.json();
-    // Backend trả về ApiResult wrapper: { message, data: { resultCode, ... } }
-    // Chuẩn hóa response để frontend luôn nhận được { success: true/false }
-    if (res.ok) {
-      const inner = json.data || {};
-      const resultCode = inner.resultCode !== undefined ? inner.resultCode : 0;
-      return { success: resultCode === 0, message: json.message || inner.message || 'Thành công', data: inner };
-    }
-    return { success: false, message: json.message || 'Lỗi xác nhận thanh toán MoMo' };
-  } catch (error) {
-    console.error('Lỗi khi mô phỏng IPN MoMo:', error);
-    return { success: false, message: 'Lỗi kết nối máy chủ MoMo' };
-  }
-}
-
 /**
  * Kiểm tra trạng thái đơn hàng theo mã đơn (orderCode) phục vụ polling thanh toán tự động
  */

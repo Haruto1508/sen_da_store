@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   QrCode,
-  Smartphone,
   Truck,
   Copy,
   Check,
@@ -24,7 +23,6 @@ export default function CheckoutOrderCompleted({
   formatPrice,
   activeBankInfo,
   vietQrUrl,
-  momoData,
   copiedKey,
   handleCopyText,
   handleManualCheckPayment,
@@ -35,7 +33,6 @@ export default function CheckoutOrderCompleted({
   navigate
 }) {
   const currentPaymentMethod = placedOrder ? placedOrder.paymentMethod : formData.paymentMethod;
-  const isMoMo = currentPaymentMethod === 'momo';
   const isVietQr = currentPaymentMethod === 'vietqr';
   const isPaid = orderStatus === 'PAID';
 
@@ -81,7 +78,7 @@ export default function CheckoutOrderCompleted({
             <div className="pay-info-item">
               <div className="pay-info-label">Hình thức</div>
               <div className="pay-info-val">
-                {isMoMo ? 'Ví MoMo' : isVietQr ? 'Chuyển Khoản VietQR' : 'Tiền Mặt (COD)'}
+                {isVietQr ? 'Chuyển Khoản VietQR' : 'Tiền Mặt (COD)'}
               </div>
             </div>
             <div className="pay-info-item">
@@ -212,98 +209,6 @@ export default function CheckoutOrderCompleted({
                   </button>
                   <p className="pay-note-hint">
                     Hệ thống tự động kích hoạt đơn hàng trong vài giây ngay khi nhận được thanh toán từ ngân hàng.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* MoMo QR Card */}
-        {!isPaid && isMoMo && (
-          <div className="pay-qr-card">
-            <div className="pay-qr-header momo">
-              <div className="pay-qr-brand">
-                <div className="pay-qr-brand-icon momo">
-                  <Smartphone size={20} />
-                </div>
-                <div>
-                  <div className="pay-qr-brand-name">Thanh Toán Ví MoMo</div>
-                  <div className="pay-qr-brand-sub">Quét bằng App MoMo hoặc App Ngân Hàng NAPAS</div>
-                </div>
-              </div>
-
-              <div className="pay-status-pill waiting">
-                <span className="pay-pulse" />
-                <span>Chờ thanh toán...</span>
-              </div>
-            </div>
-
-            <div className="pay-qr-body">
-              <div className="pay-qr-img-col">
-                <div className="pay-qr-frame momo-border">
-                  <img 
-                    src={momoData?.qrCodeUrl || `https://img.vietqr.io/image/970422-0988123456-compact2.png?amount=${finalTotalAmount}&addInfo=${currentCode}&accountName=MOMO%20SEN%20XINH%20GARDEN`} 
-                    alt="Mã QR Thanh Toán MoMo" 
-                    className="pay-qr-img" 
-                  />
-                </div>
-                <div className="pay-qr-caption">Quét mã bằng Ví MoMo</div>
-              </div>
-
-              <div className="pay-qr-info">
-                <div className="pay-qr-grid-info">
-                  <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Đơn vị thụ hưởng</div>
-                    <div className="pay-qr-row-val">Nhà Vườn Sen Xinh Garden</div>
-                  </div>
-
-                  <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Số tiền cần thanh toán</div>
-                    <div className="pay-qr-row-val big momo-color">{formatPrice(finalTotalAmount)}</div>
-                  </div>
-
-                  <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Mã giao dịch / Nội dung</div>
-                    <div className="pay-copy-row">
-                      <span className="pay-qr-code-pill momo">{currentCode}</span>
-                      <button 
-                        type="button" 
-                        className={`pay-copy-btn ${copiedKey === 'momoCode' ? 'copied' : ''}`}
-                        onClick={() => handleCopyText(currentCode, 'momoCode')}
-                      >
-                        {copiedKey === 'momoCode' ? <Check size={13} /> : <Copy size={13} />}
-                        <span>{copiedKey === 'momoCode' ? 'Đã sao chép' : 'Sao chép'}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {momoData?.payUrl && (
-                  <a 
-                    href={momoData.payUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="pay-open-momo"
-                  >
-                    <ExternalLink size={16} />
-                    <span>Mở Cổng Thanh Toán MoMo (App / Web)</span>
-                  </a>
-                )}
-
-                <div className="pay-qr-actions">
-                  <button 
-                    type="button" 
-                    className="btn-primary"
-                    onClick={handleManualCheckPayment}
-                    disabled={isCheckingPayment}
-                    style={{ width: '100%', padding: '13px 18px', fontSize: '0.95rem', background: '#A50064', borderColor: '#A50064' }}
-                  >
-                    {isCheckingPayment ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                    <span>{isCheckingPayment ? 'Đang kiểm tra...' : 'Đã Thanh Toán — Kiểm Tra Ngay'}</span>
-                  </button>
-                  <p className="pay-note-hint">
-                    Đơn hàng sẽ tự động cập nhật ngay sau khi bạn hoàn tất giao dịch trên MoMo.
                   </p>
                 </div>
               </div>

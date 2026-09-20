@@ -16,7 +16,7 @@ import java.util.List;
 /**
  * Tự động hủy các đơn hàng PENDING (chưa thanh toán) sau một khoảng thời gian nhất định.
  * - Mặc định: 30 phút (cấu hình qua application.properties)
- * - Chỉ hủy đơn thanh toán online (vietqr, momo), KHÔNG hủy đơn COD
+ * - Chỉ hủy đơn chuyển khoản online (vietqr), KHÔNG hủy đơn COD
  * - Hoàn trả tồn kho khi hủy
  * - Chạy mỗi 10 phút
  */
@@ -62,7 +62,7 @@ public class OrderCleanupScheduler {
     }
 
     private boolean cancelSingleStaleOrder(Order order) {
-        // Chỉ tự động hủy đơn thanh toán online (vietqr, momo)
+        // Chỉ tự động hủy đơn chuyển khoản online (vietqr)
         // Đơn COD vẫn giữ PENDING vì khách trả tiền mặt khi nhận hàng
         String method = order.getPaymentMethod();
         if ("cod".equalsIgnoreCase(method)) {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { QrCode, Smartphone, Truck } from 'lucide-react';
+import { QrCode, Truck } from 'lucide-react';
 
 export default function CheckoutPaymentMethods({ paymentMethod, onSelectMethod }) {
   return (
@@ -28,29 +28,6 @@ export default function CheckoutPaymentMethods({ paymentMethod, onSelectMethod }
             </div>
             <p className="chk-pay-desc">
               Quét mã QR bằng App Ngân Hàng bất kỳ. Hệ thống tự động xác nhận 24/7.
-            </p>
-          </div>
-          <div className="chk-radio-dot" />
-        </label>
-
-        {/* MoMo Option */}
-        <label className={`chk-pay-card ${paymentMethod === 'momo' ? 'selected' : ''}`}>
-          <input
-            type="radio"
-            name="paymentMethod"
-            value="momo"
-            checked={paymentMethod === 'momo'}
-            onChange={() => onSelectMethod('momo')}
-          />
-          <div className="chk-pay-icon momo">
-            <Smartphone size={22} />
-          </div>
-          <div className="chk-pay-body">
-            <div className="chk-pay-name">
-              <span>Ví Điện Tử MoMo</span>
-            </div>
-            <p className="chk-pay-desc">
-              Quét mã MoMo hoặc mở ứng dụng MoMo để hoàn tất thanh toán.
             </p>
           </div>
           <div className="chk-radio-dot" />

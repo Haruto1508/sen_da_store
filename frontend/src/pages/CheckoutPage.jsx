@@ -4,7 +4,6 @@ import { ArrowLeft, ShoppingBag, ArrowRight } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { 
   createOrder, 
-  createMoMoPayment, 
   lookupOrder, 
   checkOrderStatus,
   getShippingConfig,
@@ -60,7 +59,7 @@ export default function CheckoutPage({
     phone: user?.phone || '',
     address: user?.address || '',
     city: detectCity(user?.address),
-    paymentMethod: 'vietqr', // 'vietqr' | 'momo' | 'cod'
+    paymentMethod: 'vietqr', // 'vietqr' | 'cod'
     note: ''
   });
 
@@ -81,7 +80,6 @@ export default function CheckoutPage({
   const [orderCode, setOrderCode] = useState(initialOrderCode || '');
   const [placedOrder, setPlacedOrder] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [momoData, setMomoData] = useState(null);
   const [vietQrData, setVietQrData] = useState(null);
   const [orderStatus, setOrderStatus] = useState('PENDING');
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
@@ -223,18 +221,6 @@ export default function CheckoutPage({
         status: 'PENDING'
       });
 
-      // Khởi tạo MoMo nếu khách chọn momo
-      if (formData.paymentMethod === 'momo') {
-        try {
-          const momoRes = await createMoMoPayment(code, total);
-          if (momoRes && momoRes.data) {
-            setMomoData(momoRes.data);
-          }
-        } catch (mErr) {
-          console.warn('Khởi tạo giao dịch MoMo offline fallback:', mErr);
-        }
-      }
-
       setIsCompleted(true);
 
       if (onOrderSuccess) {
@@ -251,7 +237,7 @@ export default function CheckoutPage({
     }
   };
 
-  // Auto-polling kiểm tra trạng thái thanh toán khi đơn hàng đang hiển thị mã QR (VietQR hoặc MoMo)
+  // Auto-polling kiểm tra trạng thái thanh toán khi đơn hàng đang hiển thị mã QR (VietQR)
   useEffect(() => {
     if (!isCompleted || orderStatus === 'PAID') return;
     const targetCode = orderCode || placedOrder?.orderCode;
@@ -324,7 +310,6 @@ export default function CheckoutPage({
           formatPrice={formatPrice}
           activeBankInfo={activeBankInfo}
           vietQrUrl={vietQrUrl}
-          momoData={momoData}
           copiedKey={copiedKey}
           handleCopyText={handleCopyText}
           handleManualCheckPayment={handleManualCheckPayment}
