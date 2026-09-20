@@ -613,6 +613,7 @@ export default function AdminPage({
         setMobileSidebarOpen={setMobileSidebarOpen}
         onNavigateHome={onNavigateHome}
         onLogout={onLogout}
+        user={user}
       />
 
       {/* Right Content Area */}

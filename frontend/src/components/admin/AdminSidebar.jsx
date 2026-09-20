@@ -23,59 +23,63 @@ export default function AdminSidebar({
   mobileSidebarOpen,
   setMobileSidebarOpen,
   onNavigateHome,
-  onLogout
+  onLogout,
+  user
 }) {
   return (
     <>
       <aside className={`admin-sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
-        {/* Sidebar Brand Header */}
-        <div className="admin-sidebar-header">
-          <div
-            className="admin-sidebar-brand"
-            onClick={() => {
-              setActiveTab('orders');
-              setViewMode('tabs');
-            }}
-            title="Bảng điều khiển quản trị"
-          >
-            <div className="admin-brand-logo">
-              <Sprout size={22} color="#FFFFFF" />
-            </div>
-            {!sidebarCollapsed && (
-              <div className="admin-brand-text">
-                <span className="admin-brand-name">
-                  SEN XINH <span className="admin-brand-accent">ADMIN</span>
-                </span>
-                <span className="admin-brand-sub">Quản Trị Nhà Vườn</span>
+        {/* FIXED HEADER SECTION */}
+        <div className="admin-sidebar-header-group">
+          {/* Sidebar Brand Header */}
+          <div className="admin-sidebar-header">
+            <div
+              className="admin-sidebar-brand"
+              onClick={() => {
+                setActiveTab('orders');
+                setViewMode('tabs');
+              }}
+              title="Bảng điều khiển quản trị"
+            >
+              <div className="admin-brand-logo">
+                <Sprout size={22} color="#FFFFFF" />
               </div>
-            )}
+              {!sidebarCollapsed && (
+                <div className="admin-brand-text">
+                  <span className="admin-brand-name">
+                    SEN XINH <span className="admin-brand-accent">ADMIN</span>
+                  </span>
+                  <span className="admin-brand-sub">Quản Trị Nhà Vườn</span>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Database Status Card */}
+          {!sidebarCollapsed && (
+            <div className="admin-sidebar-mode-card">
+              {USE_MOCK_DATA ? (
+                <div className="admin-mode-pill mock" title="Đang chạy ở chế độ giả lập dữ liệu JSON nội bộ">
+                  <span className="dot" />
+                  <div className="mode-info">
+                    <strong>Mock Data JSON</strong>
+                    <small>Chế độ giả lập</small>
+                  </div>
+                </div>
+              ) : (
+                <div className="admin-mode-pill live" title="Đang kết nối API Spring Boot 3.4 & PostgreSQL thực tế">
+                  <span className="dot" />
+                  <div className="mode-info">
+                    <strong>PostgreSQL Live</strong>
+                    <small>Spring Boot REST API</small>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Database Status Card */}
-        {!sidebarCollapsed && (
-          <div className="admin-sidebar-mode-card">
-            {USE_MOCK_DATA ? (
-              <div className="admin-mode-pill mock" title="Đang chạy ở chế độ giả lập dữ liệu JSON nội bộ">
-                <span className="dot" />
-                <div className="mode-info">
-                  <strong>Mock Data JSON</strong>
-                  <small>Chế độ giả lập</small>
-                </div>
-              </div>
-            ) : (
-              <div className="admin-mode-pill live" title="Đang kết nối API Spring Boot 3.4 & PostgreSQL thực tế">
-                <span className="dot" />
-                <div className="mode-info">
-                  <strong>PostgreSQL Live</strong>
-                  <small>Spring Boot REST API</small>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Navigation Section */}
+        {/* SCROLLABLE NAVIGATION SECTION */}
         <nav className="admin-sidebar-nav">
           <div className="admin-nav-group-label">
             {!sidebarCollapsed ? 'QUẢN LÝ KHO BÃI' : '•••'}
@@ -215,44 +219,65 @@ export default function AdminSidebar({
               <span className="nav-text">Về Trang Cửa Hàng</span>
             )}
           </button>
-
-          {onLogout && (
-            <button
-              type="button"
-              className="admin-nav-item logout-link"
-              onClick={() => {
-                setMobileSidebarOpen(false);
-                onLogout();
-              }}
-              title="Đăng xuất khỏi tài khoản Quản trị"
-              style={{
-                marginTop: '16px',
-                color: '#ef4444',
-                background: 'rgba(239, 68, 68, 0.08)',
-                border: '1px solid rgba(239, 68, 68, 0.18)'
-              }}
-            >
-              <LogOut size={19} className="nav-icon" style={{ color: '#ef4444' }} />
-              {!sidebarCollapsed && (
-                <span className="nav-text" style={{ fontWeight: 600, color: '#ef4444' }}>
-                  Đăng Xuất Admin
-                </span>
-              )}
-            </button>
-          )}
         </nav>
 
-        {/* Dedicated Bottom Collapse Bar */}
-        <div className="admin-sidebar-collapse-bar">
-          <button
-            type="button"
-            className="admin-sidebar-collapse-btn"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            title={sidebarCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
-            aria-label={sidebarCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
-          >
-            <PanelLeft size={18} />
-          </button>
+        {/* FIXED FOOTER SECTION */}
+        <div className="admin-sidebar-footer-group">
+          {/* Admin User Profile & Logout */}
+          <div className="admin-sidebar-footer">
+            <div
+              className="admin-sidebar-user"
+              onClick={() => {
+                setActiveTab('admin-accounts');
+                setViewMode('tabs');
+                setMobileSidebarOpen(false);
+              }}
+              style={{ cursor: 'pointer' }}
+              title="Xem hồ sơ & Quản lý tài khoản Admin"
+            >
+              <img
+                className="admin-sidebar-avatar"
+                src={
+                  user?.avatar ||
+                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
+                }
+                alt={user?.name || 'Admin'}
+              />
+              {!sidebarCollapsed && (
+                <div className="admin-sidebar-user-details">
+                  <span className="user-name">{user?.name || 'Quản Trị Viên'}</span>
+                  <span className="user-role">{user?.role || 'Quản trị viên'}</span>
+                </div>
+              )}
+            </div>
+
+            {onLogout && (
+              <button
+                type="button"
+                className="admin-sidebar-logout"
+                onClick={() => {
+                  setMobileSidebarOpen(false);
+                  onLogout();
+                }}
+                title="Đăng xuất khỏi tài khoản Quản trị"
+              >
+                <LogOut size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* Dedicated Bottom Collapse Bar */}
+          <div className="admin-sidebar-collapse-bar">
+            <button
+              type="button"
+              className="admin-sidebar-collapse-btn"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              title={sidebarCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+              aria-label={sidebarCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
+            >
+              <PanelLeft size={18} />
+            </button>
+          </div>
         </div>
       </aside>
 

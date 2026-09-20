@@ -5859,9 +5859,15 @@ html.modal-open {
   position: sticky;
   top: 0;
   height: 100vh;
+  max-height: 100vh;
   z-index: 100;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
+}
+
+.admin-sidebar-header-group {
+  flex-shrink: 0;
+  background: #0F172A;
+  z-index: 2;
 }
 
 .admin-sidebar.collapsed {
@@ -5877,6 +5883,7 @@ html.modal-open {
   justify-content: space-between;
   border-bottom: 1px solid #1E293B;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .admin-sidebar-brand {
@@ -5946,6 +5953,7 @@ html.modal-open {
 /* Sidebar Mode Pill Card */
 .admin-sidebar-mode-card {
   padding: 12px 14px 4px;
+  flex-shrink: 0;
 }
 
 .admin-mode-pill {
@@ -5993,13 +6001,35 @@ html.modal-open {
   font-size: 0.68rem;
 }
 
-/* Nav Section */
+/* Nav Section - Scrollable Middle */
 .admin-sidebar-nav {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 12px 10px;
   display: flex;
   flex-direction: column;
   gap: 3px;
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+
+.admin-sidebar-nav::-webkit-scrollbar {
+  width: 5px;
+}
+
+.admin-sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-sidebar-nav::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+.admin-sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 .admin-nav-group-label {
@@ -6119,6 +6149,14 @@ html.modal-open {
   background: #10B981;
 }
 
+/* Sidebar Footer Group - Fixed Bottom */
+.admin-sidebar-footer-group {
+  flex-shrink: 0;
+  margin-top: auto;
+  background: #0B1120;
+  z-index: 2;
+}
+
 /* Sidebar Footer Profile */
 .admin-sidebar-footer {
   padding: 12px 14px;
@@ -6128,6 +6166,7 @@ html.modal-open {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .admin-sidebar-user {
@@ -6197,6 +6236,7 @@ html.modal-open {
   align-items: center;
   justify-content: flex-start;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .admin-sidebar.collapsed .admin-sidebar-collapse-bar {
