@@ -70,4 +70,16 @@ public class OrderController {
         OrderResponse result = orderService.confirmReceived(id);
         return ResponseEntity.ok(ApiResult.ok("Xác nhận đã nhận hàng thành công!", result));
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResult<Void>> deleteOrder(@PathVariable Long id) {
+        orderService.deleteOrder(id);
+        return ResponseEntity.ok(ApiResult.ok("Đã xóa đơn hàng thành công", null));
+    }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<ApiResult<Void>> deleteOrdersBulk(@RequestBody List<Long> ids) {
+        orderService.deleteOrdersBulk(ids);
+        return ResponseEntity.ok(ApiResult.ok("Đã xóa các đơn hàng được chọn thành công", null));
+    }
 }

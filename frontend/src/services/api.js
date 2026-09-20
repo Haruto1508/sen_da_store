@@ -479,6 +479,48 @@ export async function confirmReceivedOrder(orderId) {
 }
 
 /**
+ * Khách hàng xóa một đơn hàng khỏi lịch sử
+ */
+export async function deleteCustomerOrder(orderId) {
+  if (USE_MOCK_DATA) {
+    const orders = getStoredOrders();
+    const updated = orders.filter((o) => String(o.id) !== String(orderId) && o.orderCode !== orderId);
+    saveStoredOrders(updated);
+    return { success: true, message: 'Đã xóa đơn hàng thành công' };
+  }
+
+  const res = await fetch(`${API_BASE}/orders/${orderId}`, {
+    method: 'DELETE'
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Không thể xóa đơn hàng');
+  return data;
+}
+
+/**
+ * Khách hàng xóa hàng loạt đơn hàng đã chọn
+ */
+export async function deleteCustomerOrdersBulk(orderIds) {
+  if (!orderIds || orderIds.length === 0) return { success: true };
+  if (USE_MOCK_DATA) {
+    const orders = getStoredOrders();
+    const idSet = new Set(orderIds.map(String));
+    const updated = orders.filter((o) => !idSet.has(String(o.id)) && !idSet.has(String(o.orderCode)));
+    saveStoredOrders(updated);
+    return { success: true, message: `Đã xóa ${orderIds.length} đơn hàng thành công` };
+  }
+
+  const res = await fetch(`${API_BASE}/orders/bulk`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(orderIds)
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Không thể xóa các đơn hàng đã chọn');
+  return data;
+}
+
+/**
  * Cập nhật thông tin tài khoản người dùng
  */
 export async function updateUserProfile(profileData) {

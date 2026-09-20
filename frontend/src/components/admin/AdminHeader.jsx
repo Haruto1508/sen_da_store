@@ -8,8 +8,7 @@ export default function AdminHeader({
   activeOrder,
   setMobileSidebarOpen,
   onOpenAddProduct,
-  onOpenAddCoupon,
-  onNavigateHome
+  onOpenAddCoupon
 }) {
   return (
     <header className="admin-topbar">
@@ -60,23 +59,6 @@ export default function AdminHeader({
       </div>
 
       <div className="admin-topbar-actions">
-        <button
-          type="button"
-          className="btn-secondary admin-view-store-btn"
-          onClick={onNavigateHome}
-          title="Quay về trang chủ cửa hàng người dùng"
-          style={{
-            padding: '8px 14px',
-            fontSize: '0.84rem',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
-        >
-          <Store size={15} />
-          <span>Về Cửa Hàng</span>
-        </button>
-
         <button
           className="btn-primary"
           onClick={onOpenAddProduct}

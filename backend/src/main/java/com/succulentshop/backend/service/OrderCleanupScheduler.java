@@ -28,7 +28,7 @@ public class OrderCleanupScheduler {
     private final OrderRepository orderRepository;
     private final ProductService productService;
 
-    @Value("${order.pending.timeout-minutes:30}")
+    @Value("${order.pending.timeout-minutes}")
     private int pendingTimeoutMinutes;
 
     public OrderCleanupScheduler(OrderRepository orderRepository, ProductService productService) {

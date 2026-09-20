@@ -23,9 +23,10 @@ import {
   Tag,
   X
 } from 'lucide-react';
-import { getAdminOrders, updateOrderStatus, getCustomerOrders, cancelCustomerOrder, confirmReceivedOrder } from '../services/api';
+import { getAdminOrders, updateOrderStatus, getCustomerOrders, cancelCustomerOrder, confirmReceivedOrder, deleteCustomerOrdersBulk } from '../services/api';
 import NotificationModal from '../components/NotificationModal';
 import useModal from '../components/useModal';
+import Pagination from '../components/Pagination';
 
 const CANCEL_REASONS = [
   'Đổi ý không muốn mua nữa',
@@ -117,6 +118,16 @@ export default function AccountPage({
   const [stats, setStats] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [ordersLoading, setOrdersLoading] = useState(false);
+
+  // Pagination state in Orders Tab
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // Bulk delete orders state
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [isDeletingOrders, setIsDeletingOrders] = useState(false);
+  const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] = useState(false);
 
   // Modal hủy đơn hàng state
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -247,6 +258,71 @@ export default function AccountPage({
     }
   };
 
+  // Reset trang và chế độ xóa khi đổi tab trạng thái đơn
+  useEffect(() => {
+    setCurrentPage(1);
+    if (isDeleteMode) {
+      setIsDeleteMode(false);
+      setSelectedOrderIds([]);
+    }
+  }, [filterStatus]);
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / itemsPerPage));
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [totalPages, currentPage]);
+
+  const pagedOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Bulk delete handlers
+  const handleToggleDeleteMode = () => {
+    if (isDeleteMode) {
+      setIsDeleteMode(false);
+      setSelectedOrderIds([]);
+    } else {
+      setIsDeleteMode(true);
+      // Mặc định tick chọn tất cả các đơn hàng hiện có để xóa
+      setSelectedOrderIds(orders.map((o) => o.id));
+    }
+  };
+
+  const handleSelectAll = () => {
+    setSelectedOrderIds(orders.map((o) => o.id));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedOrderIds([]);
+  };
+
+  const handleToggleSelectOrder = (orderId) => {
+    setSelectedOrderIds((prev) => {
+      if (prev.includes(orderId)) {
+        return prev.filter((id) => id !== orderId);
+      } else {
+        return [...prev, orderId];
+      }
+    });
+  };
+
+  const handleExecuteDeleteBulk = async () => {
+    if (selectedOrderIds.length === 0) return;
+    setIsDeletingOrders(true);
+    try {
+      await deleteCustomerOrdersBulk(selectedOrderIds);
+      showModal('success', `Đã xóa thành công ${selectedOrderIds.length} đơn hàng khỏi lịch sử.`);
+      setIsConfirmDeleteModalOpen(false);
+      setIsDeleteMode(false);
+      setSelectedOrderIds([]);
+      await loadOrders();
+    } catch (err) {
+      showModal('error', err.message || 'Không thể xóa các đơn hàng đã chọn. Vui lòng thử lại!');
+    } finally {
+      setIsDeletingOrders(false);
+    }
+  };
+
   const formatPrice = (amount) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
   };
@@ -358,7 +434,6 @@ export default function AccountPage({
               <p className="profile-email">{formData.email}</p>
 
               <div className="profile-membership-pill">
-                <Sparkles size={15} color="#D97757" />
                 <span>{currentUser?.role || (user ? 'Thành Viên Mới' : 'Khách Ghé Thăm')}</span>
               </div>
 
@@ -656,14 +731,94 @@ export default function AccountPage({
                 </div>
               ) : (
                 <div className="account-card">
-                  <div className="account-card-header" style={{ marginBottom: '20px' }}>
+                  <div className="account-card-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
                     <h3 style={{ fontSize: '1.35rem', fontWeight: 700 }}>Danh Sách Đơn Hàng & Lịch Sử Giao Hàng</h3>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: '2px' }}>
                       Theo dõi trạng thái giao hàng, kiểm tra lộ trình vận chuyển và thông tin thanh toán
                     </p>
                   </div>
+
+                  {orders.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <button
+                        type="button"
+                        className={`btn-secondary ${isDeleteMode ? 'active' : ''}`}
+                        onClick={handleToggleDeleteMode}
+                        style={{
+                          padding: '8px 16px',
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          color: isDeleteMode ? '#DC2626' : 'var(--text-main)',
+                          borderColor: isDeleteMode ? '#FCA5A5' : 'var(--border-color)',
+                          background: isDeleteMode ? '#FEF2F2' : '#fff',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                        title={isDeleteMode ? 'Hủy chế độ xóa' : 'Bật chế độ chọn để xóa các đơn hàng'}
+                      >
+                        <Trash2 size={15} color={isDeleteMode ? '#DC2626' : 'currentColor'} />
+                        <span>{isDeleteMode ? 'Hủy Chế Độ Xóa' : 'Xóa Tất Cả / Chọn Xóa'}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
+
+                {/* Bulk Delete Toolbar when active */}
+                {isDeleteMode && (
+                  <div className="order-delete-toolbar">
+                    <div className="order-delete-toolbar-info">
+                      <Trash2 size={18} color="#E11D48" />
+                      <span>
+                        Đã chọn <strong>{selectedOrderIds.length}</strong> / {orders.length} đơn hàng để xóa
+                      </span>
+                      <span className="order-delete-toolbar-hint">
+                        • Nhấp vào ô tick trên từng đơn để bỏ qua (giữ lại) đơn không muốn xóa
+                      </span>
+                    </div>
+
+                    <div className="order-delete-toolbar-actions">
+                      <button
+                        type="button"
+                        className="btn-toolbar-sub"
+                        onClick={handleSelectAll}
+                        title="Chọn tất cả đơn hàng hiện tại"
+                      >
+                        Chọn tất cả
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-toolbar-sub"
+                        onClick={handleDeselectAll}
+                        title="Bỏ chọn tất cả đơn hàng"
+                      >
+                        Bỏ chọn tất cả
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-toolbar-cancel"
+                        onClick={() => {
+                          setIsDeleteMode(false);
+                          setSelectedOrderIds([]);
+                        }}
+                      >
+                        <X size={14} />
+                        <span>Hủy</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-toolbar-delete"
+                        onClick={() => setIsConfirmDeleteModalOpen(true)}
+                        disabled={selectedOrderIds.length === 0 || isDeletingOrders}
+                        title="Xác nhận xóa các đơn hàng đã được tick"
+                      >
+                        <Trash2 size={14} />
+                        <span>Xóa ({selectedOrderIds.length}) Đơn Đã Chọn</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Quick stats numbers */}
                 {stats && (
@@ -742,22 +897,47 @@ export default function AccountPage({
                       </button>
                     </div>
                   ) : (
-                    orders.map((order) => {
+                    pagedOrders.map((order) => {
                       const statusCfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
                       const StatusIcon = statusCfg.icon;
                       const currentStep = statusCfg.step;
+                      const isSelected = selectedOrderIds.includes(order.id);
 
                       return (
                         <div 
                           key={order.id} 
                           style={{
-                            background: '#fff',
-                            border: '1px solid var(--border-light)',
+                            background: isDeleteMode && isSelected ? '#FFFDFD' : '#fff',
+                            border: isDeleteMode && isSelected ? '1.5px solid #FCA5A5' : '1px solid var(--border-light)',
                             borderRadius: 'var(--radius-lg)',
                             padding: '24px',
-                            boxShadow: 'var(--shadow-sm)'
+                            boxShadow: isDeleteMode && isSelected ? '0 4px 12px rgba(225, 29, 72, 0.08)' : 'var(--shadow-sm)',
+                            transition: 'all 0.2s ease'
                           }}
                         >
+                          {/* Checkbox bar when in Delete Mode */}
+                          {isDeleteMode && (
+                            <div 
+                              className={`order-card-checkbox-bar ${isSelected ? 'selected' : 'unselected'}`}
+                              onClick={() => handleToggleSelectOrder(order.id)}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleSelectOrder(order.id)}
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  accentColor: '#DC2626',
+                                  cursor: 'pointer'
+                                }}
+                              />
+                              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: isSelected ? '#DC2626' : '#64748B' }}>
+                                {isSelected ? '✓ Đã chọn xóa đơn này' : '○ Bỏ qua (giữ lại đơn này không xóa)'}
+                              </span>
+                            </div>
+                          )}
+
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
                             <div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -941,6 +1121,24 @@ export default function AccountPage({
                     })
                   )}
                 </div>
+
+                {/* Phân Trang (Pagination) */}
+                {orders.length > itemsPerPage && (
+                  <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      totalItems={orders.length}
+                      onPageChange={(page) => {
+                        setCurrentPage(page);
+                        window.scrollTo({ top: 380, behavior: 'smooth' });
+                      }}
+                    />
+                    <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                      Hiển thị {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, orders.length)} trong tổng số {orders.length} đơn hàng
+                    </span>
+                  </div>
+                )}
               </div>
             )
           )}
@@ -1380,6 +1578,108 @@ export default function AccountPage({
             >
               {isSubmittingCancel && <RefreshCw size={15} className="spin" />}
               <span>{isSubmittingCancel ? 'Đang Hủy...' : 'Xác Nhận Hủy Đơn'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Modal xác nhận xóa hàng loạt đơn hàng */}
+    {isConfirmDeleteModalOpen && (
+      <div 
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}
+        onClick={() => !isDeletingOrders && setIsConfirmDeleteModalOpen(false)}
+      >
+        <div 
+          style={{
+            background: '#fff',
+            borderRadius: 'var(--radius-lg, 12px)',
+            maxWidth: '460px',
+            width: '100%',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            overflow: 'hidden',
+            animation: 'fadeIn 0.2s ease'
+          }} 
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626' }}>
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#1E293B' }}>Xác Nhận Xóa Đơn Hàng</h3>
+                <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#64748B' }}>Thao tác này sẽ xóa vĩnh viễn khỏi lịch sử</p>
+              </div>
+            </div>
+            <button
+              onClick={() => !isDeletingOrders && setIsConfirmDeleteModalOpen(false)}
+              disabled={isDeletingOrders}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '4px' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div style={{ padding: '20px 24px' }}>
+            <p style={{ fontSize: '0.92rem', color: '#334155', lineHeight: 1.6, margin: 0 }}>
+              Bạn có chắc chắn muốn xóa <strong>{selectedOrderIds.length}</strong> đơn hàng đã chọn không?
+            </p>
+            <div style={{ marginTop: '12px', padding: '10px 14px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '0.82rem', color: '#64748B' }}>
+              💡 <em>Lưu ý:</em> Các đơn hàng bạn đã <strong>bỏ tick</strong> (bỏ qua) sẽ được giữ lại nguyên vẹn trong tài khoản.
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '16px 24px', borderTop: '1px solid #E2E8F0', background: '#F8FAFC' }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setIsConfirmDeleteModalOpen(false)}
+              disabled={isDeletingOrders}
+              style={{ padding: '9px 18px', fontSize: '0.88rem' }}
+            >
+              Hủy Bỏ
+            </button>
+            <button
+              type="button"
+              onClick={handleExecuteDeleteBulk}
+              disabled={isDeletingOrders}
+              style={{
+                padding: '9px 22px',
+                fontSize: '0.88rem',
+                fontWeight: 600,
+                color: '#fff',
+                background: '#DC2626',
+                border: 'none',
+                borderRadius: 'var(--radius-md, 8px)',
+                cursor: isDeletingOrders ? 'not-allowed' : 'pointer',
+                opacity: isDeletingOrders ? 0.7 : 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              {isDeletingOrders ? (
+                <>
+                  <RefreshCw size={15} className="spin" />
+                  <span>Đang Xóa...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 size={15} />
+                  <span>Đồng Ý Xóa</span>
+                </>
+              )}
             </button>
           </div>
         </div>

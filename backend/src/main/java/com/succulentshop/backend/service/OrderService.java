@@ -301,6 +301,32 @@ public class OrderService {
         return convertOrderToResponse(order);
     }
 
+    @Transactional
+    public void deleteOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
+
+        // Hoàn trả tồn kho nếu đơn đang PENDING
+        if ("PENDING".equals(order.getStatus())) {
+            for (OrderItem it : order.getItems()) {
+                try {
+                    productService.restoreStock(it.getProductId(), it.getQuantity());
+                } catch (Exception ignored) {
+                }
+            }
+        }
+
+        orderRepository.delete(order);
+    }
+
+    @Transactional
+    public void deleteOrdersBulk(List<Long> orderIds) {
+        if (orderIds == null || orderIds.isEmpty()) return;
+        for (Long id : orderIds) {
+            deleteOrder(id);
+        }
+    }
+
     public OrderResponse convertOrderToResponse(Order o) {
         OrderResponse response = new OrderResponse();
         response.setId(o.getId());
