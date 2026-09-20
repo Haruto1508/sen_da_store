@@ -20,7 +20,6 @@ import { loginUser, loginWithGoogle, sendOtp } from '../services/api';
 export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
-  const [devOtp, setDevOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [step, setStep] = useState('login'); // 'login' | 'verify-otp'
@@ -60,14 +59,8 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
       setOtpSent(true);
       setOtpCountdown(60);
       setStep('verify-otp');
-      if (res.devOtp) {
-        setDevOtp(res.devOtp);
-        setOtp(res.devOtp); // Tự động điền trước mã thử nghiệm để người dùng test ngay lập tức
-      } else {
-        setDevOtp('');
-        setOtp('');
-      }
-      setInfoMsg(res.message || `Mã OTP đã được gửi đến ${cleanEmail}.`);
+      setOtp('');
+      setInfoMsg(res.message || `Mã xác thực OTP đã được gửi đến ${cleanEmail}.`);
       if (addToast) {
         addToast(res.message || `Mã OTP đã gửi đến ${cleanEmail}!`, 'info');
       }
@@ -89,10 +82,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     try {
       const res = await sendOtp(cleanEmail);
       setOtpCountdown(60);
-      if (res.devOtp) {
-        setDevOtp(res.devOtp);
-        setOtp(res.devOtp);
-      }
+      setOtp('');
       setInfoMsg(res.message || `Đã gửi lại mã OTP mới đến ${cleanEmail}.`);
       if (addToast) {
         addToast(`Đã tạo mã OTP mới!`, 'info');
@@ -442,42 +432,6 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                   }}>
                     <CheckCircle2 size={16} color="#059669" style={{ flexShrink: 0 }} />
                     <span>{infoMsg}</span>
-                  </div>
-                )}
-
-                {/* Dev OTP Helper Box (Chế độ thử nghiệm khi chưa cấu hình SMTP Gmail) */}
-                {devOtp && (
-                  <div style={{
-                    margin: '0 0 16px 0',
-                    padding: '12px 14px',
-                    background: '#FEF3C7',
-                    border: '1.5px dashed #F59E0B',
-                    borderRadius: '10px',
-                    textAlign: 'center'
-                  }}>
-                    <div style={{ fontSize: '0.76rem', color: '#92400E', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '4px' }}>
-                      🔑 Mã OTP thử nghiệm (Đã tự động điền sẵn)
-                    </div>
-                    <div style={{ fontSize: '0.9rem', color: '#78350F' }}>
-                      Mã xác thực của bạn: <strong style={{ fontSize: '1.3rem', letterSpacing: '4px', color: '#B45309', fontFamily: 'monospace' }}>{devOtp}</strong>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setOtp(devOtp)}
-                      style={{
-                        marginTop: '8px',
-                        padding: '4px 14px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        background: '#F59E0B',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Bấm để tự động điền ({devOtp})
-                    </button>
                   </div>
                 )}
 

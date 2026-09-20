@@ -1339,8 +1339,7 @@ export async function sendOtp(email) {
     console.info(`🔑 [SEN XINH MOCK OTP] Mã xác thực cho ${cleanEmail}: ${mockOtp}`);
     return {
       success: true,
-      message: `Mã xác thực OTP gồm 6 chữ số đã được gửi đến email ${cleanEmail}. (Mã thử nghiệm: ${mockOtp})`,
-      devOtp: mockOtp,
+      message: `Mã xác thực OTP gồm 6 chữ số đã được gửi đến email ${cleanEmail}.`,
       expiresInSeconds: 300
     };
   }

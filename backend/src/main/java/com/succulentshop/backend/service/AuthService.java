@@ -97,19 +97,14 @@ public class AuthService {
             emailSent = emailService.sendOtpEmail(cleanEmail, otpCode);
         }
 
-        String message;
-        if (emailSent) {
-            message = "Mã xác thực OTP đã được gửi đến hộp thư " + cleanEmail + ". Quý khách vui lòng kiểm tra email!";
-        } else {
-            message = "Mã OTP đã được tạo cho " + cleanEmail + " (Chưa cấu hình SMTP gửi mail thực tế).";
-        }
+        String message = "Mã xác thực OTP gồm 6 chữ số đã được gửi đến " + cleanEmail + ". Quý khách vui lòng kiểm tra hộp thư!";
 
         return new SendOtpResponse(
             true, 
             message, 
             cleanEmail, 
             300, 
-            otpCode
+            null
         );
     }
 
