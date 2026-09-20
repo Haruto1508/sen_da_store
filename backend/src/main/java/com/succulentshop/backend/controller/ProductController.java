@@ -1,5 +1,6 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.ProductResponse;
 import com.succulentshop.backend.dto.ReviewRequest;
@@ -30,13 +31,13 @@ public class ProductController {
             @RequestParam(required = false, defaultValue = "featured") String sort
     ) {
         List<ProductResponse> responseList = productService.getFilteredProducts(category, search, light, difficulty, sort);
-        return ResponseEntity.ok(ApiResult.ok("Lấy danh sách sản phẩm thành công", responseList));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.PRODUCT_LIST_SUCCESS, responseList));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResult<ProductResponse>> getProductById(@PathVariable String id) {
         ProductResponse productData = productService.getProductDetail(id);
-        return ResponseEntity.ok(ApiResult.ok("Lấy chi tiết sản phẩm thành công", productData));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.PRODUCT_DETAIL_SUCCESS, productData));
     }
 
     @PostMapping("/{id}/reviews")
@@ -55,6 +56,6 @@ public class ProductController {
                 reviewRequest.getReviewerName()
         );
 
-        return ResponseEntity.ok(ApiResult.ok("Gửi đánh giá thành công! Cảm ơn phản hồi của bạn.", result));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.REVIEW_SUBMITTED, result));
     }
 }

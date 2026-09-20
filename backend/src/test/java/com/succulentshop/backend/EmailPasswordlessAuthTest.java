@@ -24,11 +24,13 @@ public class EmailPasswordlessAuthTest {
     private UserRepository userRepository;
 
     @Test
-    @DisplayName("Đăng nhập email mới: Tự động khởi tạo tài khoản và đăng nhập thành công")
+    @DisplayName("Đăng nhập email mới: Tự động khởi tạo tài khoản qua OTP và đăng nhập thành công")
     public void testEmailLoginAutoRegistersNewUser() {
         String testEmail = "new_customer_" + System.currentTimeMillis() + "@gmail.com";
+        authService.sendOtp(testEmail);
+        String otp = authService.getOtpForTesting(testEmail);
 
-        AuthResponse result = authService.login(testEmail);
+        AuthResponse result = authService.login(testEmail, null, otp);
         Assertions.assertNotNull(result);
         Assertions.assertNotNull(result.getUser());
         Assertions.assertNotNull(result.getToken());
@@ -41,13 +43,16 @@ public class EmailPasswordlessAuthTest {
     }
 
     @Test
-    @DisplayName("Đăng nhập email đã có: Đăng nhập thành công ngay lập tức không cần mật khẩu")
+    @DisplayName("Đăng nhập email đã có: Đăng nhập thành công qua OTP không cần mật khẩu")
     public void testExistingUserLoginDirectly() {
         String testEmail = "existing_user_" + System.currentTimeMillis() + "@gmail.com";
         User user = new User("Khách Thân Thiết", testEmail, "0911222333", null, "Hà Nội", "Thành viên thân thiết", null, 100);
         userRepository.save(user);
 
-        AuthResponse result = authService.login(testEmail);
+        authService.sendOtp(testEmail);
+        String otp = authService.getOtpForTesting(testEmail);
+
+        AuthResponse result = authService.login(testEmail, null, otp);
         Assertions.assertNotNull(result);
 
         Assertions.assertEquals(testEmail, result.getUser().getEmail());
@@ -80,8 +85,11 @@ public class EmailPasswordlessAuthTest {
         bannedUser.setStatus("BANNED");
         userRepository.save(bannedUser);
 
+        authService.sendOtp(bannedEmail);
+        String otp = authService.getOtpForTesting(bannedEmail);
+
         AppException ex = Assertions.assertThrows(AppException.class, () -> {
-            authService.login(bannedEmail);
+            authService.login(bannedEmail, null, otp);
         });
         Assertions.assertEquals(ErrorCode.ACCOUNT_DISABLED, ex.getErrorCode());
     }

@@ -1,5 +1,6 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.CalculateShippingRequest;
 import com.succulentshop.backend.dto.CalculateShippingResponse;
@@ -25,7 +26,7 @@ public class ShippingController {
     @GetMapping("/shipping-rates")
     public ResponseEntity<ApiResult<ShippingConfigResponse>> getShippingConfig() {
         return ResponseEntity.ok(ApiResult.ok(
-                "Lấy biểu phí vận chuyển thành công",
+                MessageCode.SHIPPING_CONFIG_RETRIEVED,
                 shippingService.getShippingConfig()
         ));
     }
@@ -38,7 +39,7 @@ public class ShippingController {
             @RequestBody UpdateShippingConfigRequest request
     ) {
         return ResponseEntity.ok(ApiResult.ok(
-                "Cập nhật biểu phí vận chuyển thành công",
+                MessageCode.SHIPPING_CONFIG_UPDATED,
                 shippingService.updateShippingConfig(request)
         ));
     }
@@ -55,6 +56,6 @@ public class ShippingController {
         String address = request != null ? request.getAddress() : null;
 
         int fee = shippingService.calculateShippingFee(subtotal, city, address);
-        return ResponseEntity.ok(ApiResult.ok("Tính phí vận chuyển thành công", new CalculateShippingResponse(fee)));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.SHIPPING_FEE_CALCULATED, new CalculateShippingResponse(fee)));
     }
 }

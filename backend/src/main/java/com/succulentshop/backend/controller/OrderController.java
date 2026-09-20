@@ -1,5 +1,6 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.CancelOrderRequest;
 import com.succulentshop.backend.dto.CreateOrderRequest;
@@ -26,13 +27,13 @@ public class OrderController {
     public ResponseEntity<ApiResult<CreateOrderResponse>> createOrder(@RequestBody CreateOrderRequest request) {
         CreateOrderResponse result = orderService.createOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-               .body(ApiResult.ok("Đặt hàng thành công!", result));
+               .body(ApiResult.ok(MessageCode.ORDER_CREATED, result));
     }
 
     @GetMapping("/{orderCode}")
     public ResponseEntity<ApiResult<OrderResponse>> getOrderByCode(@PathVariable String orderCode) {
         OrderResponse orderData = orderService.getOrderByCode(orderCode);
-        return ResponseEntity.ok(ApiResult.ok("Lấy thông tin đơn hàng thành công", orderData));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_DETAIL_SUCCESS, orderData));
     }
 
     @GetMapping("/customer")
@@ -46,7 +47,7 @@ public class OrderController {
         } else {
             list = orderService.getOrdersByCustomer(phone);
         }
-        return ResponseEntity.ok(ApiResult.ok("Tải danh sách đơn hàng thành công", list));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_LIST_SUCCESS, list));
     }
 
     public ResponseEntity<ApiResult<List<OrderResponse>>> getOrdersByCustomer(String phone) {
@@ -60,7 +61,7 @@ public class OrderController {
     ) {
         String reason = (body != null) ? body.getReason() : null;
         OrderResponse result = orderService.cancelOrder(id, reason);
-        return ResponseEntity.ok(ApiResult.ok("Đã hủy đơn hàng thành công", result));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_CANCELLED, result));
     }
 
     @PatchMapping("/{id}/receive")
@@ -68,18 +69,18 @@ public class OrderController {
             @PathVariable Long id
     ) {
         OrderResponse result = orderService.confirmReceived(id);
-        return ResponseEntity.ok(ApiResult.ok("Xác nhận đã nhận hàng thành công!", result));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_RECEIVED, result));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResult<Void>> deleteOrder(@PathVariable Long id) {
         orderService.deleteOrder(id);
-        return ResponseEntity.ok(ApiResult.ok("Đã xóa đơn hàng thành công", null));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_DELETED, null));
     }
 
     @DeleteMapping("/bulk")
     public ResponseEntity<ApiResult<Void>> deleteOrdersBulk(@RequestBody List<Long> ids) {
         orderService.deleteOrdersBulk(ids);
-        return ResponseEntity.ok(ApiResult.ok("Đã xóa các đơn hàng được chọn thành công", null));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDERS_BULK_DELETED, null));
     }
 }

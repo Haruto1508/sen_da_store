@@ -19,6 +19,8 @@ import java.util.*;
 @Service
 public class MoMoService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MoMoService.class);
+
     private final MoMoConfig moMoConfig;
     private final OrderRepository orderRepository;
     private final ObjectMapper objectMapper;
@@ -101,7 +103,7 @@ public class MoMoService {
 
             return buildFallbackMoMoResponse(order, requestId, payload);
         } catch (Exception e) {
-            System.err.println("Cảnh báo: Không thể gọi trực tiếp MoMo API (" + e.getMessage() + "). Tạo URL thanh toán dự phòng Sandbox.");
+            log.warn("Không thể gọi trực tiếp MoMo API ({}). Tạo URL thanh toán dự phòng Sandbox.", e.getMessage());
             return buildFallbackMoMoResponse(order, requestId, payload);
         }
     }
@@ -112,58 +114,32 @@ public class MoMoService {
     public boolean processIpn(com.succulentshop.backend.dto.MoMoIpnRequest request) {
         if (request == null) return false;
         try {
-            String partnerCode = request.getPartnerCode() != null ? request.getPartnerCode() : "";
-            String orderId = request.getOrderId() != null ? request.getOrderId() : "";
-            String requestId = request.getRequestId() != null ? request.getRequestId() : "";
-            String amount = request.getAmount() != null ? String.valueOf(request.getAmount()) : "";
-            String orderInfo = request.getOrderInfo() != null ? request.getOrderInfo() : "";
-            String orderType = request.getOrderType() != null ? request.getOrderType() : "";
-            String transId = request.getTransId() != null ? String.valueOf(request.getTransId()) : "";
-            String resultCodeStr = request.getResultCode() != null ? String.valueOf(request.getResultCode()) : "";
-            String message = request.getMessage() != null ? request.getMessage() : "";
-            String payType = request.getPayType() != null ? request.getPayType() : "";
-            String responseTime = request.getResponseTime() != null ? String.valueOf(request.getResponseTime()) : "";
-            String extraData = request.getExtraData() != null ? request.getExtraData() : "";
-            String signature = request.getSignature() != null ? request.getSignature() : "";
+            String rawSignature = buildIpnRawSignature(
+                    moMoConfig.getAccessKey(),
+                    request.getAmount() != null ? String.valueOf(request.getAmount()) : "",
+                    request.getExtraData() != null ? request.getExtraData() : "",
+                    request.getMessage() != null ? request.getMessage() : "",
+                    request.getOrderId() != null ? request.getOrderId() : "",
+                    request.getOrderInfo() != null ? request.getOrderInfo() : "",
+                    request.getOrderType() != null ? request.getOrderType() : "",
+                    request.getPartnerCode() != null ? request.getPartnerCode() : "",
+                    request.getPayType() != null ? request.getPayType() : "",
+                    request.getRequestId() != null ? request.getRequestId() : "",
+                    request.getResponseTime() != null ? String.valueOf(request.getResponseTime()) : "",
+                    request.getResultCode() != null ? String.valueOf(request.getResultCode()) : "",
+                    request.getTransId() != null ? String.valueOf(request.getTransId()) : ""
+            );
 
-            String secretKey = moMoConfig.getSecretKey();
-            String accessKey = moMoConfig.getAccessKey();
-
-            String rawSignature = "accessKey=" + accessKey +
-                    "&amount=" + amount +
-                    "&extraData=" + extraData +
-                    "&message=" + message +
-                    "&orderId=" + orderId +
-                    "&orderInfo=" + orderInfo +
-                    "&orderType=" + orderType +
-                    "&partnerCode=" + partnerCode +
-                    "&payType=" + payType +
-                    "&requestId=" + requestId +
-                    "&responseTime=" + responseTime +
-                    "&resultCode=" + resultCodeStr +
-                    "&transId=" + transId;
-
-            String expectedSignature = MoMoSecurityUtil.signHmacSHA256(rawSignature, secretKey);
-
-            boolean isValid = signature.equalsIgnoreCase(expectedSignature) || "SIMULATED_TEST".equals(signature);
-            if (!isValid) {
-                System.err.println("Chữ ký IPN MoMo không hợp lệ cho đơn: " + orderId);
+            if (!verifyIpnSignature(rawSignature, request.getSignature(), request.getOrderId())) {
                 return false;
             }
 
             if (request.getResultCode() != null && request.getResultCode() == 0) {
-                Optional<Order> orderOpt = orderRepository.findByOrderCode(orderId);
-                if (orderOpt.isPresent()) {
-                    Order order = orderOpt.get();
-                    order.setStatus("PAID");
-                    orderRepository.save(order);
-                    System.out.println("✅ [MoMo IPN] Đã xác nhận thanh toán tự động cho đơn hàng #" + orderId);
-                    return true;
-                }
+                return confirmMoMoPayment(request.getOrderId());
             }
             return false;
         } catch (Exception e) {
-            System.err.println("Lỗi xử lý IPN MoMo: " + e.getMessage());
+            log.error("Lỗi xử lý IPN MoMo: {}", e.getMessage(), e);
             return false;
         }
     }
@@ -172,65 +148,81 @@ public class MoMoService {
      * Xử lý Webhook IPN được gọi tự động từ Server MoMo khi thanh toán hoàn tất (nhận Map)
      */
     public boolean processIpn(Map<String, Object> ipnData) {
+        if (ipnData == null || ipnData.isEmpty()) return false;
         try {
-            String partnerCode = String.valueOf(ipnData.getOrDefault("partnerCode", ""));
             String orderId = String.valueOf(ipnData.getOrDefault("orderId", ""));
-            String requestId = String.valueOf(ipnData.getOrDefault("requestId", ""));
-            String amount = String.valueOf(ipnData.getOrDefault("amount", ""));
-            String orderInfo = String.valueOf(ipnData.getOrDefault("orderInfo", ""));
-            String orderType = String.valueOf(ipnData.getOrDefault("orderType", ""));
-            String transId = String.valueOf(ipnData.getOrDefault("transId", ""));
             String resultCodeStr = String.valueOf(ipnData.getOrDefault("resultCode", ""));
-            String message = String.valueOf(ipnData.getOrDefault("message", ""));
-            String payType = String.valueOf(ipnData.getOrDefault("payType", ""));
-            String responseTime = String.valueOf(ipnData.getOrDefault("responseTime", ""));
-            String extraData = String.valueOf(ipnData.getOrDefault("extraData", ""));
             String signature = String.valueOf(ipnData.getOrDefault("signature", ""));
 
-            String secretKey = moMoConfig.getSecretKey();
-            String accessKey = moMoConfig.getAccessKey();
+            String rawSignature = buildIpnRawSignature(
+                    moMoConfig.getAccessKey(),
+                    String.valueOf(ipnData.getOrDefault("amount", "")),
+                    String.valueOf(ipnData.getOrDefault("extraData", "")),
+                    String.valueOf(ipnData.getOrDefault("message", "")),
+                    orderId,
+                    String.valueOf(ipnData.getOrDefault("orderInfo", "")),
+                    String.valueOf(ipnData.getOrDefault("orderType", "")),
+                    String.valueOf(ipnData.getOrDefault("partnerCode", "")),
+                    String.valueOf(ipnData.getOrDefault("payType", "")),
+                    String.valueOf(ipnData.getOrDefault("requestId", "")),
+                    String.valueOf(ipnData.getOrDefault("responseTime", "")),
+                    resultCodeStr,
+                    String.valueOf(ipnData.getOrDefault("transId", ""))
+            );
 
-            // Chuỗi dữ liệu xác thực chữ ký IPN từ MoMo
-            String rawSignature = "accessKey=" + accessKey +
-                    "&amount=" + amount +
-                    "&extraData=" + extraData +
-                    "&message=" + message +
-                    "&orderId=" + orderId +
-                    "&orderInfo=" + orderInfo +
-                    "&orderType=" + orderType +
-                    "&partnerCode=" + partnerCode +
-                    "&payType=" + payType +
-                    "&requestId=" + requestId +
-                    "&responseTime=" + responseTime +
-                    "&resultCode=" + resultCodeStr +
-                    "&transId=" + transId;
-
-            String expectedSignature = MoMoSecurityUtil.signHmacSHA256(rawSignature, secretKey);
-
-            // Xác thực chữ ký hoặc chấp nhận nếu từ localhost/simulation
-            boolean isValid = signature.equalsIgnoreCase(expectedSignature) || "SIMULATED_TEST".equals(signature);
-            if (!isValid) {
-                System.err.println("Chữ ký IPN MoMo không hợp lệ cho đơn: " + orderId);
+            if (!verifyIpnSignature(rawSignature, signature, orderId)) {
                 return false;
             }
 
-            // Nếu resultCode == 0 (Thanh toán thành công)
             int resultCode = Integer.parseInt(resultCodeStr);
             if (resultCode == 0) {
-                Optional<Order> orderOpt = orderRepository.findByOrderCode(orderId);
-                if (orderOpt.isPresent()) {
-                    Order order = orderOpt.get();
-                    order.setStatus("PAID");
-                    orderRepository.save(order);
-                    System.out.println("✅ [MoMo IPN] Đã xác nhận thanh toán tự động cho đơn hàng #" + orderId);
-                    return true;
-                }
+                return confirmMoMoPayment(orderId);
             }
             return false;
         } catch (Exception e) {
-            System.err.println("Lỗi xử lý IPN MoMo: " + e.getMessage());
+            log.error("Lỗi xử lý IPN MoMo: {}", e.getMessage(), e);
             return false;
         }
+    }
+
+    private String buildIpnRawSignature(String accessKey, String amount, String extraData, String message,
+                                        String orderId, String orderInfo, String orderType, String partnerCode,
+                                        String payType, String requestId, String responseTime,
+                                        String resultCode, String transId) {
+        return "accessKey=" + accessKey +
+                "&amount=" + amount +
+                "&extraData=" + extraData +
+                "&message=" + message +
+                "&orderId=" + orderId +
+                "&orderInfo=" + orderInfo +
+                "&orderType=" + orderType +
+                "&partnerCode=" + partnerCode +
+                "&payType=" + payType +
+                "&requestId=" + requestId +
+                "&responseTime=" + responseTime +
+                "&resultCode=" + resultCode +
+                "&transId=" + transId;
+    }
+
+    private boolean verifyIpnSignature(String rawSignature, String signature, String orderId) {
+        String expectedSignature = MoMoSecurityUtil.signHmacSHA256(rawSignature, moMoConfig.getSecretKey());
+        boolean isValid = signature != null && (signature.equalsIgnoreCase(expectedSignature) || "SIMULATED_TEST".equals(signature));
+        if (!isValid) {
+            log.warn("Chữ ký IPN MoMo không hợp lệ cho đơn: {}", orderId);
+        }
+        return isValid;
+    }
+
+    private boolean confirmMoMoPayment(String orderId) {
+        Optional<Order> orderOpt = orderRepository.findByOrderCode(orderId);
+        if (orderOpt.isPresent()) {
+            Order order = orderOpt.get();
+            order.setStatus("PAID");
+            orderRepository.save(order);
+            log.info("✅ [MoMo IPN] Đã xác nhận thanh toán tự động cho đơn hàng #{}", orderId);
+            return true;
+        }
+        return false;
     }
 
     /**

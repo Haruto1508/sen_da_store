@@ -109,6 +109,15 @@ public class AuthService {
     }
 
     /**
+     * Lấy mã OTP lưu tạm thời (chỉ dùng cho môi trường kiểm thử / test suites)
+     */
+    public String getOtpForTesting(String email) {
+        if (email == null) return null;
+        OtpEntry entry = otpStorage.get(email.trim().toLowerCase());
+        return entry != null ? entry.getCode() : null;
+    }
+
+    /**
      * Xác thực tính hợp lệ của mã OTP
      */
     private void verifyOtp(String email, String otpInput) {
@@ -148,45 +157,10 @@ public class AuthService {
         boolean isAdmin = "admin@senxinh.vn".equalsIgnoreCase(target) || 
                           (userOpt.isPresent() && userOpt.get().getRole() != null && userOpt.get().getRole().toLowerCase().contains("admin"));
 
-        // 1. Nếu là Admin -> Bắt buộc xác thực mật khẩu hoặc OTP
         if (isAdmin) {
-            if (password != null && !password.isBlank()) {
-                String existingPw = userOpt.map(User::getPassword).orElse("admin123");
-                boolean pwMatches = passwordEncoder.matches(password, existingPw) || 
-                                    password.equals(existingPw) || 
-                                    "admin123".equals(password);
-                if (!pwMatches) {
-                    throw new AppException(ErrorCode.INVALID_CREDENTIALS, "Mật khẩu Quản trị viên không chính xác!");
-                }
-            } else if (otp != null && !otp.isBlank()) {
-                verifyOtp(target, otp);
-            } else {
-                throw new AppException(ErrorCode.AUTH_CREDENTIALS_REQUIRED, "Tài khoản Quản trị viên bắt buộc phải nhập Mật khẩu hoặc mã OTP!");
-            }
+            authenticateAdmin(userOpt, target, password, otp);
         } else {
-            // 2. Tài khoản người dùng bình thường
-            if (otp != null && !otp.isBlank()) {
-                // Xác thực qua OTP Email
-                verifyOtp(target, otp);
-            } else if (password != null && !password.isBlank()) {
-                // Xác thực qua Mật khẩu
-                if (userOpt.isPresent()) {
-                    User u = userOpt.get();
-                    if (u.getPassword() != null && !u.getPassword().isBlank()) {
-                        boolean pwMatches = passwordEncoder.matches(password, u.getPassword()) || password.equals(u.getPassword());
-                        if (!pwMatches) {
-                            throw new AppException(ErrorCode.INVALID_CREDENTIALS, "Mật khẩu đăng nhập không chính xác!");
-                        }
-                    } else {
-                        throw new AppException(ErrorCode.PASSWORD_NOT_SET, "Tài khoản chưa cài đặt mật khẩu. Vui lòng chọn đăng nhập bằng Mã OTP hoặc Google!");
-                    }
-                } else {
-                    throw new AppException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy tài khoản với email này. Vui lòng chọn đăng nhập bằng Mã OTP để tạo tài khoản mới!");
-                }
-            } else {
-                // Cả password và otp đều trống
-                throw new AppException(ErrorCode.AUTH_CREDENTIALS_REQUIRED, "Vui lòng nhập Mật khẩu hoặc yêu cầu gửi mã OTP để đăng nhập an toàn!");
-            }
+            authenticateNormalUser(userOpt, target, password, otp);
         }
 
         User user;
@@ -196,27 +170,69 @@ public class AuthService {
                 throw new AppException(ErrorCode.ACCOUNT_DISABLED);
             }
         } else {
-            // Tự động tạo tài khoản người dùng mới khi xác thực OTP thành công
-            String displayName = target.contains("@") ? target.split("@")[0] : target;
-            User newUser = new User(
-                displayName,
-                target,
-                "",
-                null,
-                "Hà Nội, Việt Nam",
-                "Thành viên mới",
-                "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
-                50
-            );
-            newUser.setAuthProvider("EMAIL");
-            user = userRepository.save(newUser);
-            log.info("Tự động tạo tài khoản người dùng mới từ email sau khi xác thực OTP: {}", target);
+            user = createOtpRegisteredUser(target);
         }
 
         AuthResponse response = new AuthResponse();
         response.setUser(sanitizeUser(user));
         response.setToken("bearer_token_" + user.getId() + "_" + System.currentTimeMillis());
         return response;
+    }
+
+    private void authenticateAdmin(Optional<User> userOpt, String target, String password, String otp) {
+        if (password != null && !password.isBlank()) {
+            String existingPw = userOpt.map(User::getPassword).orElse("admin123");
+            boolean pwMatches = passwordEncoder.matches(password, existingPw) || 
+                                password.equals(existingPw) || 
+                                "admin123".equals(password);
+            if (!pwMatches) {
+                throw new AppException(ErrorCode.INVALID_CREDENTIALS, "Mật khẩu Quản trị viên không chính xác!");
+            }
+        } else if (otp != null && !otp.isBlank()) {
+            verifyOtp(target, otp);
+        } else {
+            throw new AppException(ErrorCode.AUTH_CREDENTIALS_REQUIRED, "Tài khoản Quản trị viên bắt buộc phải nhập Mật khẩu hoặc mã OTP!");
+        }
+    }
+
+    private void authenticateNormalUser(Optional<User> userOpt, String target, String password, String otp) {
+        if (otp != null && !otp.isBlank()) {
+            verifyOtp(target, otp);
+        } else if (password != null && !password.isBlank()) {
+            if (userOpt.isPresent()) {
+                User u = userOpt.get();
+                if (u.getPassword() != null && !u.getPassword().isBlank()) {
+                    boolean pwMatches = passwordEncoder.matches(password, u.getPassword()) || password.equals(u.getPassword());
+                    if (!pwMatches) {
+                        throw new AppException(ErrorCode.INVALID_CREDENTIALS, "Mật khẩu đăng nhập không chính xác!");
+                    }
+                } else {
+                    throw new AppException(ErrorCode.PASSWORD_NOT_SET, "Tài khoản chưa cài đặt mật khẩu. Vui lòng chọn đăng nhập bằng Mã OTP hoặc Google!");
+                }
+            } else {
+                throw new AppException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy tài khoản với email này. Vui lòng chọn đăng nhập bằng Mã OTP để tạo tài khoản mới!");
+            }
+        } else {
+            throw new AppException(ErrorCode.AUTH_CREDENTIALS_REQUIRED, "Vui lòng nhập Mật khẩu hoặc yêu cầu gửi mã OTP để đăng nhập an toàn!");
+        }
+    }
+
+    private User createOtpRegisteredUser(String target) {
+        String displayName = target.contains("@") ? target.split("@")[0] : target;
+        User newUser = new User(
+            displayName,
+            target,
+            "",
+            null,
+            "Hà Nội, Việt Nam",
+            "Thành viên mới",
+            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+            50
+        );
+        newUser.setAuthProvider("EMAIL");
+        User saved = userRepository.save(newUser);
+        log.info("Tự động tạo tài khoản người dùng mới từ email sau khi xác thực OTP: {}", target);
+        return saved;
     }
 
     public AuthResponse login(String identifier) {
@@ -227,17 +243,33 @@ public class AuthService {
         return login(identifier, password, null);
     }
 
+    private record GoogleProfile(String email, String name, String avatar, String sub) {}
+
     /**
      * Xác thực và đăng nhập người dùng bằng Google OAuth2
      * Hợp nhất tài khoản: Cùng 1 email chỉ tồn tại duy nhất 1 User
      */
     @Transactional
-    @SuppressWarnings("unchecked")
     public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
         if (request == null) {
             throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING, "Dữ liệu yêu cầu không hợp lệ");
         }
 
+        GoogleProfile profile = extractGoogleProfile(request);
+        User user = findOrCreateGoogleUser(profile);
+
+        if (user.isBanned() || user.isDeleted()) {
+            throw new AppException(ErrorCode.ACCOUNT_DISABLED);
+        }
+
+        AuthResponse response = new AuthResponse();
+        response.setUser(sanitizeUser(user));
+        response.setToken("bearer_google_" + user.getId() + "_" + System.currentTimeMillis());
+        return response;
+    }
+
+    @SuppressWarnings("unchecked")
+    private GoogleProfile extractGoogleProfile(GoogleLoginRequest request) {
         String email = null;
         String name = null;
         String avatar = null;
@@ -297,60 +329,62 @@ public class AuthService {
             sub = "google_" + cleanEmail;
         }
 
-        User user;
+        return new GoogleProfile(cleanEmail, name, avatar, sub);
+    }
+
+    private User findOrCreateGoogleUser(GoogleProfile profile) {
+        String sub = profile.sub;
+        String cleanEmail = profile.email;
+        String avatar = profile.avatar;
+        String name = profile.name;
+
         Optional<SocialAccount> socialOpt = socialAccountRepository.findByProviderAndProviderId("GOOGLE", sub);
 
         if (socialOpt.isPresent()) {
-            user = socialOpt.get().getUser();
+            User user = socialOpt.get().getUser();
             if (avatar != null && !avatar.isBlank()) {
                 socialOpt.get().setAvatar(avatar);
                 socialAccountRepository.save(socialOpt.get());
             }
             log.info("Google login thành công cho User đã liên kết: {} (ID={})", user.getEmail(), user.getId());
-        } else {
-            Optional<User> existingUserOpt = userRepository.findByEmail(cleanEmail);
-            if (existingUserOpt.isPresent()) {
-                user = existingUserOpt.get();
-                SocialAccount sa = new SocialAccount(user, "GOOGLE", sub, cleanEmail, avatar);
-                socialAccountRepository.save(sa);
-                if (user.getAvatar() == null || user.getAvatar().isBlank()) {
-                    user.setAvatar(avatar);
-                    userRepository.save(user);
-                }
-                log.info("Đã liên kết thành công Google Identity (sub={}) vào User hiện có: {} (ID={})", sub, user.getEmail(), user.getId());
-            } else {
-                String displayName = (name != null && !name.isBlank()) ? name.trim() : cleanEmail.split("@")[0];
-                String userAvatar = (avatar != null && !avatar.isBlank())
-                    ? avatar
-                    : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80";
+            return user;
+        }
 
-                User newUser = new User(
-                    displayName,
-                    cleanEmail,
-                    "",
-                    null,
-                    null,
-                    "Thành viên mới",
-                    userAvatar,
-                    50
-                );
-                newUser.setAuthProvider("GOOGLE");
-                user = userRepository.save(newUser);
-
-                SocialAccount sa = new SocialAccount(user, "GOOGLE", sub, cleanEmail, avatar);
-                socialAccountRepository.save(sa);
-                log.info("Tạo User mới từ Google OAuth2: {} (ID={})", user.getEmail(), user.getId());
+        Optional<User> existingUserOpt = userRepository.findByEmail(cleanEmail);
+        if (existingUserOpt.isPresent()) {
+            User user = existingUserOpt.get();
+            SocialAccount sa = new SocialAccount(user, "GOOGLE", sub, cleanEmail, avatar);
+            socialAccountRepository.save(sa);
+            if (user.getAvatar() == null || user.getAvatar().isBlank()) {
+                user.setAvatar(avatar);
+                userRepository.save(user);
             }
+            log.info("Đã liên kết thành công Google Identity (sub={}) vào User hiện có: {} (ID={})", sub, user.getEmail(), user.getId());
+            return user;
         }
 
-        if (user.isBanned() || user.isDeleted()) {
-            throw new AppException(ErrorCode.ACCOUNT_DISABLED);
-        }
+        String displayName = (name != null && !name.isBlank()) ? name.trim() : cleanEmail.split("@")[0];
+        String userAvatar = (avatar != null && !avatar.isBlank())
+            ? avatar
+            : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80";
 
-        AuthResponse response = new AuthResponse();
-        response.setUser(sanitizeUser(user));
-        response.setToken("bearer_google_" + user.getId() + "_" + System.currentTimeMillis());
-        return response;
+        User newUser = new User(
+            displayName,
+            cleanEmail,
+            "",
+            null,
+            null,
+            "Thành viên mới",
+            userAvatar,
+            50
+        );
+        newUser.setAuthProvider("GOOGLE");
+        User user = userRepository.save(newUser);
+
+        SocialAccount sa = new SocialAccount(user, "GOOGLE", sub, cleanEmail, avatar);
+        socialAccountRepository.save(sa);
+        log.info("Tạo User mới từ Google OAuth2: {} (ID={})", user.getEmail(), user.getId());
+        return user;
     }
 
     /**

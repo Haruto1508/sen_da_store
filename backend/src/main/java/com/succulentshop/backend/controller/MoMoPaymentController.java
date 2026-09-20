@@ -1,5 +1,6 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.*;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.repository.OrderRepository;
@@ -41,7 +42,7 @@ public class MoMoPaymentController {
         Order order = orderOpt.get();
         MoMoPaymentResponse moMoResponse = moMoService.createPayment(order);
 
-        return ResponseEntity.ok(ApiResult.ok("Khởi tạo thanh toán MoMo thành công", moMoResponse));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.MOMO_PAYMENT_INITIALIZED, moMoResponse));
     }
 
     /**
@@ -87,9 +88,6 @@ public class MoMoPaymentController {
         response.setAmount(order.getTotalAmount() != null ? Long.valueOf(order.getTotalAmount()) : null);
         response.setResultCode(0);
         response.setMessage("Mô phỏng thanh toán MoMo thành công cho đơn hàng #" + orderCode);
-        return ResponseEntity.ok(ApiResult.ok(
-                "Mô phỏng thanh toán MoMo thành công cho đơn hàng #" + orderCode,
-                response
-        ));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.MOMO_SIMULATED, response));
     }
 }

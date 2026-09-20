@@ -67,20 +67,58 @@ public class OrderService {
 
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
-        if (request.getCustomerName() == null || request.getCustomerName().trim().isEmpty() ||
+        validateCreateOrderRequest(request);
+
+        OrderItemsResult itemsResult = processOrderItemsAndDeductStock(request.getItems());
+        int subtotal = itemsResult.subtotal;
+        List<OrderItem> orderItems = itemsResult.orderItems;
+
+        CouponDiscountResult couponResult = calculateCouponDiscount(request.getDiscountCode(), subtotal);
+        int shippingFee = calculateShippingFee(request, subtotal);
+        int totalAmount = Math.max(0, subtotal - couponResult.discountAmount + shippingFee);
+
+        String orderCode = generateUniqueOrderCode(request.getOrderCode());
+
+        Order order = buildOrderEntity(request, orderCode, subtotal, couponResult, shippingFee, totalAmount, orderItems);
+        Order saved = orderRepository.save(order);
+
+        awardLoyaltyPoints(saved.getCustomerPhone(), totalAmount);
+
+        VietQrResponse vietQrResponse = null;
+        if ("vietqr".equalsIgnoreCase(saved.getPaymentMethod())) {
+            vietQrResponse = buildVietQrResponse(orderCode, totalAmount);
+        }
+
+        CreateOrderResponse response = new CreateOrderResponse();
+        response.setOrder(convertOrderToResponse(saved));
+        response.setVietQr(vietQrResponse);
+
+        if (orderEventPublisher != null) {
+            orderEventPublisher.publishOrderCreated(saved);
+        }
+
+        return response;
+    }
+
+    private void validateCreateOrderRequest(CreateOrderRequest request) {
+        if (request == null ||
+            request.getCustomerName() == null || request.getCustomerName().trim().isEmpty() ||
             request.getCustomerPhone() == null || request.getCustomerPhone().trim().isEmpty() ||
             request.getCustomerAddress() == null || request.getCustomerAddress().trim().isEmpty()) {
             throw new AppException(ErrorCode.ORDER_CUSTOMER_INFO_REQUIRED);
         }
-
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new AppException(ErrorCode.CART_EMPTY);
         }
+    }
 
+    private record OrderItemsResult(List<OrderItem> orderItems, int subtotal) {}
+
+    private OrderItemsResult processOrderItemsAndDeductStock(List<CreateOrderRequest.OrderItemDto> itemDtos) {
         List<OrderItem> orderItems = new ArrayList<>();
         int subtotal = 0;
 
-        for (CreateOrderRequest.OrderItemDto itemDto : request.getItems()) {
+        for (CreateOrderRequest.OrderItemDto itemDto : itemDtos) {
             Product p = productService.findActiveByIdOrThrow(itemDto.getId());
             int qty = Math.max(1, itemDto.getQuantity() != null ? itemDto.getQuantity() : 1);
             int currentStock = p.getInStock() != null ? p.getInStock() : 0;
@@ -106,43 +144,48 @@ public class OrderService {
             orderItems.add(new OrderItem(p.getId(), p.getName(), price, qty, p.getImage()));
         }
 
+        return new OrderItemsResult(orderItems, subtotal);
+    }
+
+    private record CouponDiscountResult(String validCouponCode, int discountAmount) {}
+
+    private CouponDiscountResult calculateCouponDiscount(String discountCode, int subtotal) {
         int discountPercent = 0;
         String validCouponCode = null;
-        if (request.getDiscountCode() != null && !request.getDiscountCode().trim().isEmpty()) {
-            Optional<Coupon> cOpt = couponService.validateCoupon(request.getDiscountCode());
+        if (discountCode != null && !discountCode.trim().isEmpty()) {
+            Optional<Coupon> cOpt = couponService.validateCoupon(discountCode);
             if (cOpt.isPresent()) {
                 discountPercent = cOpt.get().getDiscountPercent();
                 validCouponCode = cOpt.get().getCode();
             }
         }
-
         int discountAmount = (int) Math.round(subtotal * (discountPercent / 100.0));
-        int shippingFee;
-        if (shippingService != null) {
-            shippingFee = shippingService.calculateShippingFee(subtotal, request.getCity(), request.getCustomerAddress());
-        } else {
-            shippingFee = request.getShippingFee() != null ? request.getShippingFee() : (subtotal >= 200000 ? 0 : 35000);
-        }
-        int totalAmount = Math.max(0, subtotal - discountAmount + shippingFee);
+        return new CouponDiscountResult(validCouponCode, discountAmount);
+    }
 
-        Order order = new Order();
-        // Ưu tiên dùng mã đơn từ frontend (để QR code và polling khớp với DB)
-        // Nếu không có hoặc rỗng, backend tự tạo mã mới
-        String orderCode;
-        String requestOrderCode = request.getOrderCode();
+    private int calculateShippingFee(CreateOrderRequest request, int subtotal) {
+        if (shippingService != null) {
+            return shippingService.calculateShippingFee(subtotal, request.getCity(), request.getCustomerAddress());
+        }
+        return request.getShippingFee() != null ? request.getShippingFee() : (subtotal >= 200000 ? 0 : 35000);
+    }
+
+    private String generateUniqueOrderCode(String requestOrderCode) {
         if (requestOrderCode != null && !requestOrderCode.trim().isEmpty() &&
                 requestOrderCode.trim().toUpperCase().startsWith("SX")) {
-            orderCode = requestOrderCode.trim().toUpperCase();
-            // Kiểm tra trùng mã — nếu trùng thì tạo mã mới
-            if (orderRepository.findByOrderCode(orderCode).isPresent()) {
-                int randomDigits = 100000 + new Random().nextInt(900000);
-                orderCode = "SX" + randomDigits;
+            String orderCode = requestOrderCode.trim().toUpperCase();
+            if (orderRepository.findByOrderCode(orderCode).isEmpty()) {
+                return orderCode;
             }
-        } else {
-            int randomDigits = 100000 + new Random().nextInt(900000);
-            orderCode = "SX" + randomDigits;
         }
+        int randomDigits = 100000 + new Random().nextInt(900000);
+        return "SX" + randomDigits;
+    }
 
+    private Order buildOrderEntity(CreateOrderRequest request, String orderCode, int subtotal,
+                                   CouponDiscountResult couponResult, int shippingFee, int totalAmount,
+                                   List<OrderItem> orderItems) {
+        Order order = new Order();
         order.setOrderCode(orderCode);
         order.setCustomerName(request.getCustomerName().trim());
         order.setCustomerPhone(request.getCustomerPhone().trim());
@@ -153,8 +196,8 @@ public class OrderService {
         order.setNote(request.getNote());
         order.setPaymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "vietqr");
         order.setSubtotal(subtotal);
-        order.setDiscountAmount(discountAmount);
-        order.setDiscountCode(validCouponCode);
+        order.setDiscountAmount(couponResult.discountAmount);
+        order.setDiscountCode(couponResult.validCouponCode);
         order.setShippingFee(shippingFee);
         order.setTotalAmount(totalAmount);
         order.setStatus("PENDING");
@@ -162,48 +205,40 @@ public class OrderService {
         for (OrderItem it : orderItems) {
             order.addItem(it);
         }
+        return order;
+    }
 
-        Order saved = orderRepository.save(order);
-
-        Optional<User> userOpt = userRepository.findByPhone(saved.getCustomerPhone());
+    private void awardLoyaltyPoints(String phone, int totalAmount) {
+        if (phone == null || phone.isBlank()) return;
+        Optional<User> userOpt = userRepository.findByPhone(phone);
         if (userOpt.isPresent()) {
             User customer = userOpt.get();
             int pointsEarned = Math.max(10, totalAmount / 10000);
             customer.setPoints((customer.getPoints() != null ? customer.getPoints() : 0) + pointsEarned);
             userRepository.save(customer);
         }
+    }
 
-        VietQrResponse vietQrResponse = null;
-        if ("vietqr".equalsIgnoreCase(saved.getPaymentMethod())) {
-            String activeBankCode = (bankTransferConfig != null && bankTransferConfig.getBankCode() != null && !bankTransferConfig.getBankCode().isBlank())
-                    ? bankTransferConfig.getBankCode() : BANK_CODE;
-            String activeAccountNumber = (bankTransferConfig != null && bankTransferConfig.getAccountNumber() != null && !bankTransferConfig.getAccountNumber().isBlank())
-                    ? bankTransferConfig.getAccountNumber() : ACCOUNT_NUMBER;
-            String activeAccountName = (bankTransferConfig != null && bankTransferConfig.getAccountName() != null && !bankTransferConfig.getAccountName().isBlank())
-                    ? bankTransferConfig.getAccountName() : ACCOUNT_NAME;
+    private VietQrResponse buildVietQrResponse(String orderCode, int totalAmount) {
+        String activeBankCode = (bankTransferConfig != null && bankTransferConfig.getBankCode() != null && !bankTransferConfig.getBankCode().isBlank())
+                ? bankTransferConfig.getBankCode() : BANK_CODE;
+        String activeAccountNumber = (bankTransferConfig != null && bankTransferConfig.getAccountNumber() != null && !bankTransferConfig.getAccountNumber().isBlank())
+                ? bankTransferConfig.getAccountNumber() : ACCOUNT_NUMBER;
+        String activeAccountName = (bankTransferConfig != null && bankTransferConfig.getAccountName() != null && !bankTransferConfig.getAccountName().isBlank())
+                ? bankTransferConfig.getAccountName() : ACCOUNT_NAME;
 
-            String encodedName = URLEncoder.encode(activeAccountName, StandardCharsets.UTF_8);
-            String qrUrl = String.format("https://vietqr.app/img?bank=%s&acc=%s&template=compact&amount=%d&des=%s&showinfo=true&fullacc=true&holder=%s&store=Sen%%20Xinh%%20Garden",
-                    activeBankCode, activeAccountNumber, totalAmount, orderCode, encodedName);
+        String encodedName = URLEncoder.encode(activeAccountName, StandardCharsets.UTF_8);
+        String qrUrl = String.format("https://vietqr.app/img?bank=%s&acc=%s&template=compact&amount=%d&des=%s&showinfo=true&fullacc=true&holder=%s&store=Sen%%20Xinh%%20Garden",
+                activeBankCode, activeAccountNumber, totalAmount, orderCode, encodedName);
 
-            vietQrResponse = new VietQrResponse();
-            vietQrResponse.setBankName(BANK_NAME);
-            vietQrResponse.setBankCode(activeBankCode);
-            vietQrResponse.setAccountNumber(activeAccountNumber);
-            vietQrResponse.setAccountName(activeAccountName);
-            vietQrResponse.setAmount(totalAmount);
-            vietQrResponse.setOrderCode(orderCode);
-            vietQrResponse.setQrImageUrl(qrUrl);
-        }
-
-        CreateOrderResponse response = new CreateOrderResponse();
-        response.setOrder(convertOrderToResponse(saved));
-        response.setVietQr(vietQrResponse);
-
-        if (orderEventPublisher != null) {
-            orderEventPublisher.publishOrderCreated(saved);
-        }
-
+        VietQrResponse response = new VietQrResponse();
+        response.setBankName(BANK_NAME);
+        response.setBankCode(activeBankCode);
+        response.setAccountNumber(activeAccountNumber);
+        response.setAccountName(activeAccountName);
+        response.setAmount(totalAmount);
+        response.setOrderCode(orderCode);
+        response.setQrImageUrl(qrUrl);
         return response;
     }
 
@@ -239,6 +274,19 @@ public class OrderService {
         return getOrdersByCustomer(phone, null);
     }
 
+    /**
+     * Hoàn trả tồn kho cho tất cả sản phẩm trong đơn hàng (khi hủy đơn hoặc xóa đơn pending)
+     */
+    public void restoreOrderStock(Order order) {
+        if (order == null || order.getItems() == null) return;
+        for (OrderItem it : order.getItems()) {
+            try {
+                productService.restoreStock(it.getProductId(), it.getQuantity());
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     @Transactional
     public OrderResponse updateOrderStatus(Long orderId, String newStatus) {
         Order order = orderRepository.findById(orderId)
@@ -248,9 +296,7 @@ public class OrderService {
         String formatted = newStatus.trim().toUpperCase();
 
         if ("CANCELLED".equals(formatted) && !"CANCELLED".equals(oldStatus)) {
-            for (OrderItem it : order.getItems()) {
-                productService.restoreStock(it.getProductId(), it.getQuantity());
-            }
+            restoreOrderStock(order);
         }
 
         order.setStatus(formatted);
@@ -278,9 +324,7 @@ public class OrderService {
         String oldStatus = order.getStatus();
 
         // Hoàn trả tồn kho cho các sản phẩm
-        for (OrderItem it : order.getItems()) {
-            productService.restoreStock(it.getProductId(), it.getQuantity());
-        }
+        restoreOrderStock(order);
 
         order.setStatus("CANCELLED");
         if (reason != null && !reason.isBlank()) {
@@ -334,12 +378,7 @@ public class OrderService {
 
         // Hoàn trả tồn kho nếu đơn đang PENDING
         if ("PENDING".equals(order.getStatus())) {
-            for (OrderItem it : order.getItems()) {
-                try {
-                    productService.restoreStock(it.getProductId(), it.getQuantity());
-                } catch (Exception ignored) {
-                }
-            }
+            restoreOrderStock(order);
         }
 
         orderRepository.delete(order);

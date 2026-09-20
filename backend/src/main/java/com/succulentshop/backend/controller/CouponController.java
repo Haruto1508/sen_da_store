@@ -1,5 +1,6 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.CouponValidationResponse;
 import com.succulentshop.backend.dto.ValidateCouponRequest;
@@ -30,6 +31,6 @@ public class CouponController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error(ErrorCode.COUPON_INVALID_OR_EXPIRED));
         }
 
-        return ResponseEntity.ok(ApiResult.ok("Áp dụng mã giảm giá thành công", response));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.COUPON_APPLIED, response));
     }
 }

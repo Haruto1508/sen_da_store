@@ -1,28 +1,35 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.*;
 import com.succulentshop.backend.entity.Coupon;
 import com.succulentshop.backend.repository.CouponRepository;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.repository.ProductRepository;
 import com.succulentshop.backend.repository.UserRepository;
+import com.succulentshop.backend.service.AdminOrderSseService;
 import com.succulentshop.backend.service.AdminService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
 
     private final AdminService adminService;
-    private final com.succulentshop.backend.service.AdminOrderSseService adminOrderSseService;
+    private final AdminOrderSseService adminOrderSseService;
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public AdminController(AdminService adminService,
-                           @org.springframework.beans.factory.annotation.Autowired(required = false) com.succulentshop.backend.service.AdminOrderSseService adminOrderSseService) {
+                           @Autowired(required = false) AdminOrderSseService adminOrderSseService) {
         this.adminService = adminService;
         this.adminOrderSseService = adminOrderSseService;
     }
@@ -37,11 +44,9 @@ public class AdminController {
 
     /**
      * Cấp mã vé xác thực một lần (Ticket) để kết nối SSE cho Admin.
-     * Giải quyết bài toán bảo mật của native browser EventSource không thể truyền Authorization header
-     * mà không phải đặt JWT token trực tiếp lên URL query param.
      */
     @PostMapping("/orders/events/ticket")
-    public ResponseEntity<ApiResult<java.util.Map<String, Object>>> getSseTicket(
+    public ResponseEntity<ApiResult<Map<String, Object>>> getSseTicket(
             @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
         if (adminOrderSseService == null) {
@@ -50,22 +55,21 @@ public class AdminController {
         }
         String ticket = adminOrderSseService.createTicket("admin@senxinh.vn");
         return ResponseEntity.ok(ApiResult.ok(
-                "Cấp ticket SSE thành công",
-                java.util.Map.of("ticket", ticket, "expiresInSeconds", 30)
+                MessageCode.SSE_TICKET_ISSUED,
+                Map.of("ticket", ticket, "expiresInSeconds", 30)
         ));
     }
 
     /**
      * Mở luồng Server-Sent Events (SSE) cho Admin
-     * Chấp nhận tham số ticket đã được cấp qua /events/ticket hoặc Authorization header.
      */
-    @GetMapping(value = "/orders/events", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/orders/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public org.springframework.web.servlet.mvc.method.annotation.SseEmitter getOrderEventsStream(
             @RequestParam(value = "ticket", required = false) String ticket,
             @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
         if (adminOrderSseService == null) {
-            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "SSE Service is not available");
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "SSE Service is not available");
         }
 
         boolean authorized = false;
@@ -76,7 +80,7 @@ public class AdminController {
         }
 
         if (!authorized) {
-            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized SSE connection: Missing or expired ticket");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized SSE connection: Missing or expired ticket");
         }
 
         return adminOrderSseService.subscribe();
@@ -84,12 +88,12 @@ public class AdminController {
 
     @GetMapping("/stats")
     public ResponseEntity<ApiResult<AdminStatsResponse>> getStats() {
-        return ResponseEntity.ok(ApiResult.ok("Lấy thống kê hệ thống thành công", adminService.getStats()));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.ADMIN_STATS_SUCCESS, adminService.getStats()));
     }
 
     @GetMapping("/orders")
     public ResponseEntity<ApiResult<List<OrderResponse>>> getAllOrders(@RequestParam(required = false) String status) {
-        return ResponseEntity.ok(ApiResult.ok("Lấy danh sách đơn hàng thành công", adminService.getAllOrders(status)));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_LIST_SUCCESS, adminService.getAllOrders(status)));
     }
 
     @PatchMapping("/orders/{id}/status")
@@ -97,31 +101,20 @@ public class AdminController {
             @PathVariable Long id,
             @RequestBody UpdateOrderStatusRequest request
     ) {
-        try {
-            return ResponseEntity.ok(ApiResult.ok(
-                    "Cập nhật trạng thái đơn hàng thành công",
-                    adminService.updateOrderStatus(id, request)
-            ));
-        } catch (IllegalArgumentException e) {
-            if ("Không tìm thấy đơn hàng".equals(e.getMessage())) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error(e.getMessage()));
-            }
-            return ResponseEntity.badRequest().body(ApiResult.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResult.ok(
+                MessageCode.ORDER_STATUS_UPDATED,
+                adminService.updateOrderStatus(id, request)
+        ));
     }
 
     @GetMapping("/products")
     public ResponseEntity<ApiResult<List<ProductResponse>>> getAllProducts() {
-        return ResponseEntity.ok(ApiResult.ok("Lấy danh sách sản phẩm thành công", adminService.getAllProducts()));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.PRODUCT_LIST_SUCCESS, adminService.getAllProducts()));
     }
 
     @PostMapping("/products")
     public ResponseEntity<ApiResult<ProductResponse>> createProduct(@RequestBody ProductUpsertRequest request) {
-        try {
-            return ResponseEntity.ok(ApiResult.ok("Thêm sen đá mới thành công", adminService.createProduct(request)));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(ApiResult.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.PRODUCT_CREATED, adminService.createProduct(request)));
     }
 
     @PutMapping("/products/{id}")
@@ -129,14 +122,7 @@ public class AdminController {
             @PathVariable String id,
             @RequestBody ProductUpsertRequest request
     ) {
-        try {
-            return ResponseEntity.ok(ApiResult.ok("Cập nhật sản phẩm thành công", adminService.updateProduct(id, request)));
-        } catch (IllegalArgumentException e) {
-            if (e.getMessage().contains("Không tìm thấy sản phẩm")) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error(e.getMessage()));
-            }
-            return ResponseEntity.badRequest().body(ApiResult.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.PRODUCT_UPDATED, adminService.updateProduct(id, request)));
     }
 
     @PatchMapping("/products/{id}/stock")
@@ -144,38 +130,23 @@ public class AdminController {
             @PathVariable String id,
             @RequestBody UpdateStockRequest request
     ) {
-        try {
-            return ResponseEntity.ok(ApiResult.ok("Cập nhật tồn kho thành công", adminService.updateProductStock(id, request)));
-        } catch (IllegalArgumentException e) {
-            if (e.getMessage().contains("Không tìm thấy sản phẩm")) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error(e.getMessage()));
-            }
-            return ResponseEntity.badRequest().body(ApiResult.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.PRODUCT_STOCK_UPDATED, adminService.updateProductStock(id, request)));
     }
 
     @DeleteMapping("/products/{id}")
     public ResponseEntity<ApiResult<Void>> deleteProduct(@PathVariable String id) {
-        try {
-            adminService.deleteProduct(id);
-            return ResponseEntity.ok(ApiResult.ok("Đã xóa sản phẩm thành công (Soft Delete)", null));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error(e.getMessage()));
-        }
+        adminService.deleteProduct(id);
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.PRODUCT_DELETED, null));
     }
 
     @GetMapping("/coupons")
     public ResponseEntity<ApiResult<List<Coupon>>> getAllCoupons() {
-        return ResponseEntity.ok(ApiResult.ok("Lấy danh sách mã giảm giá thành công", adminService.getAllCoupons()));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.COUPON_LIST_SUCCESS, adminService.getAllCoupons()));
     }
 
     @PostMapping("/coupons")
     public ResponseEntity<ApiResult<Coupon>> createCoupon(@RequestBody CreateCouponRequest request) {
-        try {
-            return ResponseEntity.ok(ApiResult.ok("Tạo mã giảm giá mới thành công", adminService.createCoupon(request)));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(ApiResult.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.COUPON_CREATED, adminService.createCoupon(request)));
     }
 
     @PatchMapping("/coupons/{code}/toggle")
@@ -183,29 +154,18 @@ public class AdminController {
             @PathVariable String code,
             @RequestBody(required = false) ToggleCouponRequest request
     ) {
-        try {
-            return ResponseEntity.ok(ApiResult.ok("Cập nhật trạng thái voucher thành công", adminService.toggleCoupon(code, request)));
-        } catch (IllegalArgumentException e) {
-            if (e.getMessage().contains("Không tìm thấy mã giảm giá")) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error(e.getMessage()));
-            }
-            return ResponseEntity.badRequest().body(ApiResult.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.COUPON_TOGGLED, adminService.toggleCoupon(code, request)));
     }
 
     @DeleteMapping("/coupons/{code}")
     public ResponseEntity<ApiResult<Void>> deleteCoupon(@PathVariable String code) {
-        try {
-            adminService.deleteCoupon(code);
-            return ResponseEntity.ok(ApiResult.ok("Đã xóa mã voucher thành công", null));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error(e.getMessage()));
-        }
+        adminService.deleteCoupon(code);
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.COUPON_DELETED, null));
     }
 
     @GetMapping("/customers")
     public ResponseEntity<ApiResult<List<UserResponse>>> getAllCustomers() {
-        return ResponseEntity.ok(ApiResult.ok("Lấy danh sách khách hàng thành công", adminService.getAllCustomers()));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.CUSTOMER_LIST_RETRIEVED, adminService.getAllCustomers()));
     }
 
     @PatchMapping("/customers/{id}/role")
@@ -213,14 +173,7 @@ public class AdminController {
             @PathVariable Long id,
             @RequestBody UpdateUserRoleRequest request
     ) {
-        try {
-            return ResponseEntity.ok(ApiResult.ok("Cập nhật phân quyền khách hàng thành công", adminService.updateCustomerRole(id, request)));
-        } catch (IllegalArgumentException e) {
-            if (e.getMessage().contains("Không tìm thấy khách hàng")) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error(e.getMessage()));
-            }
-            return ResponseEntity.badRequest().body(ApiResult.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.USER_ROLE_UPDATED, adminService.updateCustomerRole(id, request)));
     }
 
     @PatchMapping("/customers/{id}/status")
@@ -228,43 +181,24 @@ public class AdminController {
             @PathVariable Long id,
             @RequestBody UpdateUserStatusRequest request
     ) {
-        try {
-            return ResponseEntity.ok(ApiResult.ok("Cập nhật trạng thái khách hàng thành công", adminService.updateCustomerStatus(id, request)));
-        } catch (IllegalArgumentException e) {
-            if (e.getMessage().contains("Không tìm thấy khách hàng")) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error(e.getMessage()));
-            }
-            return ResponseEntity.badRequest().body(ApiResult.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.USER_STATUS_UPDATED, adminService.updateCustomerStatus(id, request)));
     }
 
     @DeleteMapping("/customers/{id}")
     public ResponseEntity<ApiResult<UserResponse>> deleteCustomer(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(ApiResult.ok("Đã vô hiệu hóa (xóa mềm) tài khoản khách hàng thành công", adminService.deleteCustomer(id)));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error(e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.USER_DELETED, adminService.deleteCustomer(id)));
     }
 
     @PostMapping("/admins")
     public ResponseEntity<ApiResult<UserResponse>> createAdmin(@RequestBody CreateAdminRequest request) {
-        try {
-            UserResponse response = adminService.createAdmin(request);
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResult.ok("Tạo tài khoản quản trị viên mới thành công!", response));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(ApiResult.error(e.getMessage()));
-        }
+        UserResponse response = adminService.createAdmin(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResult.ok(MessageCode.ADMIN_CREATED, response));
     }
 
     @PostMapping("/change-password")
     public ResponseEntity<ApiResult<UserResponse>> changePassword(@RequestBody ChangePasswordRequest request) {
-        try {
-            UserResponse response = adminService.changePassword(request);
-            return ResponseEntity.ok(ApiResult.ok("Đổi mật khẩu tài khoản thành công!", response));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(ApiResult.error(e.getMessage()));
-        }
+        UserResponse response = adminService.changePassword(request);
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.PASSWORD_CHANGED, response));
     }
 }

@@ -8,19 +8,21 @@ import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.entity.OrderItem;
 import com.succulentshop.backend.entity.Product;
 import com.succulentshop.backend.entity.User;
+import com.succulentshop.backend.exception.AppException;
+import com.succulentshop.backend.exception.ErrorCode;
+import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.CouponRepository;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.repository.ProductRepository;
 import com.succulentshop.backend.repository.UserRepository;
+import com.succulentshop.backend.util.SlugUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 @Service
 public class AdminService {
@@ -114,17 +116,17 @@ public class AdminService {
     @Transactional
     public UpdateOrderStatusResponse updateOrderStatus(Long id, String status) {
         if (status == null || status.isBlank()) {
-            throw new IllegalArgumentException("Trạng thái không được để trống");
+            throw new AppException(ErrorCode.ORDER_STATUS_REQUIRED);
         }
 
         List<String> validStatuses = List.of("PENDING", "PAID", "SHIPPING", "COMPLETED", "CANCELLED");
         String formattedStatus = status.trim().toUpperCase();
         if (!validStatuses.contains(formattedStatus)) {
-            throw new IllegalArgumentException("Trạng thái không hợp lệ: " + validStatuses);
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS, "Trạng thái không hợp lệ: " + validStatuses);
         }
 
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng"));
         String oldStatus = order.getStatus();
         if ("CANCELLED".equals(formattedStatus) && !"CANCELLED".equals(oldStatus)) {
             for (OrderItem it : order.getItems()) {
@@ -163,12 +165,12 @@ public class AdminService {
     @Transactional
     public ProductResponse createProduct(ProductUpsertRequest request) {
         if (request == null || request.getName() == null || request.getName().isBlank()) {
-            throw new IllegalArgumentException("Tên sen đá không được để trống");
+            throw new AppException(ErrorCode.PRODUCT_NAME_REQUIRED);
         }
 
         String id = request.getId();
         if (id == null || id.isBlank()) {
-            id = generateSlug(request.getName()) + "-" + (System.currentTimeMillis() % 10000);
+            id = SlugUtil.generateProductSlug(request.getName());
         }
 
         Product p = new Product();
@@ -186,7 +188,7 @@ public class AdminService {
     @Transactional
     public ProductResponse updateProduct(String id, ProductUpsertRequest request) {
         Product p = productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm với mã: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND, "Không tìm thấy sản phẩm với mã: " + id));
 
         String oldImage = p.getImage();
         if (request != null) {
@@ -206,7 +208,7 @@ public class AdminService {
     @Transactional
     public UpdateStockResponse updateProductStock(String id, UpdateStockRequest request) {
         Product p = productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND, "Không tìm thấy sản phẩm"));
 
         if (request != null && request.getInStock() != null) {
             p.setInStock(Math.max(0, request.getInStock()));
@@ -219,7 +221,7 @@ public class AdminService {
     @Transactional
     public void deleteProduct(String id) {
         Product p = productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sản phẩm"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND, "Không tìm thấy sản phẩm"));
 
         if (cloudinaryService != null && p.getImage() != null && !p.getImage().isBlank()) {
             cloudinaryService.deleteImage(p.getImage());
@@ -236,12 +238,12 @@ public class AdminService {
     @Transactional
     public Coupon createCoupon(CreateCouponRequest request) {
         if (request == null || request.getCode() == null || request.getCode().isBlank()) {
-            throw new IllegalArgumentException("Mã giảm giá không được để trống");
+            throw new AppException(ErrorCode.COUPON_CODE_REQUIRED);
         }
 
         String formattedCode = request.getCode().trim().toUpperCase();
         if (couponRepository.existsById(formattedCode)) {
-            throw new IllegalArgumentException("Mã giảm giá này đã tồn tại trong hệ thống");
+            throw new AppException(ErrorCode.COUPON_ALREADY_EXISTS);
         }
 
         int discountPercent = request.getDiscountPercent() != null ? request.getDiscountPercent() : 10;
@@ -255,7 +257,7 @@ public class AdminService {
     @Transactional
     public Coupon toggleCoupon(String code, ToggleCouponRequest request) {
         Coupon coupon = couponRepository.findById(code.toUpperCase())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mã giảm giá"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.COUPON_NOT_FOUND, "Không tìm thấy mã giảm giá"));
 
         if (request != null && request.getIsActive() != null) {
             coupon.setIsActive(Boolean.TRUE.equals(request.getIsActive()));
@@ -269,7 +271,7 @@ public class AdminService {
     public void deleteCoupon(String code) {
         String formattedCode = code.toUpperCase();
         if (!couponRepository.existsById(formattedCode)) {
-            throw new IllegalArgumentException("Không tìm thấy mã giảm giá");
+            throw new ResourceNotFoundException(ErrorCode.COUPON_NOT_FOUND, "Không tìm thấy mã giảm giá");
         }
         couponRepository.deleteById(formattedCode);
     }
@@ -287,11 +289,11 @@ public class AdminService {
     public UserResponse updateCustomerRole(Long id, UpdateUserRoleRequest request) {
         String role = request != null ? request.getRole() : null;
         if (role == null || role.isBlank()) {
-            throw new IllegalArgumentException("Vai trò không được để trống");
+            throw new AppException(ErrorCode.USER_ROLE_REQUIRED);
         }
 
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy khách hàng"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy khách hàng"));
         user.setRole(role.trim());
         userRepository.save(user);
         return convertUserToResponse(user);
@@ -301,11 +303,11 @@ public class AdminService {
     public UserResponse updateCustomerStatus(Long id, UpdateUserStatusRequest request) {
         String status = request != null ? request.getStatus() : null;
         if (status == null || status.isBlank()) {
-            throw new IllegalArgumentException("Trạng thái không được để trống");
+            throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING, "Trạng thái không được để trống");
         }
 
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy khách hàng"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy khách hàng"));
         user.setStatus(status.trim().toUpperCase());
         userRepository.save(user);
         return convertUserToResponse(user);
@@ -314,7 +316,7 @@ public class AdminService {
     @Transactional
     public UserResponse deleteCustomer(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy khách hàng"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy khách hàng"));
         user.setStatus("DELETED");
         userRepository.save(user);
         return convertUserToResponse(user);
@@ -323,15 +325,15 @@ public class AdminService {
     @Transactional
     public UserResponse createAdmin(CreateAdminRequest request) {
         if (request == null || request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new IllegalArgumentException("Vui lòng cung cấp email quản trị viên");
+            throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING, "Vui lòng cung cấp email quản trị viên");
         }
         if (request.getPassword() == null || request.getPassword().trim().length() < 6) {
-            throw new IllegalArgumentException("Mật khẩu quản trị viên phải có ít nhất 6 ký tự");
+            throw new AppException(ErrorCode.INVALID_REQUEST, "Mật khẩu quản trị viên phải có ít nhất 6 ký tự");
         }
 
         String cleanEmail = request.getEmail().trim().toLowerCase();
         if (userRepository.findByEmail(cleanEmail).isPresent()) {
-            throw new IllegalArgumentException("Email này đã được sử dụng bởi một tài khoản khác trong hệ thống!");
+            throw new AppException(ErrorCode.EMAIL_ALREADY_EXISTS, "Email này đã được sử dụng bởi một tài khoản khác trong hệ thống!");
         }
 
         String name = request.getName() != null && !request.getName().isBlank() 
@@ -363,15 +365,15 @@ public class AdminService {
     @Transactional
     public UserResponse changePassword(ChangePasswordRequest request) {
         if (request == null || request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new IllegalArgumentException("Vui lòng cung cấp email tài khoản");
+            throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING, "Vui lòng cung cấp email tài khoản");
         }
         if (request.getNewPassword() == null || request.getNewPassword().trim().length() < 6) {
-            throw new IllegalArgumentException("Mật khẩu mới phải có ít nhất 6 ký tự");
+            throw new AppException(ErrorCode.INVALID_REQUEST, "Mật khẩu mới phải có ít nhất 6 ký tự");
         }
 
         String cleanEmail = request.getEmail().trim().toLowerCase();
         User user = userRepository.findByEmail(cleanEmail)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản với email: " + cleanEmail));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy tài khoản với email: " + cleanEmail));
 
         // Nếu có oldPassword được gửi lên, kiểm tra tính chính xác của mật khẩu cũ
         if (request.getOldPassword() != null && !request.getOldPassword().isBlank()) {
@@ -381,7 +383,7 @@ public class AdminService {
                                 request.getOldPassword().equals(existingPw) ||
                                 "admin123".equals(request.getOldPassword());
                 if (!match) {
-                    throw new IllegalArgumentException("Mật khẩu hiện tại không chính xác!");
+                    throw new AppException(ErrorCode.CURRENT_PASSWORD_INCORRECT);
                 }
             }
         }
@@ -511,13 +513,5 @@ public class AdminService {
         return response;
     }
 
-    private String generateSlug(String input) {
-        String nfdNormalizedString = Normalizer.normalize(input, Normalizer.Form.NFD);
-        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
-        String noDiacritics = pattern.matcher(nfdNormalizedString).replaceAll("");
-        return noDiacritics.toLowerCase()
-                .replaceAll("đ", "d")
-                .replaceAll("[^a-z0-9\\s]", "")
-                .replaceAll("\\s+", "-");
-    }
+
 }

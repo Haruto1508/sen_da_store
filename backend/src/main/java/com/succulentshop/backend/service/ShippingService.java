@@ -28,10 +28,7 @@ public class ShippingService {
 
     @Transactional
     public ShippingConfigResponse getShippingConfig() {
-        ShippingSetting setting = settingRepository.findById(1).orElseGet(() -> {
-            ShippingSetting defaultSetting = new ShippingSetting(1, true, 200000, 35000);
-            return settingRepository.save(defaultSetting);
-        });
+        ShippingSetting setting = getOrCreateShippingSetting();
 
         List<ShippingRate> rates = rateRepository.findAll();
         if (rates.isEmpty()) {
@@ -59,7 +56,7 @@ public class ShippingService {
 
     @Transactional
     public ShippingConfigResponse updateShippingConfig(UpdateShippingConfigRequest req) {
-        ShippingSetting setting = settingRepository.findById(1).orElseGet(() -> new ShippingSetting(1, true, 200000, 35000));
+        ShippingSetting setting = getOrCreateShippingSetting();
 
         if (req.getFreeShippingEnabled() != null) {
             setting.setFreeShippingEnabled(req.getFreeShippingEnabled());
@@ -95,9 +92,7 @@ public class ShippingService {
 
     @Transactional(readOnly = true)
     public int calculateShippingFee(int subtotal, String city, String fullAddress) {
-        ShippingSetting setting = settingRepository.findById(1).orElseGet(() ->
-                new ShippingSetting(1, true, 200000, 35000)
-        );
+        ShippingSetting setting = getOrCreateShippingSetting();
 
         if (Boolean.TRUE.equals(setting.getFreeShippingEnabled()) && subtotal >= setting.getFreeShippingThreshold()) {
             return 0;
@@ -108,6 +103,18 @@ public class ShippingService {
             return setting.getDefaultShippingFee() != null ? setting.getDefaultShippingFee() : 35000;
         }
 
+        Integer matchedFee = findMatchingShippingRate(rates, city, fullAddress);
+        return matchedFee != null ? matchedFee : (setting.getDefaultShippingFee() != null ? setting.getDefaultShippingFee() : 35000);
+    }
+
+    private ShippingSetting getOrCreateShippingSetting() {
+        return settingRepository.findById(1).orElseGet(() -> {
+            ShippingSetting defaultSetting = new ShippingSetting(1, true, 200000, 35000);
+            return settingRepository.save(defaultSetting);
+        });
+    }
+
+    private Integer findMatchingShippingRate(List<ShippingRate> rates, String city, String fullAddress) {
         String searchTarget = "";
         if (city != null && !city.isBlank()) {
             searchTarget += city.toLowerCase() + " ";
@@ -129,7 +136,6 @@ public class ShippingService {
         for (ShippingRate rate : rates) {
             String prov = rate.getProvince().toLowerCase();
             if ("khác".equals(prov)) continue;
-            // Xử lý các tiền tố thông dụng
             String cleanProv = prov.replace("tp.", "").replace("thành phố", "").replace("tỉnh", "").trim();
             if (searchTarget.contains(prov) || (!cleanProv.isEmpty() && searchTarget.contains(cleanProv))) {
                 return rate.getFee();
@@ -143,7 +149,7 @@ public class ShippingService {
             }
         }
 
-        return setting.getDefaultShippingFee() != null ? setting.getDefaultShippingFee() : 35000;
+        return null;
     }
 
     private List<ShippingRate> initDefaultRates() {

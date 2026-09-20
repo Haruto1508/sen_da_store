@@ -1,6 +1,7 @@
 package com.succulentshop.backend.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.exception.ErrorCode;
 
 import java.time.LocalDateTime;
@@ -41,6 +42,14 @@ public class ApiResponse<T> {
 
     public static <T> ApiResponse<T> ok(String message, T data) {
         return new ApiResponse<>(true, ErrorCode.SUCCESS.getCode(), message, data);
+    }
+
+    public static <T> ApiResponse<T> ok(MessageCode messageCode) {
+        return new ApiResponse<>(true, messageCode.getCode(), messageCode.getMessage(), null);
+    }
+
+    public static <T> ApiResponse<T> ok(MessageCode messageCode, T data) {
+        return new ApiResponse<>(true, messageCode.getCode(), messageCode.getMessage(), data);
     }
 
     public static <T> ApiResponse<T> error(String message) {

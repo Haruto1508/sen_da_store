@@ -1,5 +1,6 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.CartValidateRequest;
 import com.succulentshop.backend.dto.CartValidateResponse;
@@ -26,6 +27,6 @@ public class CartController {
             @RequestBody(required = false) CartValidateRequest request
     ) {
         CartValidateResponse response = cartService.validateCart(request);
-        return ResponseEntity.ok(ApiResult.ok("Kiểm tra giỏ hàng thành công", response));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.CART_VALIDATED, response));
     }
 }

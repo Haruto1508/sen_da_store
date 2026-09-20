@@ -1,5 +1,6 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.AuthResponse;
 import com.succulentshop.backend.dto.GoogleLoginRequest;
@@ -27,7 +28,7 @@ public class AuthController {
     @PostMapping("/send-otp")
     public ResponseEntity<ApiResult<SendOtpResponse>> sendOtp(@RequestBody SendOtpRequest request) {
         SendOtpResponse result = authService.sendOtp(request.getEmail());
-        return ResponseEntity.ok(ApiResult.ok("Mã xác thực OTP đã được gửi!", result));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.OTP_SENT, result));
     }
 
     /**
@@ -36,7 +37,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResult<AuthResponse>> login(@RequestBody LoginRequest request) {
         AuthResponse result = authService.login(request.getEmail(), request.getPassword(), request.getOtp());
-        return ResponseEntity.ok(ApiResult.ok("Đăng nhập thành công!", result));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.LOGIN_SUCCESS, result));
     }
 
     /**
@@ -45,7 +46,7 @@ public class AuthController {
     @PostMapping("/google")
     public ResponseEntity<ApiResult<AuthResponse>> loginWithGoogle(@RequestBody GoogleLoginRequest request) {
         AuthResponse result = authService.loginWithGoogle(request);
-        return ResponseEntity.ok(ApiResult.ok("Đăng nhập Google thành công!", result));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.GOOGLE_LOGIN_SUCCESS, result));
     }
 
     /**
@@ -60,9 +61,6 @@ public class AuthController {
                 request.getAddress()
         );
 
-        return ResponseEntity.ok(ApiResult.ok(
-            "Đăng ký thành công! Chào mừng bạn đến với Sen Xinh Garden.",
-            result
-        ));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.REGISTER_SUCCESS, result));
     }
 }

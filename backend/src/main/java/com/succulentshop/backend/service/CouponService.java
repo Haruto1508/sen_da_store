@@ -2,6 +2,8 @@ package com.succulentshop.backend.service;
 
 import com.succulentshop.backend.dto.CouponValidationResponse;
 import com.succulentshop.backend.entity.Coupon;
+import com.succulentshop.backend.exception.AppException;
+import com.succulentshop.backend.exception.ErrorCode;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.CouponRepository;
 import org.springframework.stereotype.Service;
@@ -50,13 +52,13 @@ public class CouponService {
 
     public Coupon findByCodeOrThrow(String code) {
         return couponRepository.findById(code.toUpperCase())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã giảm giá: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.COUPON_NOT_FOUND, "Không tìm thấy mã giảm giá: " + code));
     }
 
     public Coupon createCoupon(String code, Integer discountPercent, Boolean isActive, String description) {
         String formatted = code.trim().toUpperCase();
         if (couponRepository.existsById(formatted)) {
-            throw new IllegalArgumentException("Mã giảm giá \"" + formatted + "\" đã tồn tại trong hệ thống");
+            throw new AppException(ErrorCode.COUPON_ALREADY_EXISTS, "Mã giảm giá \"" + formatted + "\" đã tồn tại trong hệ thống");
         }
         Coupon c = new Coupon(formatted, discountPercent != null ? discountPercent : 10, isActive != null ? isActive : true, description);
         return couponRepository.save(c);

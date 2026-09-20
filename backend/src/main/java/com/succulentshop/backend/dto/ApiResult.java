@@ -1,5 +1,6 @@
 package com.succulentshop.backend.dto;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.exception.ErrorCode;
 
 /**
@@ -30,6 +31,14 @@ public class ApiResult<T> extends ApiResponse<T> {
 
     public static <T> ApiResult<T> ok(String message, T data) {
         return new ApiResult<>(true, ErrorCode.SUCCESS.getCode(), message, data);
+    }
+
+    public static <T> ApiResult<T> ok(MessageCode messageCode) {
+        return new ApiResult<>(true, messageCode.getCode(), messageCode.getMessage(), null);
+    }
+
+    public static <T> ApiResult<T> ok(MessageCode messageCode, T data) {
+        return new ApiResult<>(true, messageCode.getCode(), messageCode.getMessage(), data);
     }
 
     public static <T> ApiResult<T> success(String message) {

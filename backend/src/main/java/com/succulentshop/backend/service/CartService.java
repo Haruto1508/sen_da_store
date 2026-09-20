@@ -33,63 +33,18 @@ public class CartService {
         boolean hasExceededStockItems = false;
 
         for (CartValidateRequest.CartItemDto itemDto : items) {
-            String productId = itemDto.getProductId();
-            int requestedQty = itemDto.getQuantity();
-
-            CartItemValidationResult itemResult = new CartItemValidationResult();
-            itemResult.setProductId(productId);
-            itemResult.setRequestedQuantity(requestedQty);
-
-            if (productId == null || productId.isBlank()) {
-                itemResult.setAvailable(false);
-                itemResult.setStatus("INVALID");
-                itemResult.setMessage("Mã sản phẩm không hợp lệ");
-                hasUnavailableItems = true;
-                validatedItems.add(itemResult);
-                continue;
-            }
-
-            Optional<Product> pOpt = productRepository.findById(productId.trim());
-            if (pOpt.isEmpty()) {
-                itemResult.setProductName("Sản phẩm không xác định");
-                itemResult.setAvailable(false);
-                itemResult.setStatus("NOT_FOUND");
-                itemResult.setInStock(0);
-                itemResult.setMessage("Sản phẩm không tồn tại trong hệ thống");
-                hasUnavailableItems = true;
-                validatedItems.add(itemResult);
-                continue;
-            }
-
-            Product p = pOpt.get();
-            itemResult.setProductName(p.getName());
-            itemResult.setPrice(p.getPrice());
-            itemResult.setImage(p.getImage());
-            int currentStock = p.getInStock() != null ? p.getInStock() : 0;
-            itemResult.setInStock(currentStock);
-
-            if (!p.isActive()) {
-                itemResult.setAvailable(false);
-                itemResult.setStatus(p.getStatus() != null ? p.getStatus() : "DELETED");
-                itemResult.setMessage("Sản phẩm không còn được bán hoặc đã ngừng kinh doanh");
-                hasUnavailableItems = true;
-            } else if (currentStock <= 0) {
-                itemResult.setAvailable(false);
-                itemResult.setStatus("OUT_OF_STOCK");
-                itemResult.setMessage("Sản phẩm hiện đang tạm hết hàng trong kho");
-                hasOutOfStockItems = true;
-            } else if (currentStock < requestedQty) {
-                itemResult.setAvailable(true);
-                itemResult.setStatus("LOW_STOCK");
-                itemResult.setMessage(String.format("Kho chỉ còn %d cây, không đủ số lượng %d bạn yêu cầu", currentStock, requestedQty));
-                hasExceededStockItems = true;
-            } else {
-                itemResult.setAvailable(true);
-                itemResult.setStatus("ACTIVE");
-                itemResult.setMessage("Sẵn sàng đặt hàng");
-            }
-
+            CartItemValidationResult itemResult = validateSingleItem(itemDto);
             validatedItems.add(itemResult);
+
+            if ("INVALID".equals(itemResult.getStatus()) || "NOT_FOUND".equals(itemResult.getStatus()) || !itemResult.isAvailable()) {
+                if ("OUT_OF_STOCK".equals(itemResult.getStatus())) {
+                    hasOutOfStockItems = true;
+                } else {
+                    hasUnavailableItems = true;
+                }
+            } else if ("LOW_STOCK".equals(itemResult.getStatus())) {
+                hasExceededStockItems = true;
+            }
         }
 
         boolean canCheckout = !hasUnavailableItems && !hasOutOfStockItems && !hasExceededStockItems && !validatedItems.isEmpty();
@@ -102,5 +57,58 @@ public class CartService {
         response.setHasExceededStockItems(hasExceededStockItems);
         response.setCanProceed(canCheckout);
         return response;
+    }
+
+    private CartItemValidationResult validateSingleItem(CartValidateRequest.CartItemDto itemDto) {
+        String productId = itemDto.getProductId();
+        int requestedQty = itemDto.getQuantity();
+
+        CartItemValidationResult itemResult = new CartItemValidationResult();
+        itemResult.setProductId(productId);
+        itemResult.setRequestedQuantity(requestedQty);
+
+        if (productId == null || productId.isBlank()) {
+            itemResult.setAvailable(false);
+            itemResult.setStatus("INVALID");
+            itemResult.setMessage("Mã sản phẩm không hợp lệ");
+            return itemResult;
+        }
+
+        Optional<Product> pOpt = productRepository.findById(productId.trim());
+        if (pOpt.isEmpty()) {
+            itemResult.setProductName("Sản phẩm không xác định");
+            itemResult.setAvailable(false);
+            itemResult.setStatus("NOT_FOUND");
+            itemResult.setInStock(0);
+            itemResult.setMessage("Sản phẩm không tồn tại trong hệ thống");
+            return itemResult;
+        }
+
+        Product p = pOpt.get();
+        itemResult.setProductName(p.getName());
+        itemResult.setPrice(p.getPrice());
+        itemResult.setImage(p.getImage());
+        int currentStock = p.getInStock() != null ? p.getInStock() : 0;
+        itemResult.setInStock(currentStock);
+
+        if (!p.isActive()) {
+            itemResult.setAvailable(false);
+            itemResult.setStatus(p.getStatus() != null ? p.getStatus() : "DELETED");
+            itemResult.setMessage("Sản phẩm không còn được bán hoặc đã ngừng kinh doanh");
+        } else if (currentStock <= 0) {
+            itemResult.setAvailable(false);
+            itemResult.setStatus("OUT_OF_STOCK");
+            itemResult.setMessage("Sản phẩm hiện đang tạm hết hàng trong kho");
+        } else if (currentStock < requestedQty) {
+            itemResult.setAvailable(true);
+            itemResult.setStatus("LOW_STOCK");
+            itemResult.setMessage(String.format("Kho chỉ còn %d cây, không đủ số lượng %d bạn yêu cầu", currentStock, requestedQty));
+        } else {
+            itemResult.setAvailable(true);
+            itemResult.setStatus("ACTIVE");
+            itemResult.setMessage("Sẵn sàng đặt hàng");
+        }
+
+        return itemResult;
     }
 }

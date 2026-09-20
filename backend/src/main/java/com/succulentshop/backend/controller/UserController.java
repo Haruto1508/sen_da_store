@@ -1,5 +1,6 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.OrderResponse;
 import com.succulentshop.backend.dto.UpdateProfileRequest;
@@ -26,13 +27,13 @@ public class UserController {
     @GetMapping("/profile")
     public ResponseEntity<ApiResult<UserResponse>> getProfile(@RequestParam String email) {
         UserResponse profile = authService.getProfile(email);
-        return ResponseEntity.ok(ApiResult.ok("Lấy thông tin tài khoản thành công", profile));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.PROFILE_RETRIEVED, profile));
     }
 
     @PutMapping("/profile")
     public ResponseEntity<ApiResult<UserResponse>> updateProfile(@RequestBody UpdateProfileRequest request) {
         UserResponse updated = authService.updateProfile(request);
-        return ResponseEntity.ok(ApiResult.ok("Cập nhật thông tin tài khoản thành công", updated));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.PROFILE_UPDATED, updated));
     }
 
     @GetMapping("/my-orders")
@@ -46,7 +47,7 @@ public class UserController {
         } else {
             orders = orderService.getOrdersByCustomer(phone);
         }
-        return ResponseEntity.ok(ApiResult.ok("Tải danh sách đơn hàng thành công", orders));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_LIST_SUCCESS, orders));
     }
 
     public ResponseEntity<ApiResult<List<OrderResponse>>> getMyOrders(String phone) {

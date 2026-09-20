@@ -34,139 +34,106 @@ public class BankTransferService {
                 request != null ? request.getTransferAmount() : null,
                 request != null ? request.getContent() : null);
 
-        String configuredApiKey = bankTransferConfig.getSepayApiKey();
-        if (configuredApiKey != null && !configuredApiKey.isBlank()) {
-            boolean validKey = false;
-            if (authHeader != null) {
-                String cleanHeader = authHeader.replace("Apikey ", "").replace("Bearer ", "").trim();
-                validKey = configuredApiKey.equals(cleanHeader);
-            }
-            if (!validKey) {
-                log.warn("⚠️ [SePay Webhook] Từ chối request do sai hoặc thiếu API Key trong Authorization header");
-                BankTransferWebhookResponse response = new BankTransferWebhookResponse();
-                response.setSuccess(false);
-                response.setMessage("Unauthorized API Key");
-                return response;
-            }
+        if (!validateApiKey(authHeader)) {
+            return unauthorizedResponse();
         }
 
         if (request == null) {
-            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
-            response.setSuccess(false);
-            response.setMessage("Payload trống");
-            return response;
+            return emptyPayloadResponse();
         }
 
         String transferType = request.getTransferType() != null ? request.getTransferType() : "in";
         if ("out".equalsIgnoreCase(transferType)) {
-            log.info("ℹ️ [SePay Webhook] Bỏ qua giao dịch tiền ra (transferType = out)");
-            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
-            response.setSuccess(true);
-            response.setMessage("Bỏ qua giao dịch tiền ra");
-            return response;
+            return ignoreTransferOutResponse();
         }
 
         String content = request.getContent() != null ? request.getContent() : "";
         String description = request.getDescription() != null ? request.getDescription() : "";
         String code = request.getCode() != null ? request.getCode() : "";
-
         long transferAmount = request.getTransferAmount() != null ? request.getTransferAmount() : 0L;
 
         String foundOrderCode = extractOrderCode(content, description, code);
-        if (foundOrderCode == null) {
-            log.warn("⚠️ [SePay Webhook] Không tìm thấy mã đơn hàng SX... trong nội dung: content='{}', desc='{}'",
-                    content, description);
-            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
-            response.setSuccess(false);
-            response.setMessage("Không tìm thấy mã đơn hàng phù hợp trong nội dung chuyển khoản");
-            return response;
-        }
-
-        Optional<Order> orderOpt = orderRepository.findByOrderCode(foundOrderCode.toUpperCase());
-        if (orderOpt.isEmpty()) {
-            log.warn("⚠️ [SePay Webhook] Không tìm thấy đơn hàng trong Database với mã: {}", foundOrderCode);
-            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
-            response.setSuccess(false);
-            response.setMessage("Đơn hàng không tồn tại: " + foundOrderCode);
-            return response;
-        }
-
-        Order order = orderOpt.get();
-        if ("PAID".equalsIgnoreCase(order.getStatus()) || "COMPLETED".equalsIgnoreCase(order.getStatus())) {
-            log.info("ℹ️ [SePay Webhook] Đơn hàng #{} đã ở trạng thái {}", foundOrderCode, order.getStatus());
-            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
-            response.setSuccess(true);
-            response.setMessage("Đơn hàng đã được xác nhận thanh toán từ trước");
-            response.setOrderCode(order.getOrderCode());
-            response.setStatus(order.getStatus());
-            return response;
-        }
-
-        if (transferAmount > 0 && order.getTotalAmount() != null && transferAmount < order.getTotalAmount()) {
-            log.warn("⚠️ [SePay Webhook] Số tiền chuyển ({}) nhỏ hơn giá trị đơn hàng ({})",
-                    transferAmount, order.getTotalAmount());
-        }
-
-        order.setStatus("PAID");
-        orderRepository.save(order);
-
-        log.info("🎉 [SePay Webhook THÀNH CÔNG] Đơn hàng #{} đã tự động cập nhật sang trạng thái PAID!",
-                order.getOrderCode());
-
-        BankTransferWebhookResponse response = new BankTransferWebhookResponse();
-        response.setSuccess(true);
-        response.setMessage("Xác nhận thanh toán đơn hàng thành công");
-        response.setOrderCode(order.getOrderCode());
-        response.setStatus("PAID");
-        response.setTransferAmount(transferAmount);
-        return response;
+        return processSuccessfulTransfer(foundOrderCode, transferAmount, content, description);
     }
 
     public BankTransferWebhookResponse handleWebhook(String authHeader, Map<String, Object> payload) {
         log.info("📩 [SePay Webhook Nhận được]: {}", payload);
 
-        String configuredApiKey = bankTransferConfig.getSepayApiKey();
-        if (configuredApiKey != null && !configuredApiKey.isBlank()) {
-            boolean validKey = false;
-            if (authHeader != null) {
-                String cleanHeader = authHeader.replace("Apikey ", "").replace("Bearer ", "").trim();
-                validKey = configuredApiKey.equals(cleanHeader);
-            }
-            if (!validKey) {
-                log.warn("⚠️ [SePay Webhook] Từ chối request do sai hoặc thiếu API Key trong Authorization header");
-                BankTransferWebhookResponse response = new BankTransferWebhookResponse();
-                response.setSuccess(false);
-                response.setMessage("Unauthorized API Key");
-                return response;
-            }
+        if (!validateApiKey(authHeader)) {
+            return unauthorizedResponse();
+        }
+
+        if (payload == null || payload.isEmpty()) {
+            return emptyPayloadResponse();
         }
 
         String transferType = String.valueOf(payload.getOrDefault("transferType", "in"));
         if ("out".equalsIgnoreCase(transferType)) {
-            log.info("ℹ️ [SePay Webhook] Bỏ qua giao dịch tiền ra (transferType = out)");
-            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
-            response.setSuccess(true);
-            response.setMessage("Bỏ qua giao dịch tiền ra");
-            return response;
+            return ignoreTransferOutResponse();
         }
 
         String content = String.valueOf(payload.getOrDefault("content", ""));
         String description = String.valueOf(payload.getOrDefault("description", ""));
         String code = String.valueOf(payload.getOrDefault("code", ""));
 
-        Number amountNum = 0;
-        Object transferAmountObj = payload.get("transferAmount");
+        long transferAmount = parseAmountFromObject(payload.get("transferAmount"));
+        String foundOrderCode = extractOrderCode(content, description, code);
+        return processSuccessfulTransfer(foundOrderCode, transferAmount, content, description);
+    }
+
+    private boolean validateApiKey(String authHeader) {
+        String configuredApiKey = bankTransferConfig.getSepayApiKey();
+        if (configuredApiKey == null || configuredApiKey.isBlank()) {
+            return true;
+        }
+        if (authHeader == null) {
+            log.warn("⚠️ [SePay Webhook] Thiếu Authorization header");
+            return false;
+        }
+        String cleanHeader = authHeader.replace("Apikey ", "").replace("Bearer ", "").trim();
+        boolean valid = configuredApiKey.equals(cleanHeader);
+        if (!valid) {
+            log.warn("⚠️ [SePay Webhook] Sai API Key trong Authorization header");
+        }
+        return valid;
+    }
+
+    private BankTransferWebhookResponse unauthorizedResponse() {
+        BankTransferWebhookResponse response = new BankTransferWebhookResponse();
+        response.setSuccess(false);
+        response.setMessage("Unauthorized API Key");
+        return response;
+    }
+
+    private BankTransferWebhookResponse emptyPayloadResponse() {
+        BankTransferWebhookResponse response = new BankTransferWebhookResponse();
+        response.setSuccess(false);
+        response.setMessage("Payload trống");
+        return response;
+    }
+
+    private BankTransferWebhookResponse ignoreTransferOutResponse() {
+        log.info("ℹ️ [SePay Webhook] Bỏ qua giao dịch tiền ra (transferType = out)");
+        BankTransferWebhookResponse response = new BankTransferWebhookResponse();
+        response.setSuccess(true);
+        response.setMessage("Bỏ qua giao dịch tiền ra");
+        return response;
+    }
+
+    private long parseAmountFromObject(Object transferAmountObj) {
         if (transferAmountObj instanceof Number) {
-            amountNum = (Number) transferAmountObj;
+            return ((Number) transferAmountObj).longValue();
         } else if (transferAmountObj != null) {
             try {
-                amountNum = Long.parseLong(transferAmountObj.toString().replaceAll("[^0-9]", ""));
+                return Long.parseLong(transferAmountObj.toString().replaceAll("[^0-9]", ""));
             } catch (Exception ignored) {
             }
         }
-        long transferAmount = amountNum.longValue();
+        return 0L;
+    }
 
-        String foundOrderCode = extractOrderCode(content, description, code);
+    private BankTransferWebhookResponse processSuccessfulTransfer(String foundOrderCode, long transferAmount,
+                                                                   String content, String description) {
         if (foundOrderCode == null) {
             log.warn("⚠️ [SePay Webhook] Không tìm thấy mã đơn hàng SX... trong nội dung: content='{}', desc='{}'",
                     content, description);

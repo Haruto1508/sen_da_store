@@ -151,7 +151,7 @@ class ControllerApiResultTest {
         u.setRole("ROLE_ADMIN");
         AuthResponse authResp = new AuthResponse("mock-token", u);
 
-        when(authService.login("admin@senxinh.vn")).thenReturn(authResp);
+        when(authService.login(eq("admin@senxinh.vn"), any(), any())).thenReturn(authResp);
 
         AuthController controller = new AuthController(authService);
 

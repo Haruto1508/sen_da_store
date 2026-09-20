@@ -1,5 +1,6 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.CloudinaryUploadResponse;
 import com.succulentshop.backend.dto.DeleteImageResponse;
@@ -27,8 +28,8 @@ public class UploadController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "previousImageUrl", required = false) String previousImageUrl
     ) {
-       CloudinaryUploadResponse result = cloudinaryService.uploadAndReplaceImage(file, "senxinh_products", previousImageUrl);
-        return ResponseEntity.ok(ApiResult.ok("Tải ảnh sản phẩm lên Cloud thành công", result));
+        CloudinaryUploadResponse result = cloudinaryService.uploadAndReplaceImage(file, "senxinh_products", previousImageUrl);
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.IMAGE_UPLOADED, result));
     }
 
     /**
@@ -44,12 +45,10 @@ public class UploadController {
             return ResponseEntity.badRequest().body(ApiResult.error("Vui lòng cung cấp imageUrl hoặc publicId"));
         }
         boolean deleted = cloudinaryService.deleteImage(target);
-       DeleteImageResponse response = new DeleteImageResponse();
-       response.setDeleted(deleted);
-       response.setTarget(target);
-       return ResponseEntity.ok(ApiResult.ok(
-               deleted ? "Xóa ảnh thành công" : "Ảnh đã được xóa hoặc không tồn tại",
-               response
-       ));
+        DeleteImageResponse response = new DeleteImageResponse();
+        response.setDeleted(deleted);
+        response.setTarget(target);
+        MessageCode messageCode = deleted ? MessageCode.IMAGE_DELETED : MessageCode.IMAGE_NOT_FOUND;
+        return ResponseEntity.ok(ApiResult.ok(messageCode, response));
     }
 }

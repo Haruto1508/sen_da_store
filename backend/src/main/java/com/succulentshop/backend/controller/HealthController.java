@@ -1,5 +1,6 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.HealthResponse;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,6 @@ public class HealthController {
         healthData.setFramework("Spring Boot 3 + Java 21");
         healthData.setDatabase("PostgreSQL Database (Local)");
         healthData.setTimestamp(LocalDateTime.now().toString());
-        return ResponseEntity.ok(ApiResult.ok("Hệ thống hoạt động bình thường", healthData));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.HEALTH_CHECK_OK, healthData));
     }
 }

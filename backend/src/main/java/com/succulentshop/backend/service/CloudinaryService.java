@@ -54,6 +54,16 @@ public class CloudinaryService {
      * @return DTO containing url, publicId, and storageType
      */
     public CloudinaryUploadResponse uploadImage(MultipartFile file, String folder) {
+        validateUploadFile(file);
+
+        if (isCloudinaryConfigured()) {
+            return uploadToCloudinary(file, folder);
+        }
+
+        return saveLocalFallback(file);
+    }
+
+    private void validateUploadFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new AppException(ErrorCode.INVALID_REQUEST, "Vui lòng chọn một file ảnh để tải lên");
         }
@@ -72,49 +82,55 @@ public class CloudinaryService {
         if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType.toLowerCase())) {
             throw new AppException(ErrorCode.FILE_TYPE_NOT_SUPPORTED, "Định dạng file không được hỗ trợ. Vui lòng chọn ảnh JPG, PNG, WEBP hoặc GIF");
         }
+    }
 
-        if (cloudName != null && !cloudName.isBlank() && !cloudName.contains("your_cloudinary")) {
-            try {
-                log.info("Bắt đầu upload ảnh lên Cloudinary folder: {}", folder);
+    private boolean isCloudinaryConfigured() {
+        return cloudName != null && !cloudName.isBlank() && !cloudName.contains("your_cloudinary");
+    }
 
-                @SuppressWarnings("unchecked")
-                Map<String, Object> uploadResult = cloudinary.uploader().upload(
-                        file.getBytes(),
-                        ObjectUtils.asMap(
-                                "folder", folder != null ? folder : "senxinh_products",
-                                "resource_type", "image"
-                        )
+    private CloudinaryUploadResponse uploadToCloudinary(MultipartFile file, String folder) {
+        try {
+            log.info("Bắt đầu upload ảnh lên Cloudinary folder: {}", folder);
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", folder != null ? folder : "senxinh_products",
+                            "resource_type", "image"
+                    )
+            );
+
+            String secureUrl = (String) uploadResult.get("secure_url");
+            String publicId = (String) uploadResult.get("public_id");
+
+            log.info("Upload ảnh lên Cloudinary thành công! URL: {}", secureUrl);
+
+            CloudinaryUploadResponse response = new CloudinaryUploadResponse();
+            response.setUrl(secureUrl);
+            response.setPublicId(publicId);
+            response.setStorage("CLOUDINARY");
+            response.setBytes(uploadResult.get("bytes") instanceof Number ? ((Number) uploadResult.get("bytes")).longValue() : null);
+            response.setFormat(String.valueOf(uploadResult.get("format")));
+            return response;
+        } catch (Exception e) {
+            log.error("Lỗi khi tải ảnh lên Cloudinary: {}", e.getMessage(), e);
+            String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+
+            if (msg.contains("quota") || msg.contains("credit") || msg.contains("limit")
+                    || msg.contains("storage") || msg.contains("capacity") || msg.contains("exceeded")
+                    || msg.contains("disabled") || msg.contains("out of")) {
+                throw new AppException(
+                        ErrorCode.STORAGE_LIMIT_EXCEEDED,
+                        "Bộ nhớ lưu trữ đám mây (Cloudinary) đã đầy hoặc đạt giới hạn lưu trữ gói tài khoản! Không thể tải thêm ảnh mới. Vui lòng xóa bớt ảnh cũ để giải phóng dung lượng."
                 );
-
-                String secureUrl = (String) uploadResult.get("secure_url");
-                String publicId = (String) uploadResult.get("public_id");
-
-                log.info("Upload ảnh lên Cloudinary thành công! URL: {}", secureUrl);
-
-                CloudinaryUploadResponse response = new CloudinaryUploadResponse();
-                response.setUrl(secureUrl);
-                response.setPublicId(publicId);
-                response.setStorage("CLOUDINARY");
-                response.setBytes(uploadResult.get("bytes") instanceof Number ? ((Number) uploadResult.get("bytes")).longValue() : null);
-                response.setFormat(String.valueOf(uploadResult.get("format")));
-                return response;
-            } catch (Exception e) {
-                log.error("Lỗi khi tải ảnh lên Cloudinary: {}", e.getMessage(), e);
-                String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
-
-                if (msg.contains("quota") || msg.contains("credit") || msg.contains("limit")
-                        || msg.contains("storage") || msg.contains("capacity") || msg.contains("exceeded")
-                        || msg.contains("disabled") || msg.contains("out of")) {
-                    throw new AppException(
-                            ErrorCode.STORAGE_LIMIT_EXCEEDED,
-                            "Bộ nhớ lưu trữ đám mây (Cloudinary) đã đầy hoặc đạt giới hạn lưu trữ gói tài khoản! Không thể tải thêm ảnh mới. Vui lòng xóa bớt ảnh cũ để giải phóng dung lượng."
-                    );
-                }
-
-                throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION, "Không thể tải ảnh lên Cloudinary: " + e.getMessage());
             }
-        }
 
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION, "Không thể tải ảnh lên Cloudinary: " + e.getMessage());
+        }
+    }
+
+    private CloudinaryUploadResponse saveLocalFallback(MultipartFile file) {
         log.warn("Chưa phát hiện cấu hình CLOUDINARY_CLOUD_NAME. Sử dụng fallback lưu trữ cục bộ.");
         try {
             String uploadDir = "uploads/products";

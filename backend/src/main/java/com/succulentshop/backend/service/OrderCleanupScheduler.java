@@ -26,14 +26,14 @@ public class OrderCleanupScheduler {
     private static final Logger log = LoggerFactory.getLogger(OrderCleanupScheduler.class);
 
     private final OrderRepository orderRepository;
-    private final ProductService productService;
+    private final OrderService orderService;
 
     @Value("${order.pending.timeout-minutes}")
     private int pendingTimeoutMinutes;
 
-    public OrderCleanupScheduler(OrderRepository orderRepository, ProductService productService) {
+    public OrderCleanupScheduler(OrderRepository orderRepository, OrderService orderService) {
         this.orderRepository = orderRepository;
-        this.productService = productService;
+        this.orderService = orderService;
     }
 
     /**
@@ -50,37 +50,35 @@ public class OrderCleanupScheduler {
         }
 
         int cancelledCount = 0;
-
         for (Order order : staleOrders) {
-            // Chỉ tự động hủy đơn thanh toán online (vietqr, momo)
-            // Đơn COD vẫn giữ PENDING vì khách trả tiền mặt khi nhận hàng
-            String method = order.getPaymentMethod();
-            if ("cod".equalsIgnoreCase(method)) {
-                continue;
+            if (cancelSingleStaleOrder(order)) {
+                cancelledCount++;
             }
-
-            // Hoàn trả tồn kho
-            for (OrderItem item : order.getItems()) {
-                try {
-                    productService.restoreStock(item.getProductId(), item.getQuantity());
-                } catch (Exception e) {
-                    log.warn("⚠️ Không thể hoàn kho cho sản phẩm {} (đơn {}): {}",
-                            item.getProductName(), order.getOrderCode(), e.getMessage());
-                }
-            }
-
-            order.setStatus("CANCELLED");
-            String currentNote = order.getNote() != null ? order.getNote() : "";
-            order.setNote((currentNote + " [Tự động hủy: Chưa thanh toán sau " + pendingTimeoutMinutes + " phút]").trim());
-            orderRepository.save(order);
-            cancelledCount++;
-
-            log.info("🗑️ Tự động hủy đơn hàng #{} (tạo lúc {}, phương thức: {}) — quá {} phút chưa thanh toán",
-                    order.getOrderCode(), order.getCreatedAt(), method, pendingTimeoutMinutes);
         }
 
         if (cancelledCount > 0) {
-            log.info("✅ Đã tự động hủy {} đơn hàng PENDING quá hạn (>{} phút)", cancelledCount, pendingTimeoutMinutes);
+            log.info("Đã tự động hủy {} đơn hàng PENDING quá hạn (>{} phút)", cancelledCount, pendingTimeoutMinutes);
         }
+    }
+
+    private boolean cancelSingleStaleOrder(Order order) {
+        // Chỉ tự động hủy đơn thanh toán online (vietqr, momo)
+        // Đơn COD vẫn giữ PENDING vì khách trả tiền mặt khi nhận hàng
+        String method = order.getPaymentMethod();
+        if ("cod".equalsIgnoreCase(method)) {
+            return false;
+        }
+
+        // Hoàn trả tồn kho thông qua OrderService
+        orderService.restoreOrderStock(order);
+
+        order.setStatus("CANCELLED");
+        String currentNote = order.getNote() != null ? order.getNote() : "";
+        order.setNote((currentNote + " [Tự động hủy: Chưa thanh toán sau " + pendingTimeoutMinutes + " phút]").trim());
+        orderRepository.save(order);
+
+        log.info("Tự động hủy đơn hàng #{} (tạo lúc {}, phương thức: {}) — quá {} phút chưa thanh toán",
+                order.getOrderCode(), order.getCreatedAt(), method, pendingTimeoutMinutes);
+        return true;
     }
 }

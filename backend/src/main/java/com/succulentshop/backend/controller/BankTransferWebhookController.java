@@ -1,10 +1,12 @@
 package com.succulentshop.backend.controller;
 
+import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.BankTransferWebhookResponse;
 import com.succulentshop.backend.dto.SepayWebhookRequest;
 import com.succulentshop.backend.dto.SimulatePaymentRequest;
 import com.succulentshop.backend.service.BankTransferService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +17,7 @@ public class BankTransferWebhookController {
 
     private final BankTransferService bankTransferService;
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public BankTransferWebhookController(BankTransferService bankTransferService) {
         this.bankTransferService = bankTransferService;
     }
@@ -48,6 +50,6 @@ public class BankTransferWebhookController {
         if (!response.isSuccess()) {
             return ResponseEntity.badRequest().body(ApiResult.error(response.getMessage()));
         }
-        return ResponseEntity.ok(ApiResult.ok(response.getMessage(), response));
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.PAYMENT_SIMULATED, response));
     }
 }
