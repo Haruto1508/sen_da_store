@@ -517,7 +517,16 @@ export default function App() {
         console.error(err);
       }
     }
-    navigate('/', { replace: true });
+
+    const isAdmin = Boolean(
+      userToSave &&
+      (userToSave.role?.toLowerCase().includes('admin') || userToSave.email === 'admin@senxinh.vn')
+    );
+    if (isAdmin) {
+      navigate('/admin', { replace: true });
+    } else {
+      navigate('/', { replace: true });
+    }
   };
 
   const handleAdminLoginSuccess = (userData) => {

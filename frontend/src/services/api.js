@@ -1243,19 +1243,112 @@ export async function validateCartItems(items) {
 // ==============================================================================
 
 /**
- * Đăng nhập bằng Email (Passwordless)
- * Nếu ở chế độ Mock Data và tài khoản chưa có, tự động tạo mới tài khoản
+ * Gửi mã OTP xác thực 6 số về Email
  */
-export async function loginUser(email, password = '') {
+export async function sendOtp(email) {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  if (!cleanEmail) {
+    throw new Error('Vui lòng nhập địa chỉ Email!');
+  }
+
+  if (USE_MOCK_DATA) {
+    const mockOtp = String(Math.floor(100000 + Math.random() * 900000));
+    try {
+      sessionStorage.setItem(
+        `senxinh_mock_otp_${cleanEmail}`,
+        JSON.stringify({ code: mockOtp, expiry: Date.now() + 5 * 60 * 1000 })
+      );
+    } catch {}
+    console.info(`🔑 [SEN XINH MOCK OTP] Mã xác thực cho ${cleanEmail}: ${mockOtp}`);
+    return {
+      success: true,
+      message: `Mã xác thực OTP gồm 6 chữ số đã được gửi đến email ${cleanEmail}. (Mã thử nghiệm: ${mockOtp})`,
+      devOtp: mockOtp,
+      expiresInSeconds: 300
+    };
+  }
+
+  const res = await fetch(`${API_BASE}/auth/send-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: cleanEmail })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'Không thể gửi mã OTP. Vui lòng thử lại sau!');
+  }
+  return data.data || data;
+}
+
+/**
+ * Đăng nhập bằng Mật Khẩu (Phương án 1) hoặc OTP Email (Phương án 2)
+ */
+export async function loginUser(email, password = '', otp = '') {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  if (!cleanEmail) {
+    throw new Error('Vui lòng nhập địa chỉ Email!');
+  }
+
   if (USE_MOCK_DATA) {
     const users = getStoredUsers();
-    const cleanEmail = (email || '').trim().toLowerCase();
     let existingUser = users.find(
       (u) => (u.email && u.email.toLowerCase() === cleanEmail) || u.phone === cleanEmail
     );
 
+    const isAdmin = cleanEmail === 'admin@senxinh.vn' || existingUser?.role?.toLowerCase().includes('admin');
+
+    // 1. Kiểm tra Admin
+    if (isAdmin) {
+      if (password) {
+        const adminPw = existingUser?.password || 'admin123';
+        if (password !== adminPw && password !== 'admin123') {
+          throw new Error('Mật khẩu Quản trị viên không chính xác!');
+        }
+      } else if (otp) {
+        // Kiểm tra OTP Admin
+        let stored = null;
+        try {
+          stored = JSON.parse(sessionStorage.getItem(`senxinh_mock_otp_${cleanEmail}`));
+        } catch {}
+        if (!stored || Date.now() > stored.expiry) {
+          throw new Error('Mã OTP chưa được yêu cầu hoặc đã hết hạn. Vui lòng nhấn gửi lại mã!');
+        }
+        if (stored.code !== otp.trim()) {
+          throw new Error('Mã OTP không chính xác. Vui lòng kiểm tra lại!');
+        }
+      } else {
+        throw new Error('Tài khoản Quản trị viên bắt buộc phải nhập Mật khẩu hoặc mã OTP!');
+      }
+    } else {
+      // 2. Tài khoản Khách hàng
+      if (otp) {
+        let stored = null;
+        try {
+          stored = JSON.parse(sessionStorage.getItem(`senxinh_mock_otp_${cleanEmail}`));
+        } catch {}
+        if (!stored || Date.now() > stored.expiry) {
+          throw new Error('Mã OTP chưa được yêu cầu hoặc đã hết hạn. Vui lòng nhấn gửi lại mã!');
+        }
+        if (stored.code !== otp.trim()) {
+          throw new Error('Mã OTP không chính xác. Vui lòng kiểm tra lại!');
+        }
+        // Xóa OTP sau khi dùng
+        try { sessionStorage.removeItem(`senxinh_mock_otp_${cleanEmail}`); } catch {}
+      } else if (password) {
+        if (existingUser) {
+          if (existingUser.password && existingUser.password !== password && password !== '123456') {
+            throw new Error('Mật khẩu đăng nhập không chính xác!');
+          }
+        } else {
+          throw new Error('Không tìm thấy tài khoản với email này. Vui lòng chọn Xác thực OTP để tạo tài khoản mới!');
+        }
+      } else {
+        throw new Error('Vui lòng nhập Mật khẩu hoặc yêu cầu gửi mã OTP để đăng nhập an toàn!');
+      }
+    }
+
     if (!existingUser) {
-      // Tự động tạo mới tài khoản nếu chưa tồn tại
+      // Tự động tạo mới tài khoản nếu xác thực OTP thành công
       existingUser = {
         id: `user_${Date.now()}`,
         publicId: `mock-uuid-${Date.now()}`,
@@ -1289,7 +1382,11 @@ export async function loginUser(email, password = '') {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: (email || '').trim() })
+    body: JSON.stringify({ 
+      email: cleanEmail,
+      password: password || '',
+      otp: otp || ''
+    })
   });
   const data = await res.json();
   if (!res.ok) {

@@ -5,6 +5,8 @@ import com.succulentshop.backend.dto.AuthResponse;
 import com.succulentshop.backend.dto.GoogleLoginRequest;
 import com.succulentshop.backend.dto.LoginRequest;
 import com.succulentshop.backend.dto.RegisterRequest;
+import com.succulentshop.backend.dto.SendOtpRequest;
+import com.succulentshop.backend.dto.SendOtpResponse;
 import com.succulentshop.backend.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,11 +22,20 @@ public class AuthController {
     }
 
     /**
-     * Đăng nhập tài khoản bằng Email (Passwordless)
+     * Gửi mã xác thực OTP 6 số về Email
+     */
+    @PostMapping("/send-otp")
+    public ResponseEntity<ApiResult<SendOtpResponse>> sendOtp(@RequestBody SendOtpRequest request) {
+        SendOtpResponse result = authService.sendOtp(request.getEmail());
+        return ResponseEntity.ok(ApiResult.ok("Mã xác thực OTP đã được gửi!", result));
+    }
+
+    /**
+     * Đăng nhập tài khoản bằng Mật khẩu hoặc mã OTP
      */
     @PostMapping("/login")
     public ResponseEntity<ApiResult<AuthResponse>> login(@RequestBody LoginRequest request) {
-        AuthResponse result = authService.login(request.getEmail());
+        AuthResponse result = authService.login(request.getEmail(), request.getPassword(), request.getOtp());
         return ResponseEntity.ok(ApiResult.ok("Đăng nhập thành công!", result));
     }
 

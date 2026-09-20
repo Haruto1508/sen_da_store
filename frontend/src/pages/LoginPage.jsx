@@ -8,16 +8,73 @@ import {
   LogIn, 
   Gift,
   HelpCircle,
-  Loader2
+  Loader2,
+  KeyRound,
+  Lock,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  RotateCw
 } from 'lucide-react';
-import { loginUser, loginWithGoogle } from '../services/api';
+import { loginUser, loginWithGoogle, sendOtp } from '../services/api';
 
 export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [authMethod, setAuthMethod] = useState('otp'); // 'otp' | 'password'
+
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [infoMsg, setInfoMsg] = useState('');
 
+  // Countdown timer cho nút gửi lại OTP
+  useEffect(() => {
+    let interval = null;
+    if (otpCountdown > 0) {
+      interval = setInterval(() => {
+        setOtpCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [otpCountdown]);
+
+  // Gửi mã OTP về Email
+  const handleSendOtp = async (e) => {
+    if (e) e.preventDefault();
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setErrorMsg('Vui lòng nhập Email của bạn trước khi nhận mã OTP!');
+      return;
+    }
+
+    setErrorMsg('');
+    setInfoMsg('');
+    setSendingOtp(true);
+
+    try {
+      const res = await sendOtp(cleanEmail);
+      setOtpSent(true);
+      setOtpCountdown(60);
+      const devHint = res.devOtp ? ` [Mã test: ${res.devOtp}]` : '';
+      setInfoMsg(res.message || `Mã OTP đã được gửi đến ${cleanEmail}.${devHint}`);
+      if (addToast) {
+        addToast(`Mã OTP đã gửi đến ${cleanEmail}!${devHint}`, 'info');
+      }
+    } catch (err) {
+      console.error('Lỗi gửi OTP:', err);
+      setErrorMsg(err.message || 'Không thể gửi mã OTP. Vui lòng thử lại sau!');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  // Xử lý gửi biểu mẫu đăng nhập (OTP hoặc Mật Khẩu)
   const handleSubmit = async (e) => {
     e.preventDefault();
     const cleanEmail = email.trim();
@@ -26,16 +83,41 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
       return;
     }
 
+    if (authMethod === 'otp' && !otp.trim()) {
+      setErrorMsg('Vui lòng nhập mã OTP 6 số được gửi về email của bạn!');
+      return;
+    }
+
+    if (authMethod === 'password' && !password) {
+      setErrorMsg('Vui lòng nhập mật khẩu tài khoản của bạn!');
+      return;
+    }
+
     setErrorMsg('');
     setLoading(true);
 
     try {
-      const res = await loginUser(cleanEmail);
+      const res = await loginUser(
+        cleanEmail, 
+        authMethod === 'password' ? password : '', 
+        authMethod === 'otp' ? otp.trim() : ''
+      );
+
       if (res.success && res.data) {
         const displayName = res.data.name || res.data.user?.name || 'bạn';
+        const isAdmin = Boolean(
+          res.data.role?.toLowerCase().includes('admin') || 
+          res.data.email === 'admin@senxinh.vn'
+        );
+
         if (addToast) {
-          addToast(`Chào mừng bạn trở lại, ${displayName}! 🌿`, 'info');
+          if (isAdmin) {
+            addToast(`Chào mừng Quản trị viên ${displayName}! Chuyển đến trang quản trị... 🌿`, 'success');
+          } else {
+            addToast(`Chào mừng bạn trở lại, ${displayName}! 🌿`, 'info');
+          }
         }
+
         if (onLoginSuccess) {
           onLoginSuccess(res.data, rememberMe);
         }
@@ -122,13 +204,11 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
           }
 
           try {
-            // Lấy thông tin người dùng từ Google UserInfo API
             const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
               headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
             });
             const profile = await userInfoRes.json();
 
-            // Đồng bộ và đăng nhập vào ứng dụng
             const res = await loginWithGoogle({
               accessToken: tokenResponse.access_token,
               profile
@@ -187,7 +267,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                 Chăm Chút Từng Mầm Xanh, Gửi Trọn Niềm An Yên
               </h2>
               <p className="auth-banner-desc">
-                Đăng nhập để theo dõi hành trình đơn hàng, lưu lại bộ sưu tập sen đá yêu thích và nhận ngàn ưu đãi thành viên độc quyền.
+                Đăng nhập an toàn để theo dõi hành trình đơn hàng, lưu lại bộ sưu tập sen đá yêu thích và nhận ngàn ưu đãi thành viên độc quyền.
               </p>
             </div>
 
@@ -218,8 +298,8 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                   <ShieldCheck size={16} />
                 </div>
                 <div className="auth-benefit-text">
-                  <h4>Bảo Hành Cây Khỏe 7 Ngày</h4>
-                  <p>Cam kết 1 đổi 1 nhanh chóng nếu cây gặp vấn đề trong vận chuyển</p>
+                  <h4>Bảo Mật Tài Khoản Tuyệt Đối</h4>
+                  <p>Xác thực mã OTP gửi về Email hoặc Mật khẩu bảo vệ an toàn</p>
                 </div>
               </div>
             </div>
@@ -247,26 +327,18 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                 fontWeight: 600,
                 marginBottom: '14px'
               }}>
-                <Sparkles size={14} />
-                <span>Đăng Nhập & Đăng Ký 1-Chạm</span>
+                <ShieldCheck size={14} />
+                <span>Đăng Nhập Bảo Mật & An Toàn</span>
               </div>
 
               <h1 className="auth-title">Chào Mừng Bạn Đến Vườn Sen Xinh! 🌿</h1>
               <p className="auth-subtitle">
-                Đăng nhập hoặc tạo tài khoản mới nhanh chóng không cần nhớ mật khẩu
+                Lựa chọn phương thức xác thực để bảo vệ thông tin tài khoản và đơn hàng
               </p>
             </div>
 
-            {/* Error Message */}
-            {errorMsg && (
-              <div className="auth-error-msg" style={{ marginBottom: '16px', fontSize: '0.86rem', padding: '10px 14px', background: '#FEE2E2', borderRadius: '8px', border: '1px solid #FCA5A5' }}>
-                <HelpCircle size={16} />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
             {/* Priority 1: Google One-Click Auth */}
-            <div className="auth-social-row" style={{ marginBottom: '20px' }}>
+            <div className="auth-social-row" style={{ marginBottom: '18px' }}>
               <button 
                 type="button" 
                 className="auth-social-btn"
@@ -274,7 +346,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                 onClick={handleGoogleLogin}
                 style={{
                   width: '100%',
-                  height: '50px',
+                  height: '48px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -282,7 +354,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                   borderRadius: 'var(--radius-md)',
                   border: '1.5px solid var(--border-light)',
                   background: '#ffffff',
-                  fontSize: '0.96rem',
+                  fontSize: '0.94rem',
                   fontWeight: 600,
                   color: 'var(--text-main)',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
@@ -301,20 +373,114 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                   </svg>
                 )}
-                <span>Tiếp Tục Với Google (Khuyên Dùng)</span>
+                <span>Tiếp Tục Với Google (Nhanh 1-Chạm)</span>
               </button>
             </div>
 
             {/* Social Separator */}
-            <div className="auth-separator" style={{ margin: '0 0 20px 0' }}>
-              <span>hoặc sử dụng địa chỉ email</span>
+            <div className="auth-separator" style={{ margin: '0 0 16px 0' }}>
+              <span>hoặc chọn phương thức xác thực</span>
             </div>
 
-            {/* Passwordless Email Form */}
+            {/* Dual Method Tabs: Phương án 2 (OTP) & Phương án 1 (Password) */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '6px',
+              padding: '4px',
+              background: '#F1F5F9',
+              borderRadius: '10px',
+              marginBottom: '18px'
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMethod('otp');
+                  setErrorMsg('');
+                  setInfoMsg('');
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontSize: '0.86rem',
+                  fontWeight: authMethod === 'otp' ? 700 : 500,
+                  background: authMethod === 'otp' ? '#ffffff' : 'transparent',
+                  color: authMethod === 'otp' ? 'var(--primary)' : '#64748B',
+                  boxShadow: authMethod === 'otp' ? '0 2px 5px rgba(0,0,0,0.06)' : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <KeyRound size={15} />
+                <span>Mã OTP Email</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMethod('password');
+                  setErrorMsg('');
+                  setInfoMsg('');
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontSize: '0.86rem',
+                  fontWeight: authMethod === 'password' ? 700 : 500,
+                  background: authMethod === 'password' ? '#ffffff' : 'transparent',
+                  color: authMethod === 'password' ? 'var(--primary)' : '#64748B',
+                  boxShadow: authMethod === 'password' ? '0 2px 5px rgba(0,0,0,0.06)' : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <Lock size={15} />
+                <span>Mật Khẩu</span>
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {errorMsg && (
+              <div className="auth-error-msg" style={{ marginBottom: '14px', fontSize: '0.86rem', padding: '10px 14px', background: '#FEE2E2', borderRadius: '8px', border: '1px solid #FCA5A5' }}>
+                <HelpCircle size={16} />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {/* Info Message */}
+            {infoMsg && (
+              <div style={{
+                marginBottom: '14px',
+                fontSize: '0.85rem',
+                padding: '10px 14px',
+                background: '#ECFDF5',
+                borderRadius: '8px',
+                border: '1px solid #A7F3D0',
+                color: '#065F46',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <CheckCircle2 size={16} color="#059669" style={{ flexShrink: 0 }} />
+                <span>{infoMsg}</span>
+              </div>
+            )}
+
+            {/* Main Form */}
             <form className="auth-form" onSubmit={handleSubmit}>
               {/* Email Field */}
               <div className="auth-field">
-                <label htmlFor="login-email">Email Của Bạn</label>
+                <label htmlFor="login-email">Địa Chỉ Email</label>
                 <div className="auth-input-wrap">
                   <span className="auth-input-icon">
                     <Mail size={18} />
@@ -334,8 +500,118 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                 </div>
               </div>
 
+              {/* METHOD 1: OTP VERIFICATION */}
+              {authMethod === 'otp' && (
+                <div className="auth-field" style={{ marginTop: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label htmlFor="login-otp" style={{ margin: 0 }}>Mã Xác Thực OTP (6 số)</label>
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={sendingOtp || otpCountdown > 0 || !email.trim()}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: (otpCountdown > 0 || !email.trim()) ? '#94A3B8' : 'var(--primary)',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: (otpCountdown > 0 || !email.trim()) ? 'not-allowed' : 'pointer',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      {sendingOtp ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          <span>Đang gửi mã...</span>
+                        </>
+                      ) : otpCountdown > 0 ? (
+                        <span>Gửi lại sau ({otpCountdown}s)</span>
+                      ) : (
+                        <>
+                          <RotateCw size={12} />
+                          <span>{otpSent ? 'Gửi lại mã OTP' : 'Nhận mã xác thực OTP'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="auth-input-wrap">
+                    <span className="auth-input-icon">
+                      <KeyRound size={18} />
+                    </span>
+                    <input
+                      id="login-otp"
+                      type="text"
+                      maxLength={6}
+                      className="auth-input"
+                      placeholder={otpSent ? "Nhập mã 6 số (VD: 123456)" : "Bấm 'Nhận mã xác thực OTP' ở trên"}
+                      value={otp}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        setOtp(val);
+                        if (errorMsg) setErrorMsg('');
+                      }}
+                      style={{ letterSpacing: otp ? '4px' : 'normal', fontWeight: otp ? 700 : 400 }}
+                    />
+                  </div>
+                  <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Mã OTP có hiệu lực trong 5 phút. Chỉ người sở hữu hộp thư mới nhận được mã này.
+                  </p>
+                </div>
+              )}
+
+              {/* METHOD 2: PASSWORD VERIFICATION */}
+              {authMethod === 'password' && (
+                <div className="auth-field" style={{ marginTop: '12px' }}>
+                  <label htmlFor="login-password">Mật Khẩu</label>
+                  <div className="auth-input-wrap" style={{ position: 'relative' }}>
+                    <span className="auth-input-icon">
+                      <Lock size={18} />
+                    </span>
+                    <input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      className="auth-input"
+                      placeholder="Nhập mật khẩu của bạn..."
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (errorMsg) setErrorMsg('');
+                      }}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#64748B',
+                        padding: '4px'
+                      }}
+                      aria-label="Hiện mật khẩu"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {email === 'admin@senxinh.vn' && (
+                    <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: '#059669', fontWeight: 500 }}>
+                      ✓ Tài khoản Quản trị viên: Mật khẩu mặc định là <code>admin123</code>
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Remember Me */}
-              <div className="auth-meta-row">
+              <div className="auth-meta-row" style={{ marginTop: '14px' }}>
                 <label className="auth-checkbox-label">
                   <input
                     type="checkbox"
@@ -351,14 +627,19 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                 type="submit" 
                 className="auth-submit-btn"
                 disabled={loading}
-                style={{ height: '48px' }}
+                style={{ height: '48px', marginTop: '10px' }}
               >
                 {loading ? (
-                  <span>Đang kết nối...</span>
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Đang xác thực...</span>
+                  </>
                 ) : (
                   <>
                     <LogIn size={18} />
-                    <span>Tiếp Tục Với Email</span>
+                    <span>
+                      {authMethod === 'otp' ? 'Xác Nhận OTP & Đăng Nhập' : 'Đăng Nhập Với Mật Khẩu'}
+                    </span>
                     <ArrowRight size={16} />
                   </>
                 )}
@@ -367,7 +648,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
 
             {/* New Member Perk Box */}
             <div style={{
-              marginTop: '22px',
+              marginTop: '18px',
               padding: '12px 16px',
               borderRadius: '10px',
               background: 'linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%)',
@@ -394,7 +675,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
             </div>
 
             {/* Guest Checkout Notice */}
-            <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+            <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
               Bạn chỉ muốn mua hàng nhanh?{' '}
               <button
                 type="button"
@@ -414,7 +695,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
             </div>
 
             {/* Back to Home Link */}
-            <div style={{ textAlign: 'center', marginTop: '14px' }}>
+            <div style={{ textAlign: 'center', marginTop: '12px' }}>
               <button
                 type="button"
                 onClick={() => onNavigate && onNavigate('home')}

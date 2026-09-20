@@ -4,7 +4,10 @@ import {
   AlertTriangle,
   AlertCircle,
   Sparkles,
-  ArrowLeft
+  ArrowLeft,
+  KeyRound,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { loginUser } from '../../services/api';
 
@@ -15,6 +18,8 @@ export default function AdminGatekeeper({
   addToast
 }) {
   const [adminEmail, setAdminEmail] = useState('admin@senxinh.vn');
+  const [adminPassword, setAdminPassword] = useState('admin123');
+  const [showPassword, setShowPassword] = useState(false);
   const [gateError, setGateError] = useState('');
   const [gateLoading, setGateLoading] = useState(false);
 
@@ -23,7 +28,7 @@ export default function AdminGatekeeper({
     setGateError('');
     setGateLoading(true);
     try {
-      const res = await loginUser(adminEmail);
+      const res = await loginUser(adminEmail, adminPassword);
       if (res && res.data) {
         if (
           res.data.role?.toLowerCase().includes('admin') ||
@@ -44,9 +49,10 @@ export default function AdminGatekeeper({
 
   const handleQuickAdminLogin = async () => {
     setAdminEmail('admin@senxinh.vn');
+    setAdminPassword('admin123');
     setGateLoading(true);
     try {
-      const res = await loginUser('admin@senxinh.vn');
+      const res = await loginUser('admin@senxinh.vn', 'admin123');
       if (res && res.data) {
         if (onLoginAsAdmin) onLoginAsAdmin(res.data, true);
         if (addToast) addToast('Đăng nhập Quản Trị Viên thành công!', 'success');
@@ -71,7 +77,7 @@ export default function AdminGatekeeper({
           Quản Trị Nhà Vườn
         </h2>
         <p className="admin-gate-desc">
-          Khu vực dành riêng cho Quản Trị Viên (Admin) Sen Xinh Garden. Vui lòng nhập email quản trị được ủy quyền.
+          Khu vực dành riêng cho Quản Trị Viên (Admin) Sen Xinh Garden. Vui lòng nhập email và mật khẩu quản trị được ủy quyền.
         </p>
 
         {user && (
@@ -105,10 +111,41 @@ export default function AdminGatekeeper({
             />
           </div>
 
+          <div className="admin-field" style={{ marginTop: '12px' }}>
+            <label>Mật Khẩu Quản Trị (Admin Password)</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Nhập mật khẩu quản trị..."
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                required
+                style={{ width: '100%', paddingRight: '40px' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#64748B'
+                }}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
           <button
             type="submit"
             className="admin-btn-primary"
             disabled={gateLoading}
+            style={{ marginTop: '16px' }}
           >
             {gateLoading ? 'Đang xác thực...' : 'Đăng Nhập Quản Trị Viên'}
           </button>
@@ -125,7 +162,7 @@ export default function AdminGatekeeper({
           disabled={gateLoading}
         >
           <Sparkles size={16} />
-          Đăng Nhập Thử Nghiệm (Admin Demo)
+          Đăng Nhập Tự Động (Admin Demo: admin123)
         </button>
 
         <div className="admin-gate-footer">
