@@ -1,20 +1,16 @@
 import React, { useState } from 'react';
 import { 
   ArrowLeft, 
-  Sun, 
-  Droplets, 
-  Maximize2, 
-  MapPin, 
   Sparkles, 
-  ShoppingBag, 
-  Heart,
-  ShieldCheck,
-  Truck,
-  CheckCircle2,
-  Share2,
-  Zap
+  CheckCircle2, 
+  Share2 
 } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
+
+// Modular Product Detail Components
+import ProductGuaranteeBox from '../components/product/ProductGuaranteeBox';
+import ProductSpecsGrid from '../components/product/ProductSpecsGrid';
+import ProductActionBar from '../components/product/ProductActionBar';
 
 export default function ProductDetailPage({
   product,
@@ -114,31 +110,7 @@ export default function ProductDetailPage({
             </div>
 
             {/* Commitment Badges */}
-            <div className="detail-guarantees">
-              <div className="guarantee-box">
-                <ShieldCheck size={24} color="var(--primary)" />
-                <div>
-                  <strong>Bảo Hành 7 Ngày</strong>
-                  <p>1 đổi 1 nếu cây úng hoặc suy yếu</p>
-                </div>
-              </div>
-
-              <div className="guarantee-box">
-                <Truck size={24} color="var(--primary)" />
-                <div>
-                  <strong>Đóng Gói Chống Sốc</strong>
-                  <p>Bọc bông gòn nhiều lớp an toàn</p>
-                </div>
-              </div>
-
-              <div className="guarantee-box">
-                <Sparkles size={24} color="var(--primary)" />
-                <div>
-                  <strong>Cây Thuần Dưỡng</strong>
-                  <p>Rễ khỏe, thích ứng ngay tại nhà</p>
-                </div>
-              </div>
-            </div>
+            <ProductGuaranteeBox />
           </div>
 
           {/* Right Column: Information & Actions */}
@@ -166,7 +138,7 @@ export default function ProductDetailPage({
               </button>
             </div>
 
-            {/* Price & Reviews */}
+            {/* Price & Discounts */}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '14px', margin: '10px 0 16px' }}>
               <span style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--primary)', fontFamily: 'Outfit, sans-serif' }}>
                 {formatPrice(product.price)}
@@ -184,39 +156,7 @@ export default function ProductDetailPage({
             </div>
 
             {/* Quick Specs Grid */}
-            <div className="detail-specs-grid">
-              <div className="spec-card">
-                <div className="spec-icon"><Sun size={18} /></div>
-                <div className="spec-text">
-                  <label>Ánh Sáng Yêu Cầu</label>
-                  <span>{product.light}</span>
-                </div>
-              </div>
-
-              <div className="spec-card">
-                <div className="spec-icon"><Droplets size={18} /></div>
-                <div className="spec-text">
-                  <label>Chu Kỳ Tưới Nước</label>
-                  <span>{product.watering}</span>
-                </div>
-              </div>
-
-              <div className="spec-card">
-                <div className="spec-icon"><Maximize2 size={18} /></div>
-                <div className="spec-text">
-                  <label>Kích Thước Cây</label>
-                  <span>{product.size}</span>
-                </div>
-              </div>
-
-              <div className="spec-card">
-                <div className="spec-icon"><MapPin size={18} /></div>
-                <div className="spec-text">
-                  <label>Vị Trí Đặt Lý Tưởng</label>
-                  <span>{product.idealLocation || 'Bàn làm việc, kệ sách'}</span>
-                </div>
-              </div>
-            </div>
+            <ProductSpecsGrid product={product} />
 
             {/* Description */}
             <div style={{ margin: '24px 0' }}>
@@ -253,41 +193,17 @@ export default function ProductDetailPage({
             )}
 
             {/* Purchasing Action Bar */}
-            <div className="detail-action-bar">
-              <div className="qty-control" style={{ padding: '4px' }}>
-                <button className="qty-btn" onClick={handleDecrease} aria-label="Giảm">-</button>
-                <span className="qty-value" style={{ fontSize: '0.95rem', minWidth: '32px', textAlign: 'center' }}>{qty}</span>
-                <button className="qty-btn" onClick={handleIncrease} aria-label="Tăng">+</button>
-              </div>
-
-              <button 
-                className="btn-add-cart"
-                onClick={() => onAddToCart(product, qty)}
-                title="Thêm vào giỏ hàng để tiếp tục chọn thêm cây khác"
-              >
-                <ShoppingBag size={18} />
-                <span>Thêm Vào Giỏ ({formatPrice(product.price * qty)})</span>
-              </button>
-
-              <button 
-                className="btn-buy-now"
-                onClick={() => onBuyNow(product, qty)}
-                title="Đặt mua ngay chậu sen đá này"
-              >
-                <Zap size={17} fill="#FFE082" color="#FFE082" className="zap-icon" />
-                <span>Mua Ngay</span>
-              </button>
-
-              <button 
-                className={`icon-btn ${isWishlisted ? 'active' : ''}`}
-                style={{ width: '44px', height: '44px' }}
-                onClick={() => onToggleWishlist(product?.id || product?.publicId)}
-                title={isWishlisted ? 'Bỏ khỏi yêu thích' : 'Lưu vào yêu thích'}
-                aria-label="Yêu thích"
-              >
-                <Heart size={20} fill={isWishlisted ? '#E63946' : 'none'} color={isWishlisted ? '#E63946' : 'currentColor'} />
-              </button>
-            </div>
+            <ProductActionBar
+              product={product}
+              qty={qty}
+              onDecrease={handleDecrease}
+              onIncrease={handleIncrease}
+              onAddToCart={onAddToCart}
+              onBuyNow={onBuyNow}
+              formatPrice={formatPrice}
+              isWishlisted={isWishlisted}
+              onToggleWishlist={onToggleWishlist}
+            />
 
             {copiedLink && (
               <div style={{ color: 'var(--primary)', fontSize: '0.85rem', marginTop: '10px' }}>

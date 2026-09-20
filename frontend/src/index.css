@@ -42,6 +42,10 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-y: scroll; /* Luôn giữ thanh cuộn dọc cố định để triệt tiêu hiện tượng giật ngang màn hình */
+}
+
 body {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   background-color: var(--bg-main);
@@ -50,6 +54,20 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+}
+
+/* Cấu trúc Sticky Footer đảm bảo footer luôn ở đáy màn hình */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1 0 auto;
+  min-height: calc(100vh - 260px);
+  display: flex;
+  flex-direction: column;
 }
 
 h1, h2, h3, h4, .font-heading {
@@ -4141,11 +4159,32 @@ input::-webkit-contacts-auto-fill-button {
 /* =========================================================
    ACCOUNT PAGE STYLES
    ========================================================= */
+.account-page {
+  flex: 1 0 auto;
+  min-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+}
+
 .account-layout {
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 32px;
   align-items: start;
+  min-height: 650px;
+}
+
+.account-main {
+  min-height: 580px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.account-tab-content {
+  animation: fadeIn 0.25s ease;
+  width: 100%;
+  flex: 1;
 }
 
 .profile-card {

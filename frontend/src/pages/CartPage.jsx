@@ -3,19 +3,13 @@ import {
   ShoppingBag,
   Trash2,
   ArrowRight,
-  ArrowLeft,
-  Plus,
-  Minus,
-  ShieldCheck,
-  Truck,
-  Tag,
-  Check,
-  X,
-  AlertTriangle,
-  Loader2,
-  Leaf
+  ArrowLeft
 } from "lucide-react";
 import { getShippingConfig, fetchShippingConfig } from "../services/api";
+
+import CartFreeShippingBar from "../components/cart/CartFreeShippingBar";
+import CartItemRow from "../components/cart/CartItemRow";
+import CartSummaryCard from "../components/cart/CartSummaryCard";
 
 export default function CartPage({
   cartItems = [],
@@ -140,21 +134,11 @@ export default function CartPage({
           </div>
         ) : (
           <>
-            <div className="cx-freeship">
-              <div className="cx-freeship-top">
-                <span className="cx-freeship-label">
-                  <Truck size={18} color="var(--primary)" />
-                  {remainingForFreeShip === 0
-                    ? <span><strong>Tuyệt vời!</strong> Đơn hàng đủ điều kiện <strong>Miễn Phí Vận Chuyển</strong> toàn quốc!</span>
-                    : <span>Mua thêm <strong style={{ color: "var(--primary)" }}>{formatPrice(remainingForFreeShip)}</strong> để nhận <strong>Miễn Phí Giao Hàng</strong>!</span>
-                  }
-                </span>
-                <span className="cx-freeship-pct">{progressPercent}%</span>
-              </div>
-              <div className="cx-freeship-bar">
-                <div className="cx-freeship-fill" style={{ width: `${progressPercent}%` }} />
-              </div>
-            </div>
+            <CartFreeShippingBar
+              remainingForFreeShip={remainingForFreeShip}
+              progressPercent={progressPercent}
+              formatPrice={formatPrice}
+            />
 
             <div className="cx-layout">
               <div className="cx-items-col">
@@ -166,73 +150,17 @@ export default function CartPage({
                   <span />
                 </div>
                 <div className="cx-items-list">
-                  {cartItems.map((item, idx) => {
-                    const isUnavailable = item.available === false || item.status === "DELETED" || item.status === "INACTIVE";
-                    const isOutOfStock = !isUnavailable && item.inStock !== undefined && item.inStock <= 0;
-                    const isLowStock = !isUnavailable && item.inStock !== undefined && item.inStock > 0 && item.inStock <= 5;
-                    const maxAllowed = item.inStock !== undefined ? item.inStock : 999;
-                    const isMaxReached = item.quantity >= maxAllowed;
-                    return (
-                      <div key={item.id}
-                        className={`cx-item${isUnavailable ? " unavailable" : isOutOfStock ? " outofstock" : ""}`}
-                        style={{ animationDelay: `${idx * 0.05}s` }}>
-                        <div className="cx-item-info"
-                          onClick={() => !isUnavailable && onOpenProductDetail && onOpenProductDetail(item.id)}>
-                          <img src={item.image} alt={item.name} className="cx-item-img" />
-                          <div style={{ minWidth: 0 }}>
-                            <div className="cx-item-name">{item.name}</div>
-                            {item.scientificName && <div className="cx-item-latin">{item.scientificName}</div>}
-                            <div className="cx-item-price-mobile">{formatPrice(item.price)}</div>
-                            {isUnavailable ? (
-                              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px", flexWrap: "wrap" }}>
-                                <span className="cx-item-status-badge error">
-                                  <AlertTriangle size={12} /> {item.message || "Sản phẩm không còn kinh doanh"}
-                                </span>
-                                <button type="button"
-                                  onClick={(e) => { e.stopPropagation(); onRemoveItem && onRemoveItem(item.id); }}
-                                  style={{ fontSize: "0.76rem", color: "#DC2626", background: "transparent", border: "none", textDecoration: "underline", cursor: "pointer", fontWeight: 600 }}>
-                                  [Xóa]
-                                </button>
-                              </div>
-                            ) : item.inStock !== undefined && (
-                              <div style={{ marginTop: "3px" }}>
-                                {isOutOfStock && <span className="cx-item-status-badge error"><AlertTriangle size={12} /> Tạm hết hàng</span>}
-                                {isLowStock && <span className="cx-item-status-badge warn">Chỉ còn {item.inStock} cây</span>}
-                                {!isOutOfStock && !isLowStock && <span className="cx-item-status-badge info">Kho còn {item.inStock} cây</span>}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="cx-item-unit">
-                          {formatPrice(item.price)}
-                          {item.originalPrice > item.price && <del>{formatPrice(item.originalPrice)}</del>}
-                        </div>
-                        <div className="cx-qty-wrap">
-                          <div className="cx-qty-control">
-                            <button className="cx-qty-btn"
-                              onClick={() => onUpdateQty && onUpdateQty(item.id, item.quantity - 1)}
-                              disabled={item.quantity <= 1 || isOutOfStock || isUnavailable} aria-label="Giảm">
-                              <Minus size={14} />
-                            </button>
-                            <span className="cx-qty-val">{item.quantity}</span>
-                            <button className="cx-qty-btn"
-                              onClick={() => onUpdateQty && onUpdateQty(item.id, item.quantity + 1)}
-                              disabled={isMaxReached || isOutOfStock || isUnavailable}
-                              title={isMaxReached ? `Tối đa ${maxAllowed} cây` : "Tăng"} aria-label="Tăng">
-                              <Plus size={14} />
-                            </button>
-                          </div>
-                          {isMaxReached && !isOutOfStock && <span className="cx-qty-max">Tối đa kho</span>}
-                        </div>
-                        <div className="cx-item-total">{formatPrice(item.price * item.quantity)}</div>
-                        <button className="cx-item-remove"
-                          onClick={() => onRemoveItem && onRemoveItem(item.id)}
-                          title="Xóa khỏi giỏ hàng" aria-label="Xóa">
-                          <Trash2 size={17} />
-                        </button>
-                      </div>
-                    );
-                  })}
+                  {cartItems.map((item, idx) => (
+                    <CartItemRow
+                      key={item.id}
+                      item={item}
+                      idx={idx}
+                      formatPrice={formatPrice}
+                      onUpdateQty={onUpdateQty}
+                      onRemoveItem={onRemoveItem}
+                      onOpenProductDetail={onOpenProductDetail}
+                    />
+                  ))}
                 </div>
                 <div style={{ marginTop: "20px" }}>
                   <button className="btn-secondary" onClick={onNavigateShop} style={{ padding: "10px 20px", fontSize: "0.9rem" }}>
@@ -241,86 +169,28 @@ export default function CartPage({
                 </div>
               </div>
 
-              <div className="cx-summary-col">
-                <div className="cx-summary-card">
-                  <div className="cx-summary-title">Tóm Tắt Đơn Hàng</div>
-                  <form onSubmit={handleApplyCouponSubmit} className="cx-coupon-form">
-                    <div className="cx-coupon-row">
-                      <Tag size={16} className="cx-coupon-icon" />
-                      <input type="text" className="cx-coupon-input" placeholder="Nhập mã ưu đãi..."
-                        value={couponInput}
-                        onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(""); }}
-                        disabled={couponLoading} />
-                      <button type="submit" className="cx-coupon-btn" disabled={couponLoading}>
-                        {couponLoading ? <Loader2 size={14} className="animate-spin" /> : "Áp Dụng"}
-                      </button>
-                    </div>
-                    {couponError && <p className="cx-coupon-msg-error">{couponError}</p>}
-                    {couponSuccess && <p className="cx-coupon-msg-ok"><Check size={14} /> Đã áp dụng mã thành công!</p>}
-                    {discountCode && (
-                      <div className="cx-coupon-applied">
-                        <span>Mã: <strong>{discountCode}</strong> (-{discountPercent}%)</span>
-                        {onRemoveCoupon && (
-                          <button type="button" className="cx-coupon-remove" onClick={onRemoveCoupon}><X size={15} /></button>
-                        )}
-                      </div>
-                    )}
-                  </form>
-                  <div className="cx-summary-rows">
-                    <div className="cx-summary-row">
-                      <span>Tổng tiền hàng:</span><span>{formatPrice(subtotal)}</span>
-                    </div>
-                    {discountAmount > 0 && (
-                      <div className="cx-summary-row discount">
-                        <span>Giảm giá ({discountPercent}%):</span><span>-{formatPrice(discountAmount)}</span>
-                      </div>
-                    )}
-                    <div className="cx-summary-row">
-                      <span>Phí vận chuyển:</span>
-                      <span>{isFreeShipping ? <strong style={{ color: "var(--primary)" }}>Miễn Phí</strong> : formatPrice(shippingFee)}</span>
-                    </div>
-                  </div>
-                  <div className="cx-summary-sep" style={{ margin: "14px 0" }} />
-                  <div className="cx-summary-total">
-                    <span>Tổng thanh toán:</span>
-                    <span className="cx-summary-total-price">{formatPrice(total)}</span>
-                  </div>
-                  <p className="cx-vat-note">(Đã bao gồm thuế GTGT nếu có)</p>
-                  {hasUnavailableItem && (
-                    <div className="cx-warning-box danger">
-                      <AlertTriangle size={16} style={{ flexShrink: 0 }} />
-                      <span>Có sản phẩm không còn kinh doanh. Xóa trước khi thanh toán.</span>
-                    </div>
-                  )}
-                  {!hasUnavailableItem && hasOutOfStockItem && (
-                    <div className="cx-warning-box warn">
-                      <AlertTriangle size={16} style={{ flexShrink: 0 }} />
-                      <span>Có sản phẩm hết hàng. Xóa trước khi thanh toán.</span>
-                    </div>
-                  )}
-                  <button className="btn-primary" onClick={onNavigateCheckout}
-                    disabled={hasUnavailableItem || hasOutOfStockItem || cartItems.length === 0}
-                    style={{ width: "100%", padding: "16px 20px", fontSize: "1rem", fontWeight: 700, marginTop: "20px",
-                      opacity: (hasUnavailableItem || hasOutOfStockItem) ? 0.6 : 1,
-                      cursor: (hasUnavailableItem || hasOutOfStockItem) ? "not-allowed" : "pointer" }}>
-                    <span>Tiến Hành Đặt Hàng</span><ArrowRight size={18} />
-                  </button>
-                  <div className="cx-trust">
-                    <div className="cx-trust-item">
-                      <div className="cx-trust-icon"><ShieldCheck size={16} /></div>
-                      <span>Bảo hành hoàn tiền 100% nếu cây bị gãy hỏng</span>
-                    </div>
-                    <div className="cx-trust-item">
-                      <div className="cx-trust-icon"><Truck size={16} /></div>
-                      <span>Đóng gói chuyên dụng giữ ẩm bảo vệ bầu đất</span>
-                    </div>
-                    <div className="cx-trust-item">
-                      <div className="cx-trust-icon"><Leaf size={16} /></div>
-                      <span>Giao hàng toàn quốc 2-5 ngày làm việc</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <CartSummaryCard
+                couponInput={couponInput}
+                setCouponInput={setCouponInput}
+                couponError={couponError}
+                setCouponError={setCouponError}
+                couponSuccess={couponSuccess}
+                couponLoading={couponLoading}
+                handleApplyCouponSubmit={handleApplyCouponSubmit}
+                discountCode={discountCode}
+                discountPercent={discountPercent}
+                onRemoveCoupon={onRemoveCoupon}
+                formatPrice={formatPrice}
+                subtotal={subtotal}
+                discountAmount={discountAmount}
+                isFreeShipping={isFreeShipping}
+                shippingFee={shippingFee}
+                total={total}
+                hasUnavailableItem={hasUnavailableItem}
+                hasOutOfStockItem={hasOutOfStockItem}
+                cartItems={cartItems}
+                onNavigateCheckout={onNavigateCheckout}
+              />
             </div>
           </>
         )}
