@@ -34,6 +34,7 @@ public class OrderService {
     private final UserRepository userRepository;
     private final BankTransferConfig bankTransferConfig;
     private final ShippingService shippingService;
+    private final com.succulentshop.backend.event.OrderEventPublisher orderEventPublisher;
 
     private static final String BANK_NAME = "MBBank";
     private static final String BANK_CODE = "MBBank";
@@ -46,20 +47,22 @@ public class OrderService {
                         CouponService couponService,
                         UserRepository userRepository,
                         @Autowired(required = false) BankTransferConfig bankTransferConfig,
-                        @Autowired(required = false) ShippingService shippingService) {
+                        @Autowired(required = false) ShippingService shippingService,
+                        @Autowired(required = false) com.succulentshop.backend.event.OrderEventPublisher orderEventPublisher) {
         this.orderRepository = orderRepository;
         this.productService = productService;
         this.couponService = couponService;
         this.userRepository = userRepository;
         this.bankTransferConfig = bankTransferConfig;
         this.shippingService = shippingService;
+        this.orderEventPublisher = orderEventPublisher;
     }
 
     public OrderService(OrderRepository orderRepository,
                         ProductService productService,
                         CouponService couponService,
                         UserRepository userRepository) {
-        this(orderRepository, productService, couponService, userRepository, null, null);
+        this(orderRepository, productService, couponService, userRepository, null, null, null);
     }
 
     @Transactional
@@ -196,6 +199,11 @@ public class OrderService {
         CreateOrderResponse response = new CreateOrderResponse();
         response.setOrder(convertOrderToResponse(saved));
         response.setVietQr(vietQrResponse);
+
+        if (orderEventPublisher != null) {
+            orderEventPublisher.publishOrderCreated(saved);
+        }
+
         return response;
     }
 
@@ -247,6 +255,11 @@ public class OrderService {
 
         order.setStatus(formatted);
         orderRepository.save(order);
+
+        if (orderEventPublisher != null && !formatted.equals(oldStatus)) {
+            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, formatted);
+        }
+
         return convertOrderToResponse(order);
     }
 
@@ -262,6 +275,8 @@ public class OrderService {
             return convertOrderToResponse(order);
         }
 
+        String oldStatus = order.getStatus();
+
         // Hoàn trả tồn kho cho các sản phẩm
         for (OrderItem it : order.getItems()) {
             productService.restoreStock(it.getProductId(), it.getQuantity());
@@ -273,6 +288,11 @@ public class OrderService {
             order.setNote((currentNote + " [Lý do hủy: " + reason.trim() + "]").trim());
         }
         orderRepository.save(order);
+
+        if (orderEventPublisher != null) {
+            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, "CANCELLED");
+        }
+
         return convertOrderToResponse(order);
     }
 
@@ -285,6 +305,7 @@ public class OrderService {
             throw new AppException(ErrorCode.INVALID_REQUEST, "Đơn hàng đã bị hủy, không thể xác nhận nhận hàng.");
         }
 
+        String oldStatus = order.getStatus();
         order.setStatus("COMPLETED");
 
         // Tích lũy Điểm Sen thưởng cho khách hàng (10.000đ = 1 điểm Sen)
@@ -298,6 +319,11 @@ public class OrderService {
         }
 
         orderRepository.save(order);
+
+        if (orderEventPublisher != null) {
+            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, "COMPLETED");
+        }
+
         return convertOrderToResponse(order);
     }
 

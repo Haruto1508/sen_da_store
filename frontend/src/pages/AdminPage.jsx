@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import NotificationModal from '../components/NotificationModal';
 import useModal from '../components/useModal';
+import useOrderEvents from '../hooks/useOrderEvents';
 import {
   getAdminOrders,
   updateOrderStatus,
@@ -205,6 +206,109 @@ export default function AdminPage({
   useEffect(() => {
     loadAllData();
   }, [orderFilterStatus]);
+
+  // ----------------------------------------------------
+  // REALTIME SSE ORDER STREAM (ADMIN)
+  // ----------------------------------------------------
+  const handleRealtimeOrderCreated = useCallback((event) => {
+    console.info('⚡ [Admin SSE] Nhận sự kiện đơn hàng mới:', event);
+    if (addToast) {
+      addToast(
+        `🔔 Đơn hàng mới #${event.orderCode || event.orderId} (${(event.totalAmount || 0).toLocaleString('vi-VN')}₫) từ ${event.customerName || 'Khách hàng'}!`,
+        'success'
+      );
+    }
+
+    const newOrder = {
+      id: event.orderId,
+      orderCode: event.orderCode,
+      customerName: event.customerName || 'Khách hàng',
+      totalAmount: event.totalAmount || 0,
+      status: event.status || 'PENDING',
+      createdAt: event.createdAt || new Date().toISOString(),
+      items: []
+    };
+
+    // Thêm ngay lập tức vào allOrders nếu chưa tồn tại
+    setAllOrders((prev) => {
+      if (prev.some((o) => String(o.id) === String(event.orderId) || o.orderCode === event.orderCode)) {
+        return prev;
+      }
+      return [newOrder, ...prev];
+    });
+
+    // Thêm ngay lập tức vào danh sách hiển thị nếu phù hợp với bộ lọc hiện tại
+    setOrders((prev) => {
+      if (prev.some((o) => String(o.id) === String(event.orderId) || o.orderCode === event.orderCode)) {
+        return prev;
+      }
+      if (orderFilterStatus === 'all' || orderFilterStatus === (event.status || 'PENDING')) {
+        return [newOrder, ...prev];
+      }
+      return prev;
+    });
+
+    // Tự động đồng bộ đầy đủ chi tiết trong background mà KHÔNG reload trang
+    getAdminOrders(orderFilterStatus).then((freshOrders) => {
+      if (freshOrders) setOrders(freshOrders);
+    }).catch(() => {});
+    getAdminOrders('all').then((freshAll) => {
+      if (freshAll) setAllOrders(freshAll);
+    }).catch(() => {});
+    getAdminStats().then((freshStats) => {
+      if (freshStats) setStats(freshStats);
+    }).catch(() => {});
+  }, [addToast, orderFilterStatus]);
+
+  const handleRealtimeOrderStatusChanged = useCallback((event) => {
+    console.info('⚡ [Admin SSE] Nhận sự kiện cập nhật trạng thái đơn hàng:', event);
+    const { orderId, orderCode, status } = event;
+    const statusLabel = ORDER_STATUS_LABELS[status]?.label || status;
+
+    if (addToast) {
+      addToast(`📦 Đơn hàng #${orderCode || orderId} chuyển sang: ${statusLabel}`, 'info');
+    }
+
+    // Cập nhật trạng thái trong Order Detail view nếu admin đang mở xem chi tiết đơn này
+    setActiveOrder((prev) => {
+      if (prev && (String(prev.id) === String(orderId) || prev.orderCode === orderCode)) {
+        return { ...prev, status };
+      }
+      return prev;
+    });
+
+    // Cập nhật trực tiếp trong danh sách orders mà KHÔNG tải lại toàn bộ trang
+    setOrders((prev) =>
+      prev.map((ord) => {
+        if (String(ord.id) === String(orderId) || ord.orderCode === orderCode) {
+          return { ...ord, status };
+        }
+        return ord;
+      })
+    );
+
+    // Cập nhật trong allOrders
+    setAllOrders((prev) =>
+      prev.map((ord) => {
+        if (String(ord.id) === String(orderId) || ord.orderCode === orderCode) {
+          return { ...ord, status };
+        }
+        return ord;
+      })
+    );
+
+    // Cập nhật thẻ thống kê ngầm
+    getAdminStats().then((freshStats) => {
+      if (freshStats) setStats(freshStats);
+    }).catch(() => {});
+  }, [addToast]);
+
+  // Kích hoạt kết nối SSE thời gian thực cho Admin
+  const { isConnected: isRealtimeConnected } = useOrderEvents({
+    onOrderCreated: handleRealtimeOrderCreated,
+    onOrderStatusChanged: handleRealtimeOrderStatusChanged,
+    enabled: isAdmin
+  });
 
   // Customer Orders Calculation Helper
   const getCustomerOrdersCountAndSpent = (customer) => {
@@ -529,6 +633,7 @@ export default function AdminPage({
             handleOpenAddCoupon();
           }}
           onNavigateHome={onNavigateHome}
+          isRealtimeConnected={isRealtimeConnected}
         />
 
         {/* Content Body */}

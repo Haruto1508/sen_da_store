@@ -8,7 +8,8 @@ export default function AdminHeader({
   activeOrder,
   setMobileSidebarOpen,
   onOpenAddProduct,
-  onOpenAddCoupon
+  onOpenAddCoupon,
+  isRealtimeConnected = false
 }) {
   return (
     <header className="admin-topbar">
@@ -58,7 +59,38 @@ export default function AdminHeader({
         </div>
       </div>
 
-      <div className="admin-topbar-actions">
+      <div className="admin-topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {isRealtimeConnected ? (
+          <div
+            className="admin-realtime-badge"
+            title="Đang kết nối luồng sự kiện đơn hàng thời gian thực (Server-Sent Events)"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              background: '#ecfdf5',
+              border: '1px solid #10b981',
+              color: '#065f46',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              letterSpacing: '0.2px'
+            }}
+          >
+            <span
+              style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: '#10b981',
+                boxShadow: '0 0 0 2px rgba(16, 185, 129, 0.35)'
+              }}
+            />
+            <span>Realtime Live</span>
+          </div>
+        ) : null}
+
         <button
           className="btn-primary"
           onClick={onOpenAddProduct}

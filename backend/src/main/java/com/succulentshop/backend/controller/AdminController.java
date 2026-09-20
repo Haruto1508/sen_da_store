@@ -18,10 +18,13 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
+    private final com.succulentshop.backend.service.AdminOrderSseService adminOrderSseService;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public AdminController(AdminService adminService) {
+    public AdminController(AdminService adminService,
+                           @org.springframework.beans.factory.annotation.Autowired(required = false) com.succulentshop.backend.service.AdminOrderSseService adminOrderSseService) {
         this.adminService = adminService;
+        this.adminOrderSseService = adminOrderSseService;
     }
 
     public AdminController(OrderRepository orderRepository,
@@ -29,6 +32,54 @@ public class AdminController {
                            CouponRepository couponRepository,
                            UserRepository userRepository) {
         this.adminService = new AdminService(orderRepository, productRepository, couponRepository, userRepository, null);
+        this.adminOrderSseService = null;
+    }
+
+    /**
+     * Cấp mã vé xác thực một lần (Ticket) để kết nối SSE cho Admin.
+     * Giải quyết bài toán bảo mật của native browser EventSource không thể truyền Authorization header
+     * mà không phải đặt JWT token trực tiếp lên URL query param.
+     */
+    @PostMapping("/orders/events/ticket")
+    public ResponseEntity<ApiResult<java.util.Map<String, Object>>> getSseTicket(
+            @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        if (adminOrderSseService == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(ApiResult.error("Dịch vụ Realtime SSE chưa sẵn sàng"));
+        }
+        String ticket = adminOrderSseService.createTicket("admin@senxinh.vn");
+        return ResponseEntity.ok(ApiResult.ok(
+                "Cấp ticket SSE thành công",
+                java.util.Map.of("ticket", ticket, "expiresInSeconds", 30)
+        ));
+    }
+
+    /**
+     * Mở luồng Server-Sent Events (SSE) cho Admin
+     * Chấp nhận tham số ticket đã được cấp qua /events/ticket hoặc Authorization header.
+     */
+    @GetMapping(value = "/orders/events", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter getOrderEventsStream(
+            @RequestParam(value = "ticket", required = false) String ticket,
+            @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        if (adminOrderSseService == null) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "SSE Service is not available");
+        }
+
+        boolean authorized = false;
+        if (ticket != null && !ticket.isBlank()) {
+            authorized = adminOrderSseService.validateAndConsumeTicket(ticket);
+        } else if (authHeader != null && !authHeader.isBlank()) {
+            authorized = true;
+        }
+
+        if (!authorized) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized SSE connection: Missing or expired ticket");
+        }
+
+        return adminOrderSseService.subscribe();
     }
 
     @GetMapping("/stats")

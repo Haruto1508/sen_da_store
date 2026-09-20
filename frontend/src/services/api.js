@@ -1706,4 +1706,27 @@ export async function resetShippingConfig() {
   return await saveShippingConfig(DEFAULT_SHIPPING_CONFIG);
 }
 
+/**
+ * Cấp mã vé xác thực một lần (Ticket) phục vụ kết nối SSE cho Admin
+ */
+export async function getAdminSseTicket() {
+  if (USE_MOCK_DATA) {
+    return `mock_ticket_${Date.now()}`;
+  }
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('senxinh_auth_token') || '') : '';
+  const res = await fetch(`${API_BASE}/admin/orders/events/ticket`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    }
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'Không thể cấp vé xác thực SSE');
+  }
+  return data.data?.ticket || data.ticket;
+}
+
+
 

@@ -1,6 +1,7 @@
 import React from 'react';
-import { CheckCircle2, ArrowRight } from 'lucide-react';
+import { CheckCircle2, ArrowRight, Radio } from 'lucide-react';
 import { STATUS_CONFIG, DELIVERY_STEPS, formatPrice } from './accountConstants';
+import { useOrderStatusPolling } from '../../hooks/useOrderStatusPolling';
 
 export default function AccountOrderCard({
   order,
@@ -14,7 +15,23 @@ export default function AccountOrderCard({
   isSubmittingReceive,
   onNavigatePayment
 }) {
-  const statusCfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
+  const isTerminal = order.status === 'COMPLETED' || order.status === 'CANCELLED';
+
+  // Realtime HTTP Polling cho khách hàng theo dõi đơn hàng
+  const { status: liveStatus, isPolling } = useOrderStatusPolling({
+    orderCode: order.orderCode || String(order.id),
+    initialStatus: order.status,
+    enabled: !isAdmin && !isTerminal,
+    intervalMs: 6000,
+    onStatusChange: (newStatus) => {
+      if (onStatusChange) {
+        onStatusChange(order.id, newStatus);
+      }
+    }
+  });
+
+  const currentStatus = liveStatus || order.status;
+  const statusCfg = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.PENDING;
   const StatusIcon = statusCfg.icon;
   const currentStep = statusCfg.step;
 
@@ -62,6 +79,12 @@ export default function AccountOrderCard({
             <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
               • {order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : 'Vừa tạo'}
             </span>
+            {isPolling && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', background: '#ECFDF5', color: '#059669', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
+                <span>Theo dõi trực tiếp</span>
+              </span>
+            )}
           </div>
           <div style={{ fontSize: '0.92rem', fontWeight: 600, marginTop: '4px' }}>
             Người nhận: {order.customerName} - 📞 {order.customerPhone}

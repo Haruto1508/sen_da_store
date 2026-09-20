@@ -30,18 +30,30 @@ public class AdminService {
     private final CouponRepository couponRepository;
     private final UserRepository userRepository;
     private final CloudinaryService cloudinaryService;
+    private final com.succulentshop.backend.event.OrderEventPublisher orderEventPublisher;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AdminService(OrderRepository orderRepository,
+                        ProductRepository productRepository,
+                        CouponRepository couponRepository,
+                        UserRepository userRepository,
+                        @org.springframework.beans.factory.annotation.Autowired(required = false) CloudinaryService cloudinaryService,
+                        @org.springframework.beans.factory.annotation.Autowired(required = false) com.succulentshop.backend.event.OrderEventPublisher orderEventPublisher) {
+        this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
+        this.couponRepository = couponRepository;
+        this.userRepository = userRepository;
+        this.cloudinaryService = cloudinaryService;
+        this.orderEventPublisher = orderEventPublisher;
+    }
 
     public AdminService(OrderRepository orderRepository,
                         ProductRepository productRepository,
                         CouponRepository couponRepository,
                         UserRepository userRepository,
                         CloudinaryService cloudinaryService) {
-        this.orderRepository = orderRepository;
-        this.productRepository = productRepository;
-        this.couponRepository = couponRepository;
-        this.userRepository = userRepository;
-        this.cloudinaryService = cloudinaryService;
+        this(orderRepository, productRepository, couponRepository, userRepository, cloudinaryService, null);
     }
 
     public AdminStatsResponse getStats() {
@@ -114,6 +126,11 @@ public class AdminService {
         }
         order.setStatus(formattedStatus);
         orderRepository.save(order);
+
+        if (orderEventPublisher != null && !formattedStatus.equals(oldStatus)) {
+            orderEventPublisher.publishOrderStatusChanged(id, order.getOrderCode(), oldStatus, formattedStatus);
+        }
+
         return new UpdateOrderStatusResponse(formattedStatus);
     }
 
