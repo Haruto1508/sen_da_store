@@ -75,6 +75,8 @@ CREATE TABLE IF NOT EXISTS orders (
     shipping_fee INT,
     total_amount INT,
     status VARCHAR(50),
+    stock_deducted BOOLEAN NOT NULL DEFAULT FALSE,
+    points_awarded BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
