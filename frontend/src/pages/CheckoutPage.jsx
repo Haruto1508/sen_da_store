@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  CreditCard, 
   Truck, 
   Copy, 
   CheckCircle2, 
@@ -10,26 +9,20 @@ import {
   ArrowLeft, 
   ArrowRight,
   ShoppingBag,
-  Clock,
   Sparkles,
   Smartphone,
   ExternalLink,
-  Zap,
   Loader2,
   Package,
-  Check,
-  RefreshCw
+  RefreshCw,
+  Check
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { 
   createOrder, 
   createMoMoPayment, 
-  simulateMoMoPayment, 
   lookupOrder, 
-  simulateBankTransferPayment,
   checkOrderStatus,
-  getUseMockData,
-  isMockUser,
   getShippingConfig,
   fetchShippingConfig
 } from '../services/api';
@@ -58,17 +51,9 @@ export default function CheckoutPage({
     user && (user.role?.toLowerCase().includes('admin') || user.email === 'admin@senxinh.vn')
   );
 
-  // Cho phép hiển thị công cụ test thanh toán khi ở localhost hoặc chế độ Mock Data
-  const isMockActive = getUseMockData();
-  const isLocalOrMock = typeof window !== 'undefined' && (
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1' ||
-    isMockActive
-  );
-  const canShowPaymentSimulation = isLocalOrMock || Boolean(user && isMockUser(user));
-
   // Notification Modal
   const { modalProps, showModal } = useModal();
+
   const detectCity = (addr) => {
     if (!addr) return 'Hà Nội';
     if (addr.includes('Hồ Chí Minh') || addr.includes('TP.HCM') || addr.includes('Sài Gòn')) return 'TP. Hồ Chí Minh';
@@ -85,7 +70,7 @@ export default function CheckoutPage({
     phone: user?.phone || '',
     address: user?.address || '',
     city: detectCity(user?.address),
-    paymentMethod: 'momo', // 'momo' | 'vietqr' | 'cod'
+    paymentMethod: 'vietqr', // 'vietqr' | 'momo' | 'cod'
     note: ''
   });
 
@@ -101,7 +86,7 @@ export default function CheckoutPage({
     }
   }, [user]);
 
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState('');
   const [isCompleted, setIsCompleted] = useState(Boolean(initialOrderCode));
   const [orderCode, setOrderCode] = useState(initialOrderCode || '');
   const [placedOrder, setPlacedOrder] = useState(null);
@@ -109,7 +94,7 @@ export default function CheckoutPage({
   const [momoData, setMomoData] = useState(null);
   const [vietQrData, setVietQrData] = useState(null);
   const [orderStatus, setOrderStatus] = useState('PENDING');
-  const [isSimulating, setIsSimulating] = useState(false);
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
 
   useEffect(() => {
     if (initialOrderCode) {
@@ -167,7 +152,7 @@ export default function CheckoutPage({
     bankName: 'MBBank',
     bankCode: 'MBBank',
     accountNumber: 'VQRQALYXL6596', // Tài khoản ảo SePay (VA)
-    primaryAccountNumber: '0001761675223', // Số tài khoản ngân hàng gốc
+    primaryAccountNumber: '0001761675223',
     accountName: 'NGUYEN HOANG THAI VINH',
     branch: 'Ngân hàng TMCP Quân Đội (MBBank)'
   };
@@ -184,20 +169,20 @@ export default function CheckoutPage({
   const currentCode = orderCode || `SX${Math.floor(100000 + Math.random() * 900000)}`;
   const finalTotalAmount = placedOrder ? (placedOrder.totalAmount !== undefined ? placedOrder.totalAmount : total) : total;
 
-  // Cổng VietQR SePay vietqr.app chuẩn hóa chính xác số tiền & nội dung chuyển khoản
+  // Cổng VietQR SePay
   const sepayAcc = activeBankInfo.accountNumber || 'VQRQALYXL6596';
   const sepayHolder = encodeURIComponent(activeBankInfo.accountName || 'NGUYEN HOANG THAI VINH');
   const vietQrUrl = vietQrData?.qrImageUrl || `https://vietqr.app/img?bank=MBBank&acc=${sepayAcc}&template=compact&amount=${Math.round(finalTotalAmount)}&des=${currentCode}&showinfo=true&fullacc=true&holder=${sepayHolder}&store=Sen%20Xinh%20Garden`;
 
-  const handleCopyAccount = (textToCopy = activeBankInfo.accountNumber) => {
+  const handleCopyText = (textToCopy, key) => {
     navigator.clipboard.writeText(textToCopy);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(''), 2000);
   };
 
   const handleSubmitOrder = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone || !formData.address) {
+    if (!formData.name.trim() || !formData.phone.trim() || !formData.address.trim()) {
       showModal('warning', 'Vui lòng điền đầy đủ Họ tên, Số điện thoại và Địa chỉ giao hàng!');
       return;
     }
@@ -205,12 +190,12 @@ export default function CheckoutPage({
     setSubmitting(true);
     try {
       const payload = {
-        customerName: formData.name,
-        customerPhone: formData.phone,
-        customerAddress: formData.address,
+        customerName: formData.name.trim(),
+        customerPhone: formData.phone.trim(),
+        customerAddress: formData.address.trim(),
         city: formData.city,
         customerEmail: user?.email || formData.email || '',
-        note: formData.note,
+        note: formData.note.trim(),
         paymentMethod: formData.paymentMethod,
         discountCode: discountCode || '',
         discountPercent: discountPercent || 0,
@@ -243,7 +228,7 @@ export default function CheckoutPage({
         paymentMethod: formData.paymentMethod,
         customerName: formData.name,
         customerPhone: formData.phone,
-        customerEmail: user?.email || formData.email || '',
+        customerEmail: user?.email || '',
         customerAddress: formData.address,
         status: 'PENDING'
       });
@@ -270,7 +255,7 @@ export default function CheckoutPage({
       }
     } catch (err) {
       console.error('Lỗi khi tạo đơn hàng:', err);
-      showModal('error', err.message || 'Không thể tạo đơn hàng. Vui lòng kiểm tra lại kết nối máy chủ!');
+      showModal('error', err.message || 'Không thể tạo đơn hàng. Vui lòng kiểm tra lại kết nối mạng!');
     } finally {
       setSubmitting(false);
     }
@@ -290,8 +275,8 @@ export default function CheckoutPage({
           setPlacedOrder((prev) => ({ ...prev, status: 'PAID' }));
           try {
             confetti({
-              particleCount: 180,
-              spread: 100,
+              particleCount: 160,
+              spread: 90,
               origin: { y: 0.6 }
             });
           } catch (e) {}
@@ -304,32 +289,7 @@ export default function CheckoutPage({
     return () => clearInterval(intervalId);
   }, [isCompleted, orderStatus, orderCode, placedOrder?.orderCode]);
 
-  // Mô phỏng quét mã MoMo thành công (Sandbox / Demo)
-  const handleSimulateMoMo = async () => {
-    setIsSimulating(true);
-    try {
-      const res = await simulateMoMoPayment(currentCode);
-      if (res && res.success) {
-        setOrderStatus('PAID');
-        setPlacedOrder((prev) => ({ ...prev, status: 'PAID' }));
-        try {
-          confetti({
-            particleCount: 180,
-            spread: 100,
-            origin: { y: 0.6 }
-          });
-        } catch (e) {}
-      }
-    } catch (err) {
-      console.error('Lỗi mô phỏng MoMo:', err);
-    } finally {
-      setIsSimulating(false);
-    }
-  };
-
-  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
-
-  // Kiểm tra trạng thái thanh toán thủ công (nhận diện SePay / MoMo)
+  // Kiểm tra trạng thái thanh toán thủ công
   const handleManualCheckPayment = async () => {
     setIsCheckingPayment(true);
     try {
@@ -340,49 +300,22 @@ export default function CheckoutPage({
         setPlacedOrder((prev) => ({ ...prev, status: 'PAID' }));
         try {
           confetti({
-            particleCount: 180,
-            spread: 100,
+            particleCount: 160,
+            spread: 90,
             origin: { y: 0.6 }
           });
         } catch (e) {}
-        showModal('success', 'Tuyệt vời! Giao dịch đã được hệ thống ghi nhận thành công! Đơn hàng đã chuyển sang trạng thái ĐÃ THANH TOÁN.');
+        showModal('success', 'Giao dịch đã được ghi nhận thành công! Đơn hàng đã chuyển sang trạng thái ĐÃ THANH TOÁN.');
       } else {
         showModal(
           'info',
-          'Hệ thống đang đối soát số dư cho đơn #' + targetCode + '. Nếu bạn vừa chuyển tiền qua App Ngân Hàng, vui lòng đợi 15 - 30 giây để SePay xử lý. Bạn cũng có thể bấm nút "Test Sandbox" bên dưới để kích hoạt ngay!'
+          `Hệ thống đang đối soát thanh toán cho đơn hàng #${targetCode}. Nếu bạn vừa chuyển tiền, vui lòng đợi 15 - 30 giây để hệ thống tự động cập nhật trạng thái nhé.`
         );
       }
     } catch (err) {
       showModal('warning', 'Không thể kết nối máy chủ để kiểm tra trạng thái lúc này. Vui lòng thử lại sau giây lát!');
     } finally {
       setIsCheckingPayment(false);
-    }
-  };
-
-  // Mô phỏng chuyển khoản ngân hàng thành công qua SePay Webhook (Sandbox / Demo)
-  const handleSimulateBankTransfer = async () => {
-    setIsSimulating(true);
-    try {
-      const res = await simulateBankTransferPayment(currentCode);
-      if (res && (res.success || res.status === 'PAID')) {
-        setOrderStatus('PAID');
-        setPlacedOrder((prev) => ({ ...prev, status: 'PAID' }));
-        try {
-          confetti({
-            particleCount: 180,
-            spread: 100,
-            origin: { y: 0.6 }
-          });
-        } catch (e) {}
-        showModal('success', 'Mô phỏng SePay Webhook thành công! Đơn hàng #' + currentCode + ' đã được tự động kích hoạt sang trạng thái ĐÃ THANH TOÁN (PAID)!');
-      } else {
-        showModal('error', res?.message || 'Không thể mô phỏng chuyển khoản');
-      }
-    } catch (err) {
-      console.error('Lỗi mô phỏng Webhook chuyển khoản:', err);
-      showModal('error', 'Lỗi mô phỏng Webhook: ' + (err.message || err));
-    } finally {
-      setIsSimulating(false);
     }
   };
 
@@ -397,15 +330,13 @@ export default function CheckoutPage({
 
     return (
       <div className="pay-page">
-        <div className="page-header-banner">
+        {/* Simple Top Navigation */}
+        <div className="chk-simple-header">
           <div className="container">
-            <div className="breadcrumb">
-              <button className="breadcrumb-link" onClick={onNavigateHome}>Trang Chủ</button>
-              <span className="breadcrumb-separator">/</span>
-              <button className="breadcrumb-link" onClick={onNavigateShop}>Cửa Hàng</button>
-              <span className="breadcrumb-separator">/</span>
-              <span className="breadcrumb-current">Xác Nhận Đơn Hàng</span>
-            </div>
+            <button className="chk-back-btn" onClick={onNavigateShop}>
+              <ArrowLeft size={16} />
+              <span>Quay lại cửa hàng</span>
+            </button>
           </div>
         </div>
 
@@ -413,20 +344,20 @@ export default function CheckoutPage({
           {/* Header Card */}
           <div className="pay-header-card">
             <div className={`pay-icon-ring ${isPaid ? 'paid' : ''}`}>
-              <CheckCircle2 size={42} color="#fff" />
+              <CheckCircle2 size={38} color="#fff" />
             </div>
 
             <span className="pay-subtitle">
-              {isPaid ? 'Giao Dịch Đã Hoàn Tất' : 'Cảm Ơn Bạn Đã Mua Hàng!'}
+              {isPaid ? 'Thanh Toán Thành Công' : 'Đặt Hàng Thành Công'}
             </span>
             <h1 className="pay-title">
-              {isPaid ? 'Đơn Hàng Đã Được Thanh Toán!' : 'Đặt Hàng Thành Công!'}
+              {isPaid ? 'Đơn Hàng Đã Hoàn Tất!' : 'Cảm Ơn Bạn Đã Mua Hàng!'}
             </h1>
             <p className="pay-desc">
-              Nhà vườn Sen Xinh Garden đã tiếp nhận đơn <strong>#{currentCode}</strong> và đang chuẩn bị những cây sen đá tươi khỏe nhất để giao đến bạn.
+              Nhà vườn Sen Xinh Garden đã tiếp nhận đơn hàng <strong>#{currentCode}</strong> và đang chuẩn bị những cây sen đá tươi khỏe nhất để gửi tới bạn.
             </p>
 
-            {/* Info strip */}
+            {/* Concise Info Strip */}
             <div className="pay-info-strip">
               <div className="pay-info-item">
                 <div className="pay-info-label">Mã đơn hàng</div>
@@ -434,12 +365,12 @@ export default function CheckoutPage({
               </div>
               <div className="pay-info-item">
                 <div className="pay-info-label">Tổng thanh toán</div>
-                <div className="pay-info-val" style={{ color: 'var(--primary)' }}>{formatPrice(finalTotalAmount)}</div>
+                <div className="pay-info-val highlight">{formatPrice(finalTotalAmount)}</div>
               </div>
               <div className="pay-info-item">
                 <div className="pay-info-label">Hình thức</div>
                 <div className="pay-info-val">
-                  {isMoMo ? 'MoMo / VietQR' : isVietQr ? 'Chuyển Khoản VietQR' : 'Tiền Mặt (COD)'}
+                  {isMoMo ? 'Ví MoMo' : isVietQr ? 'Chuyển Khoản VietQR' : 'Tiền Mặt (COD)'}
                 </div>
               </div>
               <div className="pay-info-item">
@@ -462,15 +393,117 @@ export default function CheckoutPage({
           {isPaid && (
             <div className="pay-celebration">
               <div className="pay-celebration-badge">
-                <CheckCircle2 size={36} color="#fff" />
+                <CheckCircle2 size={32} color="#fff" />
               </div>
-              <h2>Giao Dịch Đã Được Xác Nhận Thành Công!</h2>
+              <h2>Thanh Toán Đã Được Xác Nhận!</h2>
               <p>
-                Hệ thống đã ghi nhận <strong>{formatPrice(finalTotalAmount)}</strong>. Đơn <strong>#{currentCode}</strong> đã chuyển sang <strong>ĐÃ THANH TOÁN</strong>.
+                Hệ thống đã ghi nhận số tiền <strong>{formatPrice(finalTotalAmount)}</strong> cho đơn hàng <strong>#{currentCode}</strong>. Chúng tôi sẽ sớm giao hàng đến bạn.
               </p>
-              <div className="pay-ipn-note">
-                <Sparkles size={16} color="#10B981" />
-                <span>Webhook IPN tự động xác nhận — không cần gửi biên lai</span>
+            </div>
+          )}
+
+          {/* VietQR Payment Card */}
+          {!isPaid && isVietQr && (
+            <div className="pay-qr-card">
+              <div className="pay-qr-header vqr">
+                <div className="pay-qr-brand">
+                  <div className="pay-qr-brand-icon vqr">
+                    <QrCode size={20} />
+                  </div>
+                  <div>
+                    <div className="pay-qr-brand-name">Chuyển Khoản VietQR</div>
+                    <div className="pay-qr-brand-sub">Quét mã QR bằng mọi App Ngân Hàng • Xác nhận tự động 24/7</div>
+                  </div>
+                </div>
+
+                <div className="pay-status-pill waiting">
+                  <span className="pay-pulse" />
+                  <span>Chờ giao dịch...</span>
+                </div>
+              </div>
+
+              <div className="pay-qr-body">
+                <div className="pay-qr-img-col">
+                  <div className="pay-qr-frame vqr-border">
+                    <img src={vietQrUrl} alt="Mã VietQR Chuyển Khoản" className="pay-qr-img" />
+                  </div>
+                  <div className="pay-qr-caption">Quét bằng App Ngân Hàng để tự động điền số tiền & nội dung</div>
+                </div>
+
+                <div className="pay-qr-info">
+                  <div className="pay-qr-grid-info">
+                    <div className="pay-qr-row">
+                      <div className="pay-qr-row-label">Ngân hàng thụ hưởng</div>
+                      <div className="pay-qr-row-val">{activeBankInfo.bankName} ({activeBankInfo.bankCode})</div>
+                    </div>
+
+                    <div className="pay-qr-row">
+                      <div className="pay-qr-row-label">Chủ tài khoản</div>
+                      <div className="pay-qr-row-val">{activeBankInfo.accountName}</div>
+                    </div>
+
+                    <div className="pay-qr-row">
+                      <div className="pay-qr-row-label">Số tài khoản</div>
+                      <div className="pay-copy-row">
+                        <span className="pay-qr-row-val big green-color">{activeBankInfo.accountNumber}</span>
+                        <button 
+                          type="button" 
+                          className={`pay-copy-btn ${copiedKey === 'account' ? 'copied' : ''}`}
+                          onClick={() => handleCopyText(activeBankInfo.accountNumber, 'account')}
+                        >
+                          {copiedKey === 'account' ? <Check size={13} /> : <Copy size={13} />}
+                          <span>{copiedKey === 'account' ? 'Đã sao chép' : 'Sao chép'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pay-qr-row">
+                      <div className="pay-qr-row-label">Số tiền cần chuyển</div>
+                      <div className="pay-copy-row">
+                        <span className="pay-qr-row-val big">{formatPrice(finalTotalAmount)}</span>
+                        <button 
+                          type="button" 
+                          className={`pay-copy-btn ${copiedKey === 'amount' ? 'copied' : ''}`}
+                          onClick={() => handleCopyText(Math.round(finalTotalAmount).toString(), 'amount')}
+                        >
+                          {copiedKey === 'amount' ? <Check size={13} /> : <Copy size={13} />}
+                          <span>{copiedKey === 'amount' ? 'Đã sao chép' : 'Sao chép'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pay-qr-row">
+                      <div className="pay-qr-row-label">Nội dung chuyển khoản (Bắt buộc)</div>
+                      <div className="pay-copy-row">
+                        <span className="pay-qr-code-pill">{currentCode}</span>
+                        <button 
+                          type="button" 
+                          className={`pay-copy-btn ${copiedKey === 'code' ? 'copied' : ''}`}
+                          onClick={() => handleCopyText(currentCode, 'code')}
+                        >
+                          {copiedKey === 'code' ? <Check size={13} /> : <Copy size={13} />}
+                          <span>{copiedKey === 'code' ? 'Đã sao chép' : 'Sao chép'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pay-qr-actions">
+                    <button 
+                      type="button" 
+                      className="btn-primary"
+                      onClick={handleManualCheckPayment}
+                      disabled={isCheckingPayment}
+                      style={{ width: '100%', padding: '13px 18px', fontSize: '0.95rem' }}
+                    >
+                      {isCheckingPayment ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                      <span>{isCheckingPayment ? 'Đang kiểm tra giao dịch...' : 'Đã Chuyển Khoản — Kiểm Tra Ngay'}</span>
+                    </button>
+                    <p className="pay-note-hint">
+                      Hệ thống tự động kích hoạt đơn hàng trong vài giây ngay khi nhận được thanh toán từ ngân hàng.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -481,17 +514,17 @@ export default function CheckoutPage({
               <div className="pay-qr-header momo">
                 <div className="pay-qr-brand">
                   <div className="pay-qr-brand-icon momo">
-                    <Smartphone size={22} />
+                    <Smartphone size={20} />
                   </div>
                   <div>
-                    <div className="pay-qr-brand-name">Thanh Toán MoMo</div>
-                    <div className="pay-qr-brand-sub">Quét bằng App MoMo hoặc App Ngân Hàng hỗ trợ VietQR</div>
+                    <div className="pay-qr-brand-name">Thanh Toán Ví MoMo</div>
+                    <div className="pay-qr-brand-sub">Quét bằng App MoMo hoặc App Ngân Hàng NAPAS</div>
                   </div>
                 </div>
 
                 <div className="pay-status-pill waiting">
                   <span className="pay-pulse" />
-                  <span>Đang chờ thanh toán...</span>
+                  <span>Chờ thanh toán...</span>
                 </div>
               </div>
 
@@ -504,32 +537,34 @@ export default function CheckoutPage({
                       className="pay-qr-img" 
                     />
                   </div>
-                  <div className="pay-qr-caption">Mã QR tương thích Ví MoMo & VietQR NAPAS</div>
+                  <div className="pay-qr-caption">Quét mã bằng Ví MoMo</div>
                 </div>
 
                 <div className="pay-qr-info">
-                  <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Đơn vị thụ hưởng</div>
-                    <div className="pay-qr-row-val">Nhà Vườn Sen Xinh Garden</div>
-                  </div>
+                  <div className="pay-qr-grid-info">
+                    <div className="pay-qr-row">
+                      <div className="pay-qr-row-label">Đơn vị thụ hưởng</div>
+                      <div className="pay-qr-row-val">Nhà Vườn Sen Xinh Garden</div>
+                    </div>
 
-                  <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Số tiền cần thanh toán</div>
-                    <div className="pay-qr-row-val big momo-color">{formatPrice(finalTotalAmount)}</div>
-                  </div>
+                    <div className="pay-qr-row">
+                      <div className="pay-qr-row-label">Số tiền cần thanh toán</div>
+                      <div className="pay-qr-row-val big momo-color">{formatPrice(finalTotalAmount)}</div>
+                    </div>
 
-                  <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Mã giao dịch / Nội dung</div>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <span className="pay-qr-code-pill momo">{currentCode}</span>
-                      <button 
-                        type="button" 
-                        className={`pay-copy-btn ${copied ? 'copied' : ''}`}
-                        onClick={() => handleCopyAccount(currentCode)}
-                      >
-                        <Copy size={13} />
-                        <span>{copied ? 'Đã sao chép!' : 'Sao chép'}</span>
-                      </button>
+                    <div className="pay-qr-row">
+                      <div className="pay-qr-row-label">Mã giao dịch / Nội dung</div>
+                      <div className="pay-copy-row">
+                        <span className="pay-qr-code-pill momo">{currentCode}</span>
+                        <button 
+                          type="button" 
+                          className={`pay-copy-btn ${copiedKey === 'momoCode' ? 'copied' : ''}`}
+                          onClick={() => handleCopyText(currentCode, 'momoCode')}
+                        >
+                          {copiedKey === 'momoCode' ? <Check size={13} /> : <Copy size={13} />}
+                          <span>{copiedKey === 'momoCode' ? 'Đã sao chép' : 'Sao chép'}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -540,160 +575,25 @@ export default function CheckoutPage({
                       rel="noopener noreferrer" 
                       className="pay-open-momo"
                     >
-                      <ExternalLink size={17} />
+                      <ExternalLink size={16} />
                       <span>Mở Cổng Thanh Toán MoMo (App / Web)</span>
                     </a>
                   )}
 
-                  <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div className="pay-qr-actions">
                     <button 
                       type="button" 
                       className="btn-primary"
                       onClick={handleManualCheckPayment}
                       disabled={isCheckingPayment}
-                      style={{
-                        width: '100%',
-                        padding: '12px 18px',
-                        fontSize: '0.95rem',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        background: '#A50064',
-                        borderColor: '#A50064'
-                      }}
+                      style={{ width: '100%', padding: '13px 18px', fontSize: '0.95rem', background: '#A50064', borderColor: '#A50064' }}
                     >
                       {isCheckingPayment ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                      <span>{isCheckingPayment ? 'Đang kiểm tra...' : 'Đã Thanh Toán Xong — Kiểm Tra Ngay'}</span>
+                      <span>{isCheckingPayment ? 'Đang kiểm tra...' : 'Đã Thanh Toán — Kiểm Tra Ngay'}</span>
                     </button>
-
-                    {canShowPaymentSimulation && (
-                      <button 
-                        type="button" 
-                        className="pay-sandbox-btn momo-sim" 
-                        onClick={handleSimulateMoMo}
-                        disabled={isSimulating}
-                      >
-                        {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                        <span>{isSimulating ? 'Đang xử lý...' : '⚡ [Dev] Mô phỏng MoMo thành công'}</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* VietQR Payment Details */}
-          {!isPaid && isVietQr && (
-            <div className="pay-qr-card">
-              <div className="pay-qr-header vqr">
-                <div className="pay-qr-brand">
-                  <div className="pay-qr-brand-icon vqr">
-                    <QrCode size={22} />
-                  </div>
-                  <div>
-                    <div className="pay-qr-brand-name">Chuyển Khoản VietQR</div>
-                    <div className="pay-qr-brand-sub">Hỗ trợ 40+ ngân hàng • Tự động xác nhận qua SePay</div>
-                  </div>
-                </div>
-
-                <div className="pay-status-pill waiting">
-                  <span className="pay-pulse" />
-                  <span>Đang chờ giao dịch...</span>
-                </div>
-              </div>
-
-              <div className="pay-qr-body">
-                <div className="pay-qr-img-col">
-                  <div className="pay-qr-frame vqr-border">
-                    <img src={vietQrUrl} alt="Mã VietQR Chuyển Khoản" className="pay-qr-img" />
-                  </div>
-                  <div className="pay-qr-caption">Quét bằng App Ngân Hàng — tự động điền số tiền & mã đơn</div>
-                </div>
-
-                <div className="pay-qr-info">
-                  <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Ngân hàng thụ hưởng</div>
-                    <div className="pay-qr-row-val">{activeBankInfo.bankName} ({activeBankInfo.bankCode})</div>
-                  </div>
-
-                  <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Chủ tài khoản</div>
-                    <div className="pay-qr-row-val">{activeBankInfo.accountName}</div>
-                  </div>
-
-                  <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Số tài khoản</div>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <span className="pay-qr-row-val" style={{ fontSize: '1.2rem', color: 'var(--primary)' }}>
-                        {activeBankInfo.accountNumber}
-                      </span>
-                      <button 
-                        type="button" 
-                        className={`pay-copy-btn ${copied ? 'copied' : ''}`}
-                        onClick={() => handleCopyAccount(activeBankInfo.accountNumber)}
-                        title="Sao chép số tài khoản VA"
-                      >
-                        <Copy size={13} />
-                        <span>{copied ? 'Đã chép!' : 'Sao chép'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Số tiền cần chuyển</div>
-                    <div className="pay-qr-row-val big green-color">{formatPrice(finalTotalAmount)}</div>
-                  </div>
-
-                  <div className="pay-qr-row">
-                    <div className="pay-qr-row-label">Nội dung chuyển khoản (bắt buộc)</div>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <span className="pay-qr-code-pill">{currentCode}</span>
-                      <button 
-                        type="button" 
-                        className="pay-copy-btn"
-                        onClick={() => handleCopyAccount(currentCode)}
-                      >
-                        <Copy size={13} />
-                        <span>Sao chép</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <button 
-                      type="button" 
-                      className="btn-primary"
-                      onClick={handleManualCheckPayment}
-                      disabled={isCheckingPayment}
-                      style={{
-                        width: '100%',
-                        padding: '12px 18px',
-                        fontSize: '0.95rem',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px'
-                      }}
-                    >
-                      {isCheckingPayment ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                      <span>{isCheckingPayment ? 'Đang kiểm tra...' : 'Đã Chuyển Khoản Xong — Kiểm Tra Ngay'}</span>
-                    </button>
-
-                    {canShowPaymentSimulation && (
-                      <button 
-                        type="button" 
-                        className="pay-sandbox-btn vqr-sim" 
-                        onClick={handleSimulateBankTransfer}
-                        disabled={isSimulating}
-                      >
-                        {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
-                        <span>{isSimulating ? 'Đang xử lý...' : '⚡ [Dev] Mô phỏng SePay xác nhận chuyển khoản'}</span>
-                      </button>
-                    )}
+                    <p className="pay-note-hint">
+                      Đơn hàng sẽ tự động cập nhật ngay sau khi bạn hoàn tất giao dịch trên MoMo.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -704,7 +604,7 @@ export default function CheckoutPage({
           {currentPaymentMethod === 'cod' && (
             <div className="pay-cod-card">
               <div className="pay-cod-icon">
-                <Truck size={36} color="#fff" />
+                <Truck size={32} color="#fff" />
               </div>
               <h3>Thanh Toán Tiền Mặt Khi Nhận Hàng (COD)</h3>
               <p>
@@ -713,17 +613,17 @@ export default function CheckoutPage({
               <div className="pay-cod-steps">
                 <div className="pay-cod-step">
                   <div className="pay-cod-step-dot">1</div>
-                  <span>Đóng gói bảo vệ bầu đất</span>
+                  <span>Đóng gói bảo vệ cây</span>
                 </div>
                 <span className="pay-cod-arrow">→</span>
                 <div className="pay-cod-step">
                   <div className="pay-cod-step-dot">2</div>
-                  <span>Giao hàng tận nơi (2-4 ngày)</span>
+                  <span>Giao hàng (2-4 ngày)</span>
                 </div>
                 <span className="pay-cod-arrow">→</span>
                 <div className="pay-cod-step">
                   <div className="pay-cod-step-dot">3</div>
-                  <span>Kiểm tra cây & Thanh toán</span>
+                  <span>Kiểm tra cây & Nhận</span>
                 </div>
               </div>
             </div>
@@ -747,7 +647,7 @@ export default function CheckoutPage({
                 onClick={() => navigate('/account', { state: { tab: 'orders' } })}
               >
                 <Package size={18} color="var(--primary)" />
-                <span>Theo Dõi Đơn Hàng Của Tôi</span>
+                <span>Xem Đơn Hàng Của Tôi</span>
               </button>
             )}
           </div>
@@ -763,14 +663,14 @@ export default function CheckoutPage({
     return (
       <div className="chk-page">
         <div className="chk-empty">
-          <ShoppingBag size={64} style={{ color: 'var(--moss)', opacity: 0.35, marginBottom: '16px' }} />
-          <h2 style={{ fontSize: '1.6rem', marginBottom: '12px' }}>Không có sản phẩm nào để thanh toán</h2>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '28px', lineHeight: 1.65 }}>
-            Chưa có sản phẩm được chọn để thanh toán. Hãy chọn thêm các cây sen đá bạn yêu thích nhé!
+          <ShoppingBag size={56} style={{ color: 'var(--moss)', opacity: 0.35, marginBottom: '16px' }} />
+          <h2>Không có sản phẩm nào để thanh toán</h2>
+          <p>
+            Chưa có sản phẩm nào được chọn. Hãy ghé thăm vườn để lựa chọn những chậu sen đá xinh xắn nhé!
           </p>
-          <button className="btn-primary" onClick={onNavigateShop} style={{ padding: '14px 28px' }}>
-            <span>Quay Lại Cửa Hàng</span>
-            <ArrowRight size={18} />
+          <button className="btn-primary" onClick={onNavigateShop} style={{ padding: '12px 24px' }}>
+            <span>Xem Cửa Hàng</span>
+            <ArrowRight size={16} />
           </button>
         </div>
       </div>
@@ -778,334 +678,292 @@ export default function CheckoutPage({
   }
 
   // =========================================================================
-  // Screen 3: Checkout Form
+  // Screen 3: Simplified Checkout Form
   // =========================================================================
   return (
     <>
-    <div className="chk-page">
-      {/* Header Banner */}
-      <div className="page-header-banner">
-        <div className="container">
-          <div className="breadcrumb">
-            <button className="breadcrumb-link" onClick={onNavigateHome}>Trang Chủ</button>
-            <span className="breadcrumb-separator">/</span>
-            <button className="breadcrumb-link" onClick={isDirectBuy ? onNavigateShop : onNavigateCart}>
-              {isDirectBuy ? 'Cửa Hàng' : 'Giỏ Hàng'}
+      <div className="chk-page">
+        {/* Simple Top Navigation Header */}
+        <div className="chk-simple-header">
+          <div className="container">
+            <button
+              type="button"
+              className="chk-back-btn"
+              onClick={isDirectBuy ? () => navigate(-1) : onNavigateCart}
+            >
+              <ArrowLeft size={16} />
+              <span>{isDirectBuy ? 'Quay lại chọn sản phẩm' : 'Quay lại giỏ hàng'}</span>
             </button>
-            <span className="breadcrumb-separator">/</span>
-            <span className="breadcrumb-current">Thanh Toán Đơn Hàng</span>
-          </div>
-
-          <div style={{ marginTop: '10px' }}>
-            <span className="section-subtitle" style={{ color: 'var(--accent)' }}>Xác Nhận & Đặt Hàng</span>
-            <h1 className="page-title" style={{ fontSize: '1.75rem', marginTop: '4px' }}>
-              Thông Tin Giao Hàng & Thanh Toán
-            </h1>
           </div>
         </div>
-      </div>
 
-      {/* Steps Indicator */}
-      <div className="container">
-        <div className="chk-steps">
-          <div className="chk-step active">
-            <div className="chk-step-circle">1</div>
-            <span className="chk-step-label">Thông tin</span>
+        <div className="container" style={{ padding: '24px 20px 80px' }}>
+          {/* Page Title */}
+          <div className="chk-title-section">
+            <h1 className="chk-page-title">Thanh Toán Đơn Hàng</h1>
+            <p className="chk-page-desc">Vui lòng điền thông tin giao hàng và chọn phương thức thanh toán</p>
           </div>
-          <div className="chk-step-line" />
-          <div className="chk-step">
-            <div className="chk-step-circle">2</div>
-            <span className="chk-step-label">Thanh toán</span>
-          </div>
-          <div className="chk-step-line" />
-          <div className="chk-step">
-            <div className="chk-step-circle">3</div>
-            <span className="chk-step-label">Xác nhận</span>
-          </div>
-        </div>
-      </div>
 
-      <div className="container" style={{ padding: '32px 24px 80px' }}>
-        <form onSubmit={handleSubmitOrder} className="chk-layout">
-          {/* Left Column: Delivery Info & Payment Method */}
-          <div className="chk-main-col">
-            {/* Guest Checkout Notice Banner */}
-            {!user && (
-              <div className="chk-guest-banner">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Sparkles size={18} color="var(--primary)" />
-                  <span>
-                    <strong>Mua ngay không cần tài khoản!</strong> Hoặc đăng nhập để tự động điền thông tin.
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate('/login')}
-                  className="chk-guest-login-btn"
-                >
-                  Đăng Nhập Nhanh
-                </button>
-              </div>
-            )}
-
-            {/* Step 1: Customer Details */}
-            <div className="chk-card">
-              <div className="chk-card-head">
-                <div className="chk-step-num">1</div>
-                <div>
-                  <h3 className="chk-card-title">
-                    Thông Tin Nhận Hàng
-                    {user?.name && <span className="chk-autofill-badge">✓ Tự động điền</span>}
-                  </h3>
-                  <p className="chk-card-sub">Chúng tôi sẽ liên hệ xác nhận và giao cây đến địa chỉ này</p>
-                </div>
-              </div>
-
-              <div className="chk-form-grid">
-                <div className="chk-form-group">
-                  <label className="chk-form-label">Họ và tên người nhận <span>*</span></label>
-                  <input
-                    type="text"
-                    required
-                    className="chk-form-input"
-                    placeholder="Ví dụ: Nguyễn Văn An"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
-                </div>
-
-                <div className="chk-form-group">
-                  <label className="chk-form-label">Số điện thoại liên hệ <span>*</span></label>
-                  <input
-                    type="tel"
-                    required
-                    className="chk-form-input"
-                    placeholder="Ví dụ: 0988 123 456"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  />
-                </div>
-
-                <div className="chk-form-group full">
-                  <label className="chk-form-label">Địa chỉ nhận hàng chi tiết <span>*</span></label>
-                  <input
-                    type="text"
-                    required
-                    className="chk-form-input"
-                    placeholder="Số nhà, tên đường, ngõ ngách, phường/xã..."
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  />
-                </div>
-
-                <div className="chk-form-group">
-                  <label className="chk-form-label">Tỉnh / Thành phố</label>
-                  <select
-                    className="chk-form-input"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+          <form onSubmit={handleSubmitOrder} className="chk-layout">
+            {/* Left Column: Delivery Info & Payment Method */}
+            <div className="chk-main-col">
+              {/* Guest Checkout Notice Banner */}
+              {!user && (
+                <div className="chk-guest-banner">
+                  <div className="chk-guest-banner-left">
+                    <Sparkles size={16} color="var(--primary)" />
+                    <span>Mua nhanh không cần tạo tài khoản.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/login')}
+                    className="chk-guest-login-btn"
                   >
-                    {(shippingConfig?.provinceRates || []).map((r) => (
-                      <option key={r.id || r.province} value={r.province}>
-                        {r.province} ({formatPrice(r.fee)})
-                      </option>
-                    ))}
-                    {formData.city && !(shippingConfig?.provinceRates || []).some(r => r.province.toLowerCase() === formData.city.toLowerCase()) && (
-                      <option value={formData.city}>{formData.city} ({formatPrice(shippingConfig?.defaultShippingFee || 35000)})</option>
-                    )}
-                  </select>
+                    Đăng nhập để tự động điền
+                  </button>
+                </div>
+              )}
+
+              {/* Section 1: Customer Details */}
+              <div className="chk-card">
+                <div className="chk-card-head">
+                  <h2 className="chk-card-title">
+                    Thông Tin Nhận Hàng
+                    {user?.name && <span className="chk-autofill-badge">✓ Đã điền sẵn</span>}
+                  </h2>
                 </div>
 
-                <div className="chk-form-group">
-                  <label className="chk-form-label">Ghi chú giao hàng (Tùy chọn)</label>
-                  <input
-                    type="text"
-                    className="chk-form-input"
-                    placeholder="Giao vào giờ hành chính, gọi trước..."
-                    value={formData.note}
-                    onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-                  />
+                <div className="chk-form-grid">
+                  <div className="chk-form-group">
+                    <label className="chk-form-label">Họ và tên người nhận <span>*</span></label>
+                    <input
+                      type="text"
+                      required
+                      className="chk-form-input"
+                      placeholder="Nguyễn Văn An"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="chk-form-group">
+                    <label className="chk-form-label">Số điện thoại liên hệ <span>*</span></label>
+                    <input
+                      type="tel"
+                      required
+                      className="chk-form-input"
+                      placeholder="0988 123 456"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="chk-form-group full">
+                    <label className="chk-form-label">Tỉnh / Thành phố</label>
+                    <select
+                      className="chk-form-input"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    >
+                      {(shippingConfig?.provinceRates || []).map((r) => (
+                        <option key={r.id || r.province} value={r.province}>
+                          {r.province} ({formatPrice(r.fee)})
+                        </option>
+                      ))}
+                      {formData.city && !(shippingConfig?.provinceRates || []).some(r => r.province.toLowerCase() === formData.city.toLowerCase()) && (
+                        <option value={formData.city}>{formData.city} ({formatPrice(shippingConfig?.defaultShippingFee || 35000)})</option>
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="chk-form-group full">
+                    <label className="chk-form-label">Địa chỉ nhận hàng chi tiết <span>*</span></label>
+                    <input
+                      type="text"
+                      required
+                      className="chk-form-input"
+                      placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="chk-form-group full">
+                    <label className="chk-form-label">Ghi chú giao hàng (Tùy chọn)</label>
+                    <input
+                      type="text"
+                      className="chk-form-input"
+                      placeholder="Ví dụ: Giao giờ hành chính, gọi trước khi giao..."
+                      value={formData.note}
+                      onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Step 2: Payment Method */}
-            <div className="chk-card">
-              <div className="chk-card-head">
-                <div className="chk-step-num">2</div>
-                <div>
-                  <h3 className="chk-card-title">Phương Thức Thanh Toán</h3>
-                  <p className="chk-card-sub">Lựa chọn hình thức thanh toán thuận tiện nhất cho bạn</p>
+              {/* Section 2: Payment Method */}
+              <div className="chk-card">
+                <div className="chk-card-head">
+                  <h2 className="chk-card-title">Phương Thức Thanh Toán</h2>
                 </div>
-              </div>
 
-              <div className="chk-pay-options">
-                {/* MoMo Option */}
-                <label className={`chk-pay-card ${formData.paymentMethod === 'momo' ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="momo"
-                    checked={formData.paymentMethod === 'momo'}
-                    onChange={() => setFormData({ ...formData, paymentMethod: 'momo' })}
-                  />
-                  <div className="chk-pay-icon" style={{ background: '#FFF0F6', color: '#D82D8B' }}>
-                    <Smartphone size={24} />
-                  </div>
-                  <div className="chk-pay-body">
-                    <div className="chk-pay-name">
-                      <span>Ví MoMo & VietQR MoMo</span>
-                      <span className="chk-pay-badge" style={{ background: '#FFF0F6', color: '#D82D8B', border: '1px solid #FBCFE8' }}>
-                        Khuyên Dùng
-                      </span>
+                <div className="chk-pay-options">
+                  {/* VietQR Option */}
+                  <label className={`chk-pay-card ${formData.paymentMethod === 'vietqr' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="vietqr"
+                      checked={formData.paymentMethod === 'vietqr'}
+                      onChange={() => setFormData({ ...formData, paymentMethod: 'vietqr' })}
+                    />
+                    <div className="chk-pay-icon vqr">
+                      <QrCode size={22} />
                     </div>
-                    <p className="chk-pay-desc">
-                      Quét bằng App MoMo hoặc 40+ App Ngân Hàng. Xác nhận tự động trong vài giây.
-                    </p>
-                  </div>
-                  <div className="chk-radio-dot" />
-                </label>
-
-                {/* VietQR Option */}
-                <label className={`chk-pay-card ${formData.paymentMethod === 'vietqr' ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="vietqr"
-                    checked={formData.paymentMethod === 'vietqr'}
-                    onChange={() => setFormData({ ...formData, paymentMethod: 'vietqr' })}
-                  />
-                  <div className="chk-pay-icon" style={{ background: '#EBF4EE', color: 'var(--primary)' }}>
-                    <QrCode size={24} />
-                  </div>
-                  <div className="chk-pay-body">
-                    <div className="chk-pay-name">
-                      <span>Chuyển Khoản Ngân Hàng (VietQR)</span>
-                    </div>
-                    <p className="chk-pay-desc">
-                      Quét mã QR 24/7 — tự động điền số tiền và mã đơn, xác nhận ngay qua SePay.
-                    </p>
-                  </div>
-                  <div className="chk-radio-dot" />
-                </label>
-
-                {/* COD Option */}
-                <label className={`chk-pay-card ${formData.paymentMethod === 'cod' ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="cod"
-                    checked={formData.paymentMethod === 'cod'}
-                    onChange={() => setFormData({ ...formData, paymentMethod: 'cod' })}
-                  />
-                  <div className="chk-pay-icon" style={{ background: '#FFF4E5', color: 'var(--accent)' }}>
-                    <Truck size={24} />
-                  </div>
-                  <div className="chk-pay-body">
-                    <div className="chk-pay-name">
-                      <span>Thanh Toán Khi Nhận Hàng (COD)</span>
-                    </div>
-                    <p className="chk-pay-desc">
-                      Nhận cây, kiểm tra bầu đất tận nơi rồi mới thanh toán tiền mặt cho shipper.
-                    </p>
-                  </div>
-                  <div className="chk-radio-dot" />
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: Order Review Summary */}
-          <div className="chk-summary-col">
-            <div className="chk-summary-card">
-              <h3 className="chk-summary-title">Đơn Hàng ({totalItemCount} cây)</h3>
-
-              {/* Items preview */}
-              <div className="chk-items-preview">
-                {checkoutItems.map((item) => (
-                  <div key={item.id} className="chk-preview-item">
-                    <div className="chk-preview-item-left">
-                      <div className="chk-preview-thumb-wrap">
-                        <img src={item.image} alt={item.name} className="chk-preview-thumb" />
-                        <span className="chk-preview-qty-badge">{item.quantity}</span>
+                    <div className="chk-pay-body">
+                      <div className="chk-pay-name">
+                        <span>Chuyển Khoản Ngân Hàng (VietQR)</span>
+                        <span className="chk-pay-badge-rec">Nhanh & Tiện</span>
                       </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="chk-preview-name">{item.name}</div>
-                        <div className="chk-preview-unit">{formatPrice(item.price)}</div>
-                      </div>
+                      <p className="chk-pay-desc">
+                        Quét mã QR bằng App Ngân Hàng bất kỳ. Hệ thống tự động xác nhận 24/7.
+                      </p>
                     </div>
-                    <strong className="chk-preview-price">{formatPrice(item.price * item.quantity)}</strong>
-                  </div>
-                ))}
-              </div>
+                    <div className="chk-radio-dot" />
+                  </label>
 
-              {/* Price Calculation */}
-              <div className="chk-price-sep" />
-              <div className="chk-price-rows">
-                <div className="chk-price-row">
-                  <span>Tạm tính:</span>
-                  <span>{formatPrice(subtotal)}</span>
+                  {/* MoMo Option */}
+                  <label className={`chk-pay-card ${formData.paymentMethod === 'momo' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="momo"
+                      checked={formData.paymentMethod === 'momo'}
+                      onChange={() => setFormData({ ...formData, paymentMethod: 'momo' })}
+                    />
+                    <div className="chk-pay-icon momo">
+                      <Smartphone size={22} />
+                    </div>
+                    <div className="chk-pay-body">
+                      <div className="chk-pay-name">
+                        <span>Ví Điện Tử MoMo</span>
+                      </div>
+                      <p className="chk-pay-desc">
+                        Quét mã MoMo hoặc mở ứng dụng MoMo để hoàn tất thanh toán.
+                      </p>
+                    </div>
+                    <div className="chk-radio-dot" />
+                  </label>
+
+                  {/* COD Option */}
+                  <label className={`chk-pay-card ${formData.paymentMethod === 'cod' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="cod"
+                      checked={formData.paymentMethod === 'cod'}
+                      onChange={() => setFormData({ ...formData, paymentMethod: 'cod' })}
+                    />
+                    <div className="chk-pay-icon cod">
+                      <Truck size={22} />
+                    </div>
+                    <div className="chk-pay-body">
+                      <div className="chk-pay-name">
+                        <span>Thanh Toán Khi Nhận Hàng (COD)</span>
+                      </div>
+                      <p className="chk-pay-desc">
+                        Kiểm tra cây sen đá tươi khỏe khi nhận rồi mới thanh toán tiền mặt cho shipper.
+                      </p>
+                    </div>
+                    <div className="chk-radio-dot" />
+                  </label>
                 </div>
-
-                {discountAmount > 0 && (
-                  <div className="chk-price-row discount">
-                    <span>Mã ưu đãi ({discountCode} -{discountPercent}%):</span>
-                    <span>-{formatPrice(discountAmount)}</span>
-                  </div>
-                )}
-
-                <div className="chk-price-row">
-                  <span>Phí vận chuyển ({formData.city || 'Khu vực'}):</span>
-                  <span>{isFreeShipping ? <strong style={{ color: 'var(--primary)' }}>Miễn Phí</strong> : formatPrice(shippingFee)}</span>
-                </div>
-              </div>
-
-              <div className="chk-price-sep" />
-              <div className="chk-price-total">
-                <span className="chk-price-total-label">Tổng tiền thanh toán:</span>
-                <span className="chk-price-total-val">{formatPrice(total)}</span>
-              </div>
-
-              {/* Submit button */}
-              <button
-                type="submit"
-                className="chk-submit-btn"
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    <span>Đang Tạo Đơn Hàng...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Xác Nhận Đặt Hàng ({formatPrice(total)})</span>
-                    <ArrowRight size={18} />
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                className="chk-back-link"
-                onClick={isDirectBuy ? () => navigate(-1) : onNavigateCart}
-              >
-                {isDirectBuy ? '← Quay Lại Chọn Cây' : '← Quay Lại Giỏ Hàng'}
-              </button>
-
-              {/* Guarantee */}
-              <div className="chk-guarantee">
-                <ShieldCheck size={20} color="var(--primary)" style={{ flexShrink: 0 }} />
-                <span>Bảo mật 100% — Được kiểm tra cây trước khi nhận hàng.</span>
               </div>
             </div>
-          </div>
-        </form>
+
+            {/* Right Column: Order Review Summary */}
+            <div className="chk-summary-col">
+              <div className="chk-summary-card">
+                <h3 className="chk-summary-title">Đơn hàng ({totalItemCount} sản phẩm)</h3>
+
+                {/* Items preview list */}
+                <div className="chk-items-preview">
+                  {checkoutItems.map((item) => (
+                    <div key={item.id} className="chk-preview-item">
+                      <div className="chk-preview-item-left">
+                        <div className="chk-preview-thumb-wrap">
+                          <img src={item.image} alt={item.name} className="chk-preview-thumb" />
+                          <span className="chk-preview-qty-badge">{item.quantity}</span>
+                        </div>
+                        <div className="chk-preview-info">
+                          <div className="chk-preview-name">{item.name}</div>
+                          <div className="chk-preview-unit">{formatPrice(item.price)}</div>
+                        </div>
+                      </div>
+                      <span className="chk-preview-price">{formatPrice(item.price * item.quantity)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Price Breakdown */}
+                <div className="chk-price-sep" />
+                <div className="chk-price-rows">
+                  <div className="chk-price-row">
+                    <span>Tạm tính</span>
+                    <span>{formatPrice(subtotal)}</span>
+                  </div>
+
+                  {discountAmount > 0 && (
+                    <div className="chk-price-row discount">
+                      <span>Mã giảm giá ({discountCode} -{discountPercent}%)</span>
+                      <span>-{formatPrice(discountAmount)}</span>
+                    </div>
+                  )}
+
+                  <div className="chk-price-row">
+                    <span>Phí vận chuyển ({formData.city || 'Khu vực'})</span>
+                    <span>{isFreeShipping ? <strong className="green-color">Miễn Phí</strong> : formatPrice(shippingFee)}</span>
+                  </div>
+                </div>
+
+                <div className="chk-price-sep" />
+                <div className="chk-price-total">
+                  <span className="chk-price-total-label">Tổng thanh toán</span>
+                  <span className="chk-price-total-val">{formatPrice(total)}</span>
+                </div>
+
+                {/* Submit button */}
+                <button
+                  type="submit"
+                  className="chk-submit-btn"
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      <span>Đang xử lý đơn hàng...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Đặt Hàng • {formatPrice(total)}</span>
+                      <ArrowRight size={18} />
+                    </>
+                  )}
+                </button>
+
+                {/* Guarantee Notes */}
+                <div className="chk-guarantee">
+                  <ShieldCheck size={18} color="var(--primary)" style={{ flexShrink: 0 }} />
+                  <span>Đồng kiểm khi nhận • Bảo hành sống 100% trong quá trình vận chuyển.</span>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
 
-    {/* Notification Modal */}
-    <NotificationModal {...modalProps} />
+      {/* Notification Modal */}
+      <NotificationModal {...modalProps} />
     </>
   );
 }

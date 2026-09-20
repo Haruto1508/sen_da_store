@@ -3586,26 +3586,6 @@ input::-webkit-contacts-auto-fill-button {
   box-shadow: 0 8px 22px rgba(216, 45, 139, 0.4);
 }
 
-.btn-momo-simulate {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  background: #FFF0F6;
-  color: #A50064;
-  border: 1.5px dashed #D82D8B;
-  padding: 10px 16px;
-  border-radius: var(--radius-md);
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.btn-momo-simulate:hover {
-  background: #FFE0ED;
-  transform: translateY(-1px);
-}
 
 .paid-celebration-card {
   background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
@@ -8871,53 +8851,46 @@ html.modal-open {
 
 .chk-page { min-height: 100vh; background: var(--bg-main); }
 
-/* ── Step indicator ── */
-.chk-steps {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding: 18px 24px 0;
-  margin-top: 8px;
+/* Simple Top Header */
+.chk-simple-header {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-card);
 }
-.chk-step {
-  display: flex;
-  flex-direction: column;
+.chk-back-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  position: relative;
-  flex: 1;
-  max-width: 120px;
-}
-.chk-step-circle {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 2px solid var(--border-light);
-  background: #fff;
-  color: var(--text-light);
-  font-size: 0.85rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  z-index: 2;
+  gap: 8px;
+  background: none;
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
   transition: var(--transition);
 }
-.chk-step.done .chk-step-circle { background: var(--primary); border-color: var(--primary); color: #fff; }
-.chk-step.active .chk-step-circle { border-color: var(--primary); color: var(--primary); box-shadow: 0 0 0 4px rgba(45,90,63,0.15); }
-.chk-step-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
-.chk-step.active .chk-step-label, .chk-step.done .chk-step-label { color: var(--text-main); }
-.chk-step-line {
-  flex: 1;
-  height: 2px;
-  background: var(--border-light);
-  margin: 0 8px;
-  margin-top: -18px;
-  max-width: 80px;
+.chk-back-btn:hover {
+  color: var(--primary);
+  background: var(--primary-light);
 }
-.chk-step-line.done { background: var(--primary); }
+
+/* Title Section */
+.chk-title-section {
+  margin-bottom: 24px;
+}
+.chk-page-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+.chk-page-desc {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
 
 /* ── Form layout ── */
 .chk-layout {
@@ -9060,6 +9033,9 @@ html.modal-open {
   flex-shrink: 0;
   transition: var(--transition);
 }
+.chk-pay-icon.vqr  { background: #EBF4EE; color: var(--primary); }
+.chk-pay-icon.momo { background: #FFF0F6; color: #D82D8B; }
+.chk-pay-icon.cod  { background: #FFF4E5; color: var(--accent); }
 .chk-pay-body { flex: 1; min-width: 0; }
 .chk-pay-name { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 3px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .chk-pay-desc { font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; }
@@ -9069,6 +9045,16 @@ html.modal-open {
   padding: 2px 8px;
   border-radius: var(--radius-full);
   white-space: nowrap;
+}
+.chk-pay-badge-rec {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  background: #EBF4EE;
+  color: var(--primary);
+  border: 1px solid rgba(45,90,63,0.25);
 }
 .chk-radio-dot {
   width: 20px;
@@ -9143,6 +9129,7 @@ html.modal-open {
   justify-content: center;
   border: 2px solid #fff;
 }
+.chk-preview-info { min-width: 0; flex: 1; }
 .chk-preview-name {
   font-size: 0.85rem;
   font-weight: 600;
@@ -9449,35 +9436,28 @@ html.modal-open {
 }
 .pay-open-momo:hover { background: #B5237A; transform: translateY(-1px); }
 
-/* Simulate test buttons */
-.pay-sandbox-box {
-  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
-  border: 1px dashed #FCD34D;
-  border-radius: var(--radius-md);
-  padding: 14px 18px;
-  margin-top: 4px;
-}
-.pay-sandbox-btn {
+/* QR Copy Row and Actions */
+.pay-copy-row {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  width: 100%;
-  padding: 11px 16px;
-  border-radius: var(--radius-sm);
-  border: none;
-  font-size: 0.88rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: var(--transition);
-  margin-bottom: 8px;
 }
-.pay-sandbox-btn.momo-sim { background: #FFF0F6; color: #D82D8B; border: 1.5px solid #FBCFE8; }
-.pay-sandbox-btn.momo-sim:hover:not(:disabled) { background: #D82D8B; color: #fff; }
-.pay-sandbox-btn.vqr-sim  { background: var(--primary-light); color: var(--primary); border: 1.5px solid rgba(45,90,63,0.25); }
-.pay-sandbox-btn.vqr-sim:hover:not(:disabled)  { background: var(--primary); color: #fff; }
-.pay-sandbox-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.pay-sandbox-hint { font-size: 0.76rem; color: #92400E; line-height: 1.5; }
+.pay-qr-grid-info {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.pay-qr-actions {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pay-note-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
 
 /* ── COD card ── */
 .pay-cod-card {
