@@ -10,6 +10,7 @@ import com.succulentshop.backend.entity.Product;
 import com.succulentshop.backend.entity.User;
 import com.succulentshop.backend.exception.AppException;
 import com.succulentshop.backend.exception.ErrorCode;
+import com.succulentshop.backend.exception.InsufficientStockException;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.CouponRepository;
 import com.succulentshop.backend.repository.OrderRepository;
@@ -128,16 +129,65 @@ public class AdminService {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng"));
         String oldStatus = order.getStatus();
+
+        if ("COMPLETED".equalsIgnoreCase(oldStatus) && "CANCELLED".equalsIgnoreCase(formattedStatus)) {
+            throw new AppException(ErrorCode.INVALID_REQUEST, "Không thể hủy đơn hàng đã hoàn tất thành công.");
+        }
+
         if ("CANCELLED".equals(formattedStatus) && !"CANCELLED".equals(oldStatus)) {
+            if (Boolean.TRUE.equals(order.isStockDeducted())) {
+                for (OrderItem it : order.getItems()) {
+                    Optional<Product> pOpt = productRepository.findById(it.getProductId());
+                    if (pOpt.isPresent()) {
+                        Product p = pOpt.get();
+                        p.setInStock((p.getInStock() != null ? p.getInStock() : 0) + it.getQuantity());
+                        productRepository.save(p);
+                    }
+                }
+                order.setStockDeducted(false);
+            }
+        }
+
+        if (List.of("PAID", "SHIPPING", "COMPLETED").contains(formattedStatus) && !Boolean.TRUE.equals(order.isStockDeducted())) {
             for (OrderItem it : order.getItems()) {
                 Optional<Product> pOpt = productRepository.findById(it.getProductId());
                 if (pOpt.isPresent()) {
                     Product p = pOpt.get();
-                    p.setInStock((p.getInStock() != null ? p.getInStock() : 0) + it.getQuantity());
+                    int cur = p.getInStock() != null ? p.getInStock() : 0;
+                    if (cur < it.getQuantity()) {
+                        throw new InsufficientStockException(
+                            ErrorCode.INSUFFICIENT_STOCK,
+                            String.format("Sản phẩm \"%s\" không đủ tồn kho để xác nhận đơn hàng (Còn %d, cần %d)",
+                                    p.getName(), cur, it.getQuantity())
+                        );
+                    }
+                    p.setInStock(cur - it.getQuantity());
                     productRepository.save(p);
                 }
             }
+            order.setStockDeducted(true);
         }
+
+        if ("COMPLETED".equals(formattedStatus) && !Boolean.TRUE.equals(order.isPointsAwarded())) {
+            int totalAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
+            if (totalAmount > 0) {
+                int pointsEarned = Math.max(1, totalAmount / 10000);
+                Optional<User> customerOpt = Optional.empty();
+                if (order.getCustomerEmail() != null && !order.getCustomerEmail().isBlank()) {
+                    customerOpt = userRepository.findByEmail(order.getCustomerEmail().trim().toLowerCase());
+                }
+                if (customerOpt.isEmpty() && order.getCustomerPhone() != null && !order.getCustomerPhone().isBlank()) {
+                    customerOpt = userRepository.findByPhone(order.getCustomerPhone().trim());
+                }
+                customerOpt.ifPresent(customer -> {
+                    int currentPoints = customer.getPoints() != null ? customer.getPoints() : 0;
+                    customer.setPoints(currentPoints + pointsEarned);
+                    userRepository.save(customer);
+                });
+                order.setPointsAwarded(true);
+            }
+        }
+
         order.setStatus(formattedStatus);
         orderRepository.save(order);
 
@@ -425,6 +475,8 @@ public class AdminService {
         response.setShippingFee(o.getShippingFee());
         response.setTotalAmount(o.getTotalAmount());
         response.setStatus(o.getStatus());
+        response.setStockDeducted(o.isStockDeducted());
+        response.setPointsAwarded(o.isPointsAwarded());
         response.setCreatedAt(o.getCreatedAt() != null ? o.getCreatedAt().toString() : null);
 
         List<OrderItemResponse> itemResponses = new ArrayList<>();

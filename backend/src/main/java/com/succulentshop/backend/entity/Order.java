@@ -43,6 +43,12 @@ public class Order {
 
     private String status; // 'PENDING' | 'PAID' | 'SHIPPING' | 'COMPLETED' | 'CANCELLED'
 
+    @Column(name = "stock_deducted", nullable = false)
+    private Boolean stockDeducted = false;
+
+    @Column(name = "points_awarded", nullable = false)
+    private Boolean pointsAwarded = false;
+
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
@@ -52,6 +58,8 @@ public class Order {
         this.publicId = UUID.randomUUID().toString();
         this.createdAt = LocalDateTime.now();
         this.status = "PENDING";
+        this.stockDeducted = false;
+        this.pointsAwarded = false;
     }
 
     public void addItem(OrderItem item) {
@@ -110,4 +118,12 @@ public class Order {
 
     public List<OrderItem> getItems() { return items; }
     public void setItems(List<OrderItem> items) { this.items = items; }
+
+    public Boolean isStockDeducted() { return stockDeducted != null && stockDeducted; }
+    public Boolean getStockDeducted() { return stockDeducted; }
+    public void setStockDeducted(Boolean stockDeducted) { this.stockDeducted = stockDeducted; }
+
+    public Boolean isPointsAwarded() { return pointsAwarded != null && pointsAwarded; }
+    public Boolean getPointsAwarded() { return pointsAwarded; }
+    public void setPointsAwarded(Boolean pointsAwarded) { this.pointsAwarded = pointsAwarded; }
 }

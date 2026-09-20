@@ -25,14 +25,23 @@ public class MoMoService {
     private final OrderRepository orderRepository;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
+    private final com.succulentshop.backend.repository.ProductRepository productRepository;
 
-    public MoMoService(MoMoConfig moMoConfig, OrderRepository orderRepository) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public MoMoService(MoMoConfig moMoConfig,
+                       OrderRepository orderRepository,
+                       @org.springframework.beans.factory.annotation.Autowired(required = false) com.succulentshop.backend.repository.ProductRepository productRepository) {
         this.moMoConfig = moMoConfig;
         this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
         this.objectMapper = new ObjectMapper();
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
+    }
+
+    public MoMoService(MoMoConfig moMoConfig, OrderRepository orderRepository) {
+        this(moMoConfig, orderRepository, null);
     }
 
     /**
@@ -213,16 +222,32 @@ public class MoMoService {
         return isValid;
     }
 
-    private boolean confirmMoMoPayment(String orderId) {
+    public boolean confirmMoMoPayment(String orderId) {
         Optional<Order> orderOpt = orderRepository.findByOrderCode(orderId);
         if (orderOpt.isPresent()) {
             Order order = orderOpt.get();
+            deductStockIfPending(order);
             order.setStatus("PAID");
             orderRepository.save(order);
             log.info("✅ [MoMo IPN] Đã xác nhận thanh toán tự động cho đơn hàng #{}", orderId);
             return true;
         }
         return false;
+    }
+
+    private void deductStockIfPending(Order order) {
+        if (productRepository != null && order != null && order.getItems() != null && !Boolean.TRUE.equals(order.isStockDeducted())) {
+            for (com.succulentshop.backend.entity.OrderItem it : order.getItems()) {
+                Optional<com.succulentshop.backend.entity.Product> pOpt = productRepository.findById(it.getProductId());
+                if (pOpt.isPresent()) {
+                    com.succulentshop.backend.entity.Product p = pOpt.get();
+                    int cur = p.getInStock() != null ? p.getInStock() : 0;
+                    p.setInStock(Math.max(0, cur - it.getQuantity()));
+                    productRepository.save(p);
+                }
+            }
+            order.setStockDeducted(true);
+        }
     }
 
     /**

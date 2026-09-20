@@ -22,10 +22,19 @@ public class BankTransferService {
 
     private final BankTransferConfig bankTransferConfig;
     private final OrderRepository orderRepository;
+    private final com.succulentshop.backend.repository.ProductRepository productRepository;
 
-    public BankTransferService(BankTransferConfig bankTransferConfig, OrderRepository orderRepository) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public BankTransferService(BankTransferConfig bankTransferConfig,
+                               OrderRepository orderRepository,
+                               @org.springframework.beans.factory.annotation.Autowired(required = false) com.succulentshop.backend.repository.ProductRepository productRepository) {
         this.bankTransferConfig = bankTransferConfig;
         this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
+    }
+
+    public BankTransferService(BankTransferConfig bankTransferConfig, OrderRepository orderRepository) {
+        this(bankTransferConfig, orderRepository, null);
     }
 
     public BankTransferWebhookResponse handleWebhook(String authHeader, SepayWebhookRequest request) {
@@ -168,6 +177,7 @@ public class BankTransferService {
                     transferAmount, order.getTotalAmount());
         }
 
+        deductStockIfPending(order);
         order.setStatus("PAID");
         orderRepository.save(order);
 
@@ -200,6 +210,7 @@ public class BankTransferService {
         }
 
         Order order = orderOpt.get();
+        deductStockIfPending(order);
         order.setStatus("PAID");
         orderRepository.save(order);
 
@@ -211,6 +222,21 @@ public class BankTransferService {
         response.setOrderCode(order.getOrderCode());
         response.setStatus("PAID");
         return response;
+    }
+
+    private void deductStockIfPending(Order order) {
+        if (productRepository != null && order != null && order.getItems() != null && !Boolean.TRUE.equals(order.isStockDeducted())) {
+            for (com.succulentshop.backend.entity.OrderItem it : order.getItems()) {
+                Optional<com.succulentshop.backend.entity.Product> pOpt = productRepository.findById(it.getProductId());
+                if (pOpt.isPresent()) {
+                    com.succulentshop.backend.entity.Product p = pOpt.get();
+                    int cur = p.getInStock() != null ? p.getInStock() : 0;
+                    p.setInStock(Math.max(0, cur - it.getQuantity()));
+                    productRepository.save(p);
+                }
+            }
+            order.setStockDeducted(true);
+        }
     }
 
     private String extractOrderCode(String content, String description, String code) {

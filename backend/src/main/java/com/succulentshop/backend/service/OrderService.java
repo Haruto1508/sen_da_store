@@ -17,6 +17,8 @@ import com.succulentshop.backend.exception.InsufficientStockException;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +29,8 @@ import java.util.*;
 
 @Service
 public class OrderService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     private final OrderRepository orderRepository;
     private final ProductService productService;
@@ -69,7 +73,7 @@ public class OrderService {
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
         validateCreateOrderRequest(request);
 
-        OrderItemsResult itemsResult = processOrderItemsAndDeductStock(request.getItems());
+        OrderItemsResult itemsResult = processOrderItemsAndValidateStock(request.getItems());
         int subtotal = itemsResult.subtotal;
         List<OrderItem> orderItems = itemsResult.orderItems;
 
@@ -82,7 +86,7 @@ public class OrderService {
         Order order = buildOrderEntity(request, orderCode, subtotal, couponResult, shippingFee, totalAmount, orderItems);
         Order saved = orderRepository.save(order);
 
-        awardLoyaltyPoints(saved.getCustomerPhone(), totalAmount);
+        // Option B: Kho và Điểm Sen chỉ được xử lý khi đơn được thanh toán / duyệt / hoàn tất
 
         VietQrResponse vietQrResponse = null;
         if ("vietqr".equalsIgnoreCase(saved.getPaymentMethod())) {
@@ -114,7 +118,7 @@ public class OrderService {
 
     private record OrderItemsResult(List<OrderItem> orderItems, int subtotal) {}
 
-    private OrderItemsResult processOrderItemsAndDeductStock(List<CreateOrderRequest.OrderItemDto> itemDtos) {
+    private OrderItemsResult processOrderItemsAndValidateStock(List<CreateOrderRequest.OrderItemDto> itemDtos) {
         List<OrderItem> orderItems = new ArrayList<>();
         int subtotal = 0;
 
@@ -138,8 +142,7 @@ public class OrderService {
             }
 
             int price = p.getPrice() != null ? p.getPrice() : (itemDto.getPrice() != null ? itemDto.getPrice() : 0);
-            productService.deductStock(p.getId(), qty);
-
+            // Option B: Chỉ kiểm tra tồn kho, không trừ kho tại bước tạo đơn
             subtotal += price * qty;
             orderItems.add(new OrderItem(p.getId(), p.getName(), price, qty, p.getImage()));
         }
@@ -201,6 +204,8 @@ public class OrderService {
         order.setShippingFee(shippingFee);
         order.setTotalAmount(totalAmount);
         order.setStatus("PENDING");
+        order.setStockDeducted(false);
+        order.setPointsAwarded(false);
 
         for (OrderItem it : orderItems) {
             order.addItem(it);
@@ -208,15 +213,42 @@ public class OrderService {
         return order;
     }
 
-    private void awardLoyaltyPoints(String phone, int totalAmount) {
-        if (phone == null || phone.isBlank()) return;
-        Optional<User> userOpt = userRepository.findByPhone(phone);
-        if (userOpt.isPresent()) {
-            User customer = userOpt.get();
-            int pointsEarned = Math.max(10, totalAmount / 10000);
-            customer.setPoints((customer.getPoints() != null ? customer.getPoints() : 0) + pointsEarned);
-            userRepository.save(customer);
+    /**
+     * Tích lũy Điểm Sen thưởng cho khách hàng khi đơn hàng đạt trạng thái COMPLETED
+     * Tỷ lệ chuẩn: 10.000đ = 1 điểm Sen, tối thiểu 1 điểm nếu đơn > 0đ
+     * Đảm bảo idempotent: Không cộng trùng lặp nhờ cờ pointsAwarded
+     */
+    @Transactional
+    public void awardLoyaltyPoints(Order order) {
+        if (order == null || Boolean.TRUE.equals(order.isPointsAwarded())) {
+            return;
         }
+        int totalAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
+        if (totalAmount <= 0) {
+            return;
+        }
+
+        int pointsEarned = Math.max(1, totalAmount / 10000);
+
+        // Ưu tiên tìm tài khoản theo Email, nếu không có thì tìm theo Phone
+        Optional<User> customerOpt = Optional.empty();
+        if (order.getCustomerEmail() != null && !order.getCustomerEmail().isBlank()) {
+            customerOpt = userRepository.findByEmail(order.getCustomerEmail().trim().toLowerCase());
+        }
+        if (customerOpt.isEmpty() && order.getCustomerPhone() != null && !order.getCustomerPhone().isBlank()) {
+            customerOpt = userRepository.findByPhone(order.getCustomerPhone().trim());
+        }
+
+        customerOpt.ifPresent(customer -> {
+            int currentPoints = customer.getPoints() != null ? customer.getPoints() : 0;
+            customer.setPoints(currentPoints + pointsEarned);
+            userRepository.save(customer);
+            log.info("🎉 Tích lũy {} điểm Sen cho khách hàng {} từ đơn hàng #{}",
+                    pointsEarned, customer.getEmail() != null ? customer.getEmail() : customer.getPhone(), order.getOrderCode());
+        });
+
+        order.setPointsAwarded(true);
+        orderRepository.save(order);
     }
 
     private VietQrResponse buildVietQrResponse(String orderCode, int totalAmount) {
@@ -275,16 +307,52 @@ public class OrderService {
     }
 
     /**
-     * Hoàn trả tồn kho cho tất cả sản phẩm trong đơn hàng (khi hủy đơn hoặc xóa đơn pending)
+     * Trừ tồn kho sản phẩm khi đơn được thanh toán hoặc duyệt giao hàng (PAID, SHIPPING, COMPLETED)
+     * Đảm bảo idempotent: Không trừ trùng lặp nếu stockDeducted đã là true
      */
+    @Transactional
+    public void deductOrderStock(Order order) {
+        if (order == null || order.getItems() == null || Boolean.TRUE.equals(order.isStockDeducted())) {
+            return;
+        }
+
+        for (OrderItem it : order.getItems()) {
+            Product p = productService.findByIdOrThrow(it.getProductId());
+            int currentStock = p.getInStock() != null ? p.getInStock() : 0;
+            if (currentStock < it.getQuantity()) {
+                throw new InsufficientStockException(
+                    ErrorCode.INSUFFICIENT_STOCK,
+                    String.format("Sản phẩm \"%s\" không đủ tồn kho để xác nhận đơn hàng (Còn %d, cần %d)",
+                            p.getName(), currentStock, it.getQuantity())
+                );
+            }
+            productService.deductStock(it.getProductId(), it.getQuantity());
+        }
+
+        order.setStockDeducted(true);
+        orderRepository.save(order);
+        log.info("📦 Đã trừ tồn kho thành công cho đơn hàng #{}", order.getOrderCode());
+    }
+
+    /**
+     * Hoàn trả tồn kho cho tất cả sản phẩm trong đơn hàng
+     * Chỉ hoàn trả nếu đơn hàng thực sự đã bị trừ kho trước đó (stockDeducted == true)
+     */
+    @Transactional
     public void restoreOrderStock(Order order) {
-        if (order == null || order.getItems() == null) return;
+        if (order == null || order.getItems() == null || !Boolean.TRUE.equals(order.isStockDeducted())) {
+            return;
+        }
         for (OrderItem it : order.getItems()) {
             try {
                 productService.restoreStock(it.getProductId(), it.getQuantity());
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                log.warn("Không thể hoàn tồn kho cho sản phẩm ID={}: {}", it.getProductId(), e.getMessage());
             }
         }
+        order.setStockDeducted(false);
+        orderRepository.save(order);
+        log.info("🔄 Đã hoàn trả tồn kho thành công cho đơn hàng #{}", order.getOrderCode());
     }
 
     @Transactional
@@ -295,8 +363,24 @@ public class OrderService {
         String oldStatus = order.getStatus();
         String formatted = newStatus.trim().toUpperCase();
 
+        // Chặn không cho hủy đơn đã hoàn tất
+        if ("COMPLETED".equalsIgnoreCase(oldStatus) && "CANCELLED".equalsIgnoreCase(formatted)) {
+            throw new AppException(ErrorCode.INVALID_REQUEST, "Không thể hủy đơn hàng đã hoàn tất thành công.");
+        }
+
+        // Xử lý hoàn kho khi hủy đơn
         if ("CANCELLED".equals(formatted) && !"CANCELLED".equals(oldStatus)) {
             restoreOrderStock(order);
+        }
+
+        // Xử lý trừ kho khi đơn được duyệt / thanh toán / giao hàng (PAID, SHIPPING, COMPLETED)
+        if (List.of("PAID", "SHIPPING", "COMPLETED").contains(formatted) && !Boolean.TRUE.equals(order.isStockDeducted())) {
+            deductOrderStock(order);
+        }
+
+        // Xử lý tích điểm khi đơn hoàn tất
+        if ("COMPLETED".equals(formatted)) {
+            awardLoyaltyPoints(order);
         }
 
         order.setStatus(formatted);
@@ -314,16 +398,16 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
 
-        if ("COMPLETED".equals(order.getStatus())) {
+        if ("COMPLETED".equalsIgnoreCase(order.getStatus())) {
             throw new AppException(ErrorCode.INVALID_REQUEST, "Đơn hàng đã hoàn tất, không thể hủy.");
         }
-        if ("CANCELLED".equals(order.getStatus())) {
+        if ("CANCELLED".equalsIgnoreCase(order.getStatus())) {
             return convertOrderToResponse(order);
         }
 
         String oldStatus = order.getStatus();
 
-        // Hoàn trả tồn kho cho các sản phẩm
+        // Hoàn trả tồn kho nếu đơn đã bị trừ kho
         restoreOrderStock(order);
 
         order.setStatus("CANCELLED");
@@ -345,26 +429,24 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
 
-        if ("CANCELLED".equals(order.getStatus())) {
+        if ("CANCELLED".equalsIgnoreCase(order.getStatus())) {
             throw new AppException(ErrorCode.INVALID_REQUEST, "Đơn hàng đã bị hủy, không thể xác nhận nhận hàng.");
         }
 
         String oldStatus = order.getStatus();
-        order.setStatus("COMPLETED");
 
-        // Tích lũy Điểm Sen thưởng cho khách hàng (10.000đ = 1 điểm Sen)
-        if (order.getCustomerEmail() != null && !order.getCustomerEmail().isBlank()) {
-            Optional<User> uOpt = userRepository.findByEmail(order.getCustomerEmail().trim().toLowerCase());
-            uOpt.ifPresent(u -> {
-                int earnedPoints = Math.max(5, (order.getTotalAmount() != null ? order.getTotalAmount() : 0) / 10000);
-                u.setPoints((u.getPoints() != null ? u.getPoints() : 0) + earnedPoints);
-                userRepository.save(u);
-            });
+        // Đảm bảo tồn kho đã được trừ
+        if (!Boolean.TRUE.equals(order.isStockDeducted())) {
+            deductOrderStock(order);
         }
 
+        order.setStatus("COMPLETED");
         orderRepository.save(order);
 
-        if (orderEventPublisher != null) {
+        // Tích lũy Điểm Sen thưởng cho khách hàng
+        awardLoyaltyPoints(order);
+
+        if (orderEventPublisher != null && !"COMPLETED".equalsIgnoreCase(oldStatus)) {
             orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, "COMPLETED");
         }
 
@@ -376,8 +458,8 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
 
-        // Hoàn trả tồn kho nếu đơn đang PENDING
-        if ("PENDING".equals(order.getStatus())) {
+        // Hoàn trả tồn kho nếu đơn đã từng bị trừ kho
+        if (Boolean.TRUE.equals(order.isStockDeducted())) {
             restoreOrderStock(order);
         }
 
@@ -409,6 +491,8 @@ public class OrderService {
         response.setShippingFee(o.getShippingFee());
         response.setTotalAmount(o.getTotalAmount());
         response.setStatus(o.getStatus());
+        response.setStockDeducted(o.isStockDeducted());
+        response.setPointsAwarded(o.isPointsAwarded());
         response.setCreatedAt(o.getCreatedAt() != null ? o.getCreatedAt().toString() : null);
 
         List<OrderItemResponse> items = new ArrayList<>();

@@ -19,6 +19,8 @@ public class OrderResponse {
     private Integer shippingFee;
     private Integer totalAmount;
     private String status;
+    private Boolean stockDeducted;
+    private Boolean pointsAwarded;
     private String createdAt;
 
     public Long getId() { return id; }
@@ -71,4 +73,10 @@ public class OrderResponse {
 
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
+
+    public Boolean getStockDeducted() { return stockDeducted; }
+    public void setStockDeducted(Boolean stockDeducted) { this.stockDeducted = stockDeducted; }
+
+    public Boolean getPointsAwarded() { return pointsAwarded; }
+    public void setPointsAwarded(Boolean pointsAwarded) { this.pointsAwarded = pointsAwarded; }
 }

@@ -71,15 +71,13 @@ public class MoMoPaymentController {
             return ResponseEntity.badRequest().body(ApiResult.error("Thiếu orderCode"));
         }
 
-        Optional<Order> orderOpt = orderRepository.findByOrderCode(orderCode.trim());
-        if (orderOpt.isEmpty()) {
+        boolean confirmed = moMoService.confirmMoMoPayment(orderCode.trim());
+        if (!confirmed) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ApiResult.error("Không tìm thấy đơn hàng: " + orderCode));
         }
 
-        Order order = orderOpt.get();
-        order.setStatus("PAID");
-        orderRepository.save(order);
+        Order order = orderRepository.findByOrderCode(orderCode.trim()).get();
 
         System.out.println("⚡ [Demo Simulation] Đơn hàng #" + orderCode + " đã được xác nhận thanh toán MoMo!");
 

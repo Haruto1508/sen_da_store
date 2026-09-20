@@ -215,7 +215,7 @@ public class ProductCartOrderFlowTest {
     }
 
     @Test
-    @DisplayName("Case 6: Product ACTIVE và còn stock -> Checkout thành công, trừ kho và tạo Order bình thường")
+    @DisplayName("Case 6: Product ACTIVE và còn stock -> Checkout thành công (Option B: chưa trừ kho), chỉ trừ khi sang PAID/SHIPPING")
     void testCase6_CheckoutSuccessWhenActiveAndInStock() {
         Product p = new Product();
         p.setId("sen-da-hoa-hong");
@@ -225,7 +225,6 @@ public class ProductCartOrderFlowTest {
         p.setStatus("ACTIVE");
 
         when(productRepository.findById("sen-da-hoa-hong")).thenReturn(Optional.of(p));
-        when(productRepository.save(any(Product.class))).thenReturn(p);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         CreateOrderRequest request = new CreateOrderRequest();
@@ -248,9 +247,114 @@ public class ProductCartOrderFlowTest {
         assertEquals("PENDING", orderMap.getStatus());
         assertEquals("Phạm Văn D", orderMap.getCustomerName());
 
-        // Kiểm tra tồn kho đã bị trừ đúng 2 cây (10 - 2 = 8)
+        // Phương án B: Tại thời điểm tạo đơn, kho CHƯA bị trừ (vẫn giữ nguyên 10)
+        assertEquals(10, p.getInStock());
+        assertEquals(false, orderMap.getStockDeducted());
+
+        // Khi đơn được cập nhật sang PAID / SHIPPING -> kho mới thực sự bị trừ
+        Order createdOrder = new Order();
+        createdOrder.setId(123L);
+        createdOrder.setOrderCode(orderMap.getOrderCode());
+        createdOrder.setCustomerName("Phạm Văn D");
+        createdOrder.setCustomerPhone("0933445566");
+        createdOrder.setStatus("PENDING");
+        createdOrder.setStockDeducted(false);
+        createdOrder.setTotalAmount(orderMap.getTotalAmount());
+        OrderItem ordItem = new OrderItem("sen-da-hoa-hong", "Sen Đá Hoa Hồng Đen", 55000, 2, null);
+        createdOrder.addItem(ordItem);
+
+        when(orderRepository.findById(123L)).thenReturn(Optional.of(createdOrder));
+
+        orderService.updateOrderStatus(123L, "PAID");
         assertEquals(8, p.getInStock());
-        verify(productRepository, atLeastOnce()).save(p);
-        verify(orderRepository, times(1)).save(any(Order.class));
+        assertTrue(createdOrder.isStockDeducted());
+
+        // Nếu chuyển tiếp sang SHIPPING -> không trừ lần 2
+        orderService.updateOrderStatus(123L, "SHIPPING");
+        assertEquals(8, p.getInStock());
+    }
+
+    @Test
+    @DisplayName("Case 7: Hủy đơn hàng PENDING (chưa trừ kho) -> Không hoàn kho, kho giữ nguyên")
+    void testCase7_CancelPendingOrderDoesNotRestoreStock() {
+        Order pendingOrder = new Order();
+        pendingOrder.setId(7L);
+        pendingOrder.setStatus("PENDING");
+        pendingOrder.setStockDeducted(false);
+        pendingOrder.addItem(new OrderItem("sen-da-p7", "Sen P7", 50000, 2, null));
+        when(orderRepository.findById(7L)).thenReturn(Optional.of(pendingOrder));
+
+        orderService.cancelOrder(7L, "Customer cancelled");
+        assertEquals("CANCELLED", pendingOrder.getStatus());
+        assertFalse(pendingOrder.isStockDeducted());
+        // Vì đơn chưa trừ kho nên không bao giờ truy vấn hay cập nhật kho sản phẩm
+        verify(productRepository, never()).findById(any());
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Case 8: Hủy đơn hàng đã trừ kho -> Hoàn kho chính xác 1 lần, không bị hoàn đúp khi xóa đơn")
+    void testCase8_CancelPaidOrderRestoresStockSafelyOnce() {
+        Product p = new Product();
+        p.setId("sen-da-p8");
+        p.setInStock(8); // Đã bị trừ trước đó (10 - 2 = 8)
+        when(productRepository.findById("sen-da-p8")).thenReturn(Optional.of(p));
+
+        Order paidOrder = new Order();
+        paidOrder.setId(8L);
+        paidOrder.setStatus("PAID");
+        paidOrder.setStockDeducted(true);
+        paidOrder.addItem(new OrderItem("sen-da-p8", "Sen P8", 50000, 2, null));
+        when(orderRepository.findById(8L)).thenReturn(Optional.of(paidOrder));
+
+        orderService.cancelOrder(8L, "Customer cancelled paid order");
+        assertEquals("CANCELLED", paidOrder.getStatus());
+        // Hoàn kho thành 10 (8 + 2 = 10)
+        assertEquals(10, p.getInStock());
+        assertFalse(paidOrder.isStockDeducted());
+
+        // Thao tác xóa đơn sau đó -> không hoàn kho thêm lần nữa
+        orderService.deleteOrder(8L);
+        assertEquals(10, p.getInStock());
+    }
+
+    @Test
+    @DisplayName("Case 9: Đơn hàng đã COMPLETED -> Chặn không cho phép hủy đơn (INVALID_REQUEST)")
+    void testCase9_CancelCompletedOrderThrowsException() {
+        Order completedOrder = new Order();
+        completedOrder.setId(9L);
+        completedOrder.setStatus("COMPLETED");
+        when(orderRepository.findById(9L)).thenReturn(Optional.of(completedOrder));
+
+        AppException ex = assertThrows(AppException.class, () -> orderService.cancelOrder(9L, "Muốn hủy"));
+        assertEquals(ErrorCode.INVALID_REQUEST, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Case 10: Tích điểm khi đơn COMPLETED -> Chỉ tích điểm 1 lần, không cộng trùng khi confirmReceived lại")
+    void testCase10_AwardLoyaltyPointsOnceOnCompleted() {
+        com.succulentshop.backend.entity.User user = new com.succulentshop.backend.entity.User();
+        user.setEmail("user@example.com");
+        user.setPoints(0);
+
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
+
+        Order order = new Order();
+        order.setId(10L);
+        order.setCustomerEmail("user@example.com");
+        order.setTotalAmount(250000);
+        order.setStatus("SHIPPING");
+        order.setStockDeducted(true);
+        order.setPointsAwarded(false);
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+
+        orderService.updateOrderStatus(10L, "COMPLETED");
+        // 250,000 VND -> 25 điểm
+        assertEquals(25, user.getPoints());
+        assertTrue(order.isPointsAwarded());
+
+        // Khách bấm nhận hàng hoặc hệ thống gọi confirmReceived lần nữa -> Không bị cộng đúp điểm
+        orderService.confirmReceived(10L);
+        assertEquals(25, user.getPoints());
     }
 }
