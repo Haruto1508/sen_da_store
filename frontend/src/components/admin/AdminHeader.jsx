@@ -1,15 +1,18 @@
 import React from 'react';
-import { Menu, Plus, Store } from 'lucide-react';
+import { Menu, Plus, Store, LogOut, KeyRound, ShieldCheck } from 'lucide-react';
 
 export default function AdminHeader({
   viewMode,
   activeTab,
+  setActiveTab,
   activeCustomer,
   activeOrder,
   setMobileSidebarOpen,
   onOpenAddProduct,
   onOpenAddCoupon,
-  isRealtimeConnected = false
+  isRealtimeConnected = false,
+  user,
+  onLogout
 }) {
   return (
     <header className="admin-topbar">
@@ -38,6 +41,7 @@ export default function AdminHeader({
                   {activeTab === 'coupons' && 'Mã Ưu Đãi & Voucher'}
                   {activeTab === 'customers' && 'Khách Hàng & Phân Quyền'}
                   {activeTab === 'shipping' && 'Cấu Hình Phí Vận Chuyển'}
+                  {activeTab === 'admin-accounts' && 'Tài Khoản Quản Trị & Mật Khẩu'}
                 </>
               )}
             </span>
@@ -53,6 +57,7 @@ export default function AdminHeader({
                 {activeTab === 'coupons' && 'Mã Ưu Đãi & Voucher Giảm Giá'}
                 {activeTab === 'customers' && 'Khách Hàng & Phân Quyền Quản Trị'}
                 {activeTab === 'shipping' && 'Cấu Hình Phí Vận Chuyển Từng Tỉnh / Thành Phố'}
+                {activeTab === 'admin-accounts' && 'Quản Lý Tài Khoản Quản Trị Viên & Đổi Mật Khẩu'}
               </>
             )}
           </h1>
@@ -94,7 +99,7 @@ export default function AdminHeader({
         <button
           className="btn-primary"
           onClick={onOpenAddProduct}
-          style={{ padding: '8px 16px', fontSize: '0.84rem' }}
+          style={{ padding: '8px 14px', fontSize: '0.84rem' }}
         >
           <Plus size={15} />
           <span>Thêm Sen Đá</span>
@@ -103,11 +108,94 @@ export default function AdminHeader({
         <button
           className="btn-secondary"
           onClick={onOpenAddCoupon}
-          style={{ padding: '8px 16px', fontSize: '0.84rem' }}
+          style={{ padding: '8px 14px', fontSize: '0.84rem' }}
         >
           <Plus size={15} />
           <span>Tạo Voucher</span>
         </button>
+
+        {/* Cụm Thông Tin Admin & Đăng Xuất */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginLeft: '6px',
+            paddingLeft: '12px',
+            borderLeft: '1px solid var(--border-light, #e2e8f0)'
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setActiveTab && setActiveTab('admin-accounts')}
+            title="Xem hồ sơ & Đổi mật khẩu tài khoản Quản trị"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: activeTab === 'admin-accounts' ? '#ecfdf5' : '#f8fafc',
+              border: activeTab === 'admin-accounts' ? '1px solid #10b981' : '1px solid #cbd5e1',
+              padding: '4px 10px 4px 6px',
+              borderRadius: '20px',
+              cursor: 'pointer',
+              transition: 'all 0.15s'
+            }}
+          >
+            <img
+              src={
+                user?.avatar ||
+                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
+              }
+              alt="Admin"
+              style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                objectFit: 'cover'
+              }}
+            />
+            <span
+              style={{
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                color: '#1e293b',
+                maxWidth: '120px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {user?.name || 'Admin'}
+            </span>
+            <KeyRound size={13} color="#2563eb" title="Đổi mật khẩu" />
+          </button>
+
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              title="Đăng xuất khỏi tài khoản Quản trị"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '5px',
+                padding: '7px 12px',
+                borderRadius: '8px',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#dc2626',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s'
+              }}
+            >
+              <LogOut size={14} />
+              <span>Đăng Xuất</span>
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );

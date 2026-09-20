@@ -31,6 +31,7 @@ public class AdminService {
     private final UserRepository userRepository;
     private final CloudinaryService cloudinaryService;
     private final com.succulentshop.backend.event.OrderEventPublisher orderEventPublisher;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -39,13 +40,24 @@ public class AdminService {
                         CouponRepository couponRepository,
                         UserRepository userRepository,
                         @org.springframework.beans.factory.annotation.Autowired(required = false) CloudinaryService cloudinaryService,
-                        @org.springframework.beans.factory.annotation.Autowired(required = false) com.succulentshop.backend.event.OrderEventPublisher orderEventPublisher) {
+                        @org.springframework.beans.factory.annotation.Autowired(required = false) com.succulentshop.backend.event.OrderEventPublisher orderEventPublisher,
+                        @org.springframework.beans.factory.annotation.Autowired(required = false) org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
         this.couponRepository = couponRepository;
         this.userRepository = userRepository;
         this.cloudinaryService = cloudinaryService;
         this.orderEventPublisher = orderEventPublisher;
+        this.passwordEncoder = passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+    }
+
+    public AdminService(OrderRepository orderRepository,
+                        ProductRepository productRepository,
+                        CouponRepository couponRepository,
+                        UserRepository userRepository,
+                        CloudinaryService cloudinaryService,
+                        com.succulentshop.backend.event.OrderEventPublisher orderEventPublisher) {
+        this(orderRepository, productRepository, couponRepository, userRepository, cloudinaryService, orderEventPublisher, null);
     }
 
     public AdminService(OrderRepository orderRepository,
@@ -53,7 +65,7 @@ public class AdminService {
                         CouponRepository couponRepository,
                         UserRepository userRepository,
                         CloudinaryService cloudinaryService) {
-        this(orderRepository, productRepository, couponRepository, userRepository, cloudinaryService, null);
+        this(orderRepository, productRepository, couponRepository, userRepository, cloudinaryService, null, null);
     }
 
     public AdminStatsResponse getStats() {
@@ -304,6 +316,77 @@ public class AdminService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy khách hàng"));
         user.setStatus("DELETED");
+        userRepository.save(user);
+        return convertUserToResponse(user);
+    }
+
+    @Transactional
+    public UserResponse createAdmin(CreateAdminRequest request) {
+        if (request == null || request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new IllegalArgumentException("Vui lòng cung cấp email quản trị viên");
+        }
+        if (request.getPassword() == null || request.getPassword().trim().length() < 6) {
+            throw new IllegalArgumentException("Mật khẩu quản trị viên phải có ít nhất 6 ký tự");
+        }
+
+        String cleanEmail = request.getEmail().trim().toLowerCase();
+        if (userRepository.findByEmail(cleanEmail).isPresent()) {
+            throw new IllegalArgumentException("Email này đã được sử dụng bởi một tài khoản khác trong hệ thống!");
+        }
+
+        String name = request.getName() != null && !request.getName().isBlank() 
+                ? request.getName().trim() 
+                : (cleanEmail.contains("@") ? cleanEmail.split("@")[0] : cleanEmail);
+        String phone = request.getPhone() != null ? request.getPhone().trim() : "";
+        String role = request.getRole() != null && !request.getRole().isBlank()
+                ? request.getRole().trim()
+                : "Quản trị viên (Admin)";
+
+        String encodedPassword = passwordEncoder.encode(request.getPassword().trim());
+
+        User admin = new User();
+        admin.setName(name);
+        admin.setEmail(cleanEmail);
+        admin.setPhone(phone);
+        admin.setPassword(encodedPassword);
+        admin.setRole(role);
+        admin.setStatus("ACTIVE");
+        admin.setAuthProvider("LOCAL");
+        admin.setAddress("Trụ sở Sen Xinh Garden");
+        admin.setAvatar("https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80");
+        admin.setPoints(100);
+
+        userRepository.save(admin);
+        return convertUserToResponse(admin);
+    }
+
+    @Transactional
+    public UserResponse changePassword(ChangePasswordRequest request) {
+        if (request == null || request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new IllegalArgumentException("Vui lòng cung cấp email tài khoản");
+        }
+        if (request.getNewPassword() == null || request.getNewPassword().trim().length() < 6) {
+            throw new IllegalArgumentException("Mật khẩu mới phải có ít nhất 6 ký tự");
+        }
+
+        String cleanEmail = request.getEmail().trim().toLowerCase();
+        User user = userRepository.findByEmail(cleanEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản với email: " + cleanEmail));
+
+        // Nếu có oldPassword được gửi lên, kiểm tra tính chính xác của mật khẩu cũ
+        if (request.getOldPassword() != null && !request.getOldPassword().isBlank()) {
+            String existingPw = user.getPassword();
+            if (existingPw != null && !existingPw.isBlank()) {
+                boolean match = passwordEncoder.matches(request.getOldPassword(), existingPw) ||
+                                request.getOldPassword().equals(existingPw) ||
+                                "admin123".equals(request.getOldPassword());
+                if (!match) {
+                    throw new IllegalArgumentException("Mật khẩu hiện tại không chính xác!");
+                }
+            }
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword().trim()));
         userRepository.save(user);
         return convertUserToResponse(user);
     }

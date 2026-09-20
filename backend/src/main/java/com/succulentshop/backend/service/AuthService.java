@@ -52,24 +52,30 @@ public class AuthService {
     private final UserRepository userRepository;
     private final SocialAccountRepository socialAccountRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
     private final RestTemplate restTemplate;
 
     @Value("${google.client-id:}")
     private String configuredClientId;
 
     public AuthService(UserRepository userRepository) {
-        this(userRepository, null, new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder());
+        this(userRepository, null, new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(), null);
     }
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
-        this(userRepository, null, passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder());
+        this(userRepository, null, passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(), null);
+    }
+
+    public AuthService(UserRepository userRepository, SocialAccountRepository socialAccountRepository, PasswordEncoder passwordEncoder) {
+        this(userRepository, socialAccountRepository, passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(), null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
-    public AuthService(UserRepository userRepository, SocialAccountRepository socialAccountRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(UserRepository userRepository, SocialAccountRepository socialAccountRepository, PasswordEncoder passwordEncoder, @org.springframework.beans.factory.annotation.Autowired(required = false) EmailService emailService) {
         this.userRepository = userRepository;
         this.socialAccountRepository = socialAccountRepository;
         this.passwordEncoder = passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+        this.emailService = emailService;
         this.restTemplate = new RestTemplate();
     }
 
@@ -84,10 +90,23 @@ public class AuthService {
         String cleanEmail = email.trim().toLowerCase();
         String otpCode = String.format("%06d", new Random().nextInt(999999));
         otpStorage.put(cleanEmail, new OtpEntry(otpCode, LocalDateTime.now().plusMinutes(5)));
-        log.info("🔑 [SEN XINH OTP] Mã xác thực OTP gửi tới email [{}]: {} (Hiệu lực 5 phút)", cleanEmail, otpCode);
+        log.info("🔑 [SEN XINH OTP] Mã xác thực OTP cho [{}]: {} (Hiệu lực 5 phút)", cleanEmail, otpCode);
+
+        boolean emailSent = false;
+        if (emailService != null) {
+            emailSent = emailService.sendOtpEmail(cleanEmail, otpCode);
+        }
+
+        String message;
+        if (emailSent) {
+            message = "Mã xác thực OTP đã được gửi đến hộp thư " + cleanEmail + ". Quý khách vui lòng kiểm tra email!";
+        } else {
+            message = "Mã OTP đã được tạo cho " + cleanEmail + " (Chưa cấu hình SMTP gửi mail thực tế).";
+        }
+
         return new SendOtpResponse(
             true, 
-            "Mã OTP xác thực gồm 6 chữ số đã được gửi đến email " + cleanEmail + ". Vui lòng kiểm tra hộp thư!", 
+            message, 
             cleanEmail, 
             300, 
             otpCode

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Mail, 
   ArrowRight, 
+  ArrowLeft,
+  Edit3,
   Sparkles, 
   ShieldCheck, 
   Sprout, 
@@ -10,9 +12,6 @@ import {
   HelpCircle,
   Loader2,
   KeyRound,
-  Lock,
-  Eye,
-  EyeOff,
   CheckCircle2,
   RotateCw
 } from 'lucide-react';
@@ -20,12 +19,11 @@ import { loginUser, loginWithGoogle, sendOtp } from '../services/api';
 
 export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState('');
+  const [devOtp, setDevOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
-  const [authMethod, setAuthMethod] = useState('otp'); // 'otp' | 'password'
+  const [step, setStep] = useState('login'); // 'login' | 'verify-otp'
 
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -44,8 +42,8 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     return () => clearInterval(interval);
   }, [otpCountdown]);
 
-  // Gửi mã OTP về Email
-  const handleSendOtp = async (e) => {
+  // Gửi mã OTP và chuyển sang trang/màn hình nhập OTP chuyên biệt
+  const handleRequestOtpAndProceed = async (e) => {
     if (e) e.preventDefault();
     const cleanEmail = email.trim();
     if (!cleanEmail) {
@@ -61,10 +59,17 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
       const res = await sendOtp(cleanEmail);
       setOtpSent(true);
       setOtpCountdown(60);
-      const devHint = res.devOtp ? ` [Mã test: ${res.devOtp}]` : '';
-      setInfoMsg(res.message || `Mã OTP đã được gửi đến ${cleanEmail}.${devHint}`);
+      setStep('verify-otp');
+      if (res.devOtp) {
+        setDevOtp(res.devOtp);
+        setOtp(res.devOtp); // Tự động điền trước mã thử nghiệm để người dùng test ngay lập tức
+      } else {
+        setDevOtp('');
+        setOtp('');
+      }
+      setInfoMsg(res.message || `Mã OTP đã được gửi đến ${cleanEmail}.`);
       if (addToast) {
-        addToast(`Mã OTP đã gửi đến ${cleanEmail}!${devHint}`, 'info');
+        addToast(res.message || `Mã OTP đã gửi đến ${cleanEmail}!`, 'info');
       }
     } catch (err) {
       console.error('Lỗi gửi OTP:', err);
@@ -74,22 +79,38 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     }
   };
 
-  // Xử lý gửi biểu mẫu đăng nhập (OTP hoặc Mật Khẩu)
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Gửi lại mã OTP trong trang verify-otp
+  const handleResendOtp = async () => {
     const cleanEmail = email.trim();
-    if (!cleanEmail) {
-      setErrorMsg('Vui lòng nhập Email của bạn!');
-      return;
+    if (!cleanEmail || sendingOtp || otpCountdown > 0) return;
+    setErrorMsg('');
+    setInfoMsg('');
+    setSendingOtp(true);
+    try {
+      const res = await sendOtp(cleanEmail);
+      setOtpCountdown(60);
+      if (res.devOtp) {
+        setDevOtp(res.devOtp);
+        setOtp(res.devOtp);
+      }
+      setInfoMsg(res.message || `Đã gửi lại mã OTP mới đến ${cleanEmail}.`);
+      if (addToast) {
+        addToast(`Đã tạo mã OTP mới!`, 'info');
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Không thể gửi lại mã OTP. Vui lòng thử lại sau!');
+    } finally {
+      setSendingOtp(false);
     }
+  };
 
-    if (authMethod === 'otp' && !otp.trim()) {
-      setErrorMsg('Vui lòng nhập mã OTP 6 số được gửi về email của bạn!');
-      return;
-    }
-
-    if (authMethod === 'password' && !password) {
-      setErrorMsg('Vui lòng nhập mật khẩu tài khoản của bạn!');
+  // Xác thực mã OTP và hoàn tất đăng nhập
+  const handleVerifyOtpAndLogin = async (e) => {
+    if (e) e.preventDefault();
+    const cleanEmail = email.trim();
+    const cleanOtp = otp.trim();
+    if (!cleanOtp) {
+      setErrorMsg('Vui lòng nhập mã OTP 6 chữ số đã được gửi về email của bạn!');
       return;
     }
 
@@ -97,11 +118,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     setLoading(true);
 
     try {
-      const res = await loginUser(
-        cleanEmail, 
-        authMethod === 'password' ? password : '', 
-        authMethod === 'otp' ? otp.trim() : ''
-      );
+      const res = await loginUser(cleanEmail, '', cleanOtp);
 
       if (res.success && res.data) {
         const displayName = res.data.name || res.data.user?.name || 'bạn';
@@ -123,7 +140,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
         }
       }
     } catch (err) {
-      console.error('Lỗi đăng nhập tài khoản:', err);
+      console.error('Lỗi xác thực mã OTP:', err);
       const msg = err.message || '';
       const friendlyMsg = (!msg || msg.includes('Failed to fetch'))
         ? 'Không thể kết nối đến máy chủ. Quý khách vui lòng thử lại sau!'
@@ -313,338 +330,423 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
 
           {/* Right Form Content */}
           <div className="auth-content">
-            <div className="auth-form-header">
-              {/* Trust Badge */}
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: '#EBF4EE',
-                color: 'var(--primary)',
-                padding: '4px 12px',
-                borderRadius: 'var(--radius-full)',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                marginBottom: '14px'
-              }}>
-                <ShieldCheck size={14} />
-                <span>Đăng Nhập Bảo Mật & An Toàn</span>
-              </div>
+            {step === 'verify-otp' ? (
+              /* DEDICATED OTP VERIFICATION SCREEN */
+              <div className="auth-otp-screen" style={{ animation: 'fadeIn 0.25s ease' }}>
+                {/* Back to Login Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('login');
+                    setErrorMsg('');
+                    setInfoMsg('');
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#64748B',
+                    fontSize: '0.86rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '0 0 16px 0',
+                    transition: 'color 0.2s ease'
+                  }}
+                >
+                  <ArrowLeft size={16} />
+                  <span>Quay lại đổi email / mật khẩu</span>
+                </button>
 
-              <h1 className="auth-title">Chào Mừng Bạn Đến Vườn Sen Xinh! 🌿</h1>
-              <p className="auth-subtitle">
-                Lựa chọn phương thức xác thực để bảo vệ thông tin tài khoản và đơn hàng
-              </p>
-            </div>
+                <div className="auth-form-header" style={{ textAlign: 'center', marginBottom: '22px' }}>
+                  <div style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    background: '#EBF4EE',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--primary)',
+                    margin: '0 auto 14px auto',
+                    boxShadow: '0 4px 14px rgba(46, 125, 50, 0.12)'
+                  }}>
+                    <KeyRound size={28} />
+                  </div>
 
-            {/* Priority 1: Google One-Click Auth */}
-            <div className="auth-social-row" style={{ marginBottom: '18px' }}>
-              <button 
-                type="button" 
-                className="auth-social-btn"
-                disabled={loading}
-                onClick={handleGoogleLogin}
-                style={{
-                  width: '100%',
-                  height: '48px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1.5px solid var(--border-light)',
-                  background: '#ffffff',
-                  fontSize: '0.94rem',
-                  fontWeight: 600,
-                  color: 'var(--text-main)',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-                title="Đăng nhập bảo mật 1 chạm với tài khoản Google"
-              >
-                {loading ? (
-                  <Loader2 size={20} className="animate-spin" />
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                  </svg>
-                )}
-                <span>Tiếp Tục Với Google</span>
-              </button>
-            </div>
-
-            {/* Social Separator */}
-            <div className="auth-separator" style={{ margin: '0 0 16px 0' }}>
-              <span>hoặc chọn phương thức xác thực</span>
-            </div>
-
-            {/* Dual Method Tabs: Phương án 2 (OTP) & Phương án 1 (Password) */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '6px',
-              padding: '4px',
-              background: '#F1F5F9',
-              borderRadius: '10px',
-              marginBottom: '18px'
-            }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMethod('otp');
-                  setErrorMsg('');
-                  setInfoMsg('');
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontSize: '0.86rem',
-                  fontWeight: authMethod === 'otp' ? 700 : 500,
-                  background: authMethod === 'otp' ? '#ffffff' : 'transparent',
-                  color: authMethod === 'otp' ? 'var(--primary)' : '#64748B',
-                  boxShadow: authMethod === 'otp' ? '0 2px 5px rgba(0,0,0,0.06)' : 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                <KeyRound size={15} />
-                <span>Mã OTP Email</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMethod('password');
-                  setErrorMsg('');
-                  setInfoMsg('');
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontSize: '0.86rem',
-                  fontWeight: authMethod === 'password' ? 700 : 500,
-                  background: authMethod === 'password' ? '#ffffff' : 'transparent',
-                  color: authMethod === 'password' ? 'var(--primary)' : '#64748B',
-                  boxShadow: authMethod === 'password' ? '0 2px 5px rgba(0,0,0,0.06)' : 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                <Lock size={15} />
-                <span>Mật Khẩu</span>
-              </button>
-            </div>
-
-            {/* Error Message */}
-            {errorMsg && (
-              <div className="auth-error-msg" style={{ marginBottom: '14px', fontSize: '0.86rem', padding: '10px 14px', background: '#FEE2E2', borderRadius: '8px', border: '1px solid #FCA5A5' }}>
-                <HelpCircle size={16} />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            {/* Info Message */}
-            {infoMsg && (
-              <div style={{
-                marginBottom: '14px',
-                fontSize: '0.85rem',
-                padding: '10px 14px',
-                background: '#ECFDF5',
-                borderRadius: '8px',
-                border: '1px solid #A7F3D0',
-                color: '#065F46',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <CheckCircle2 size={16} color="#059669" style={{ flexShrink: 0 }} />
-                <span>{infoMsg}</span>
-              </div>
-            )}
-
-            {/* Main Form */}
-            <form className="auth-form" onSubmit={handleSubmit}>
-              {/* Email Field */}
-              <div className="auth-field">
-                <label htmlFor="login-email">Địa Chỉ Email</label>
-                <div className="auth-input-wrap">
-                  <span className="auth-input-icon">
-                    <Mail size={18} />
-                  </span>
-                  <input
-                    id="login-email"
-                    type="email"
-                    className={`auth-input ${errorMsg ? 'has-error' : ''}`}
-                    placeholder="VD: ban@gmail.com"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (errorMsg) setErrorMsg('');
-                    }}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* METHOD 1: OTP VERIFICATION */}
-              {authMethod === 'otp' && (
-                <div className="auth-field" style={{ marginTop: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <label htmlFor="login-otp" style={{ margin: 0 }}>Mã Xác Thực OTP (6 số)</label>
+                  <h1 className="auth-title" style={{ fontSize: '1.45rem', marginBottom: '6px' }}>
+                    Nhập Mã Xác Thực OTP 🌿
+                  </h1>
+                  <p className="auth-subtitle" style={{ margin: 0, fontSize: '0.88rem', color: '#64748B' }}>
+                    Mã xác thực 6 chữ số đã được gửi an toàn đến:
+                  </p>
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginTop: '8px',
+                    padding: '6px 14px',
+                    background: '#F1F5F9',
+                    borderRadius: '20px',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    color: 'var(--text-main)',
+                    border: '1px solid #E2E8F0'
+                  }}>
+                    <Mail size={15} color="var(--primary)" />
+                    <span>{email}</span>
                     <button
                       type="button"
-                      onClick={handleSendOtp}
-                      disabled={sendingOtp || otpCountdown > 0 || !email.trim()}
+                      onClick={() => {
+                        setStep('login');
+                        setErrorMsg('');
+                      }}
+                      title="Đổi địa chỉ email khác"
                       style={{
                         background: 'none',
                         border: 'none',
-                        color: (otpCountdown > 0 || !email.trim()) ? '#94A3B8' : 'var(--primary)',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        cursor: (otpCountdown > 0 || !email.trim()) ? 'not-allowed' : 'pointer',
-                        padding: 0,
+                        color: 'var(--primary)',
+                        cursor: 'pointer',
+                        padding: '2px',
                         display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
+                        alignItems: 'center'
                       }}
                     >
-                      {sendingOtp ? (
-                        <>
-                          <Loader2 size={12} className="animate-spin" />
-                          <span>Đang gửi mã...</span>
-                        </>
-                      ) : otpCountdown > 0 ? (
-                        <span>Gửi lại sau ({otpCountdown}s)</span>
-                      ) : (
-                        <>
-                          <RotateCw size={12} />
-                          <span>{otpSent ? 'Gửi lại mã OTP' : 'Nhận mã xác thực OTP'}</span>
-                        </>
-                      )}
+                      <Edit3 size={14} />
                     </button>
                   </div>
+                </div>
 
-                  <div className="auth-input-wrap">
-                    <span className="auth-input-icon">
-                      <KeyRound size={18} />
-                    </span>
-                    <input
-                      id="login-otp"
-                      type="text"
-                      maxLength={6}
-                      className="auth-input"
-                      placeholder={otpSent ? "Nhập mã 6 số (VD: 123456)" : "Bấm 'Nhận mã xác thực OTP' ở trên"}
-                      value={otp}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '');
-                        setOtp(val);
-                        if (errorMsg) setErrorMsg('');
-                      }}
-                      style={{ letterSpacing: otp ? '4px' : 'normal', fontWeight: otp ? 700 : 400 }}
-                    />
+                {/* Error Message */}
+                {errorMsg && (
+                  <div className="auth-error-msg" style={{ marginBottom: '14px', fontSize: '0.86rem', padding: '10px 14px', background: '#FEE2E2', borderRadius: '8px', border: '1px solid #FCA5A5' }}>
+                    <HelpCircle size={16} />
+                    <span>{errorMsg}</span>
                   </div>
-                  <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Mã OTP có hiệu lực trong 5 phút. Chỉ người sở hữu hộp thư mới nhận được mã này.
+                )}
+
+                {/* Info Message */}
+                {infoMsg && (
+                  <div style={{
+                    marginBottom: '14px',
+                    fontSize: '0.85rem',
+                    padding: '10px 14px',
+                    background: '#ECFDF5',
+                    borderRadius: '8px',
+                    border: '1px solid #A7F3D0',
+                    color: '#065F46',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <CheckCircle2 size={16} color="#059669" style={{ flexShrink: 0 }} />
+                    <span>{infoMsg}</span>
+                  </div>
+                )}
+
+                {/* Dev OTP Helper Box (Chế độ thử nghiệm khi chưa cấu hình SMTP Gmail) */}
+                {devOtp && (
+                  <div style={{
+                    margin: '0 0 16px 0',
+                    padding: '12px 14px',
+                    background: '#FEF3C7',
+                    border: '1.5px dashed #F59E0B',
+                    borderRadius: '10px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '0.76rem', color: '#92400E', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      🔑 Mã OTP thử nghiệm (Đã tự động điền sẵn)
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#78350F' }}>
+                      Mã xác thực của bạn: <strong style={{ fontSize: '1.3rem', letterSpacing: '4px', color: '#B45309', fontFamily: 'monospace' }}>{devOtp}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOtp(devOtp)}
+                      style={{
+                        marginTop: '8px',
+                        padding: '4px 14px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        background: '#F59E0B',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Bấm để tự động điền ({devOtp})
+                    </button>
+                  </div>
+                )}
+
+                {/* Form Nhập OTP */}
+                <form className="auth-form" onSubmit={handleVerifyOtpAndLogin}>
+                  <div className="auth-field">
+                    <label htmlFor="login-otp-code" style={{ textAlign: 'center', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
+                      Mã Xác Thực (6 chữ số)
+                    </label>
+                    <div className="auth-input-wrap">
+                      <input
+                        id="login-otp-code"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        autoFocus
+                        className={`auth-input ${errorMsg ? 'has-error' : ''}`}
+                        placeholder="• • • • • •"
+                        value={otp}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          setOtp(val);
+                          if (errorMsg) setErrorMsg('');
+                        }}
+                        style={{
+                          textAlign: 'center',
+                          fontSize: '1.6rem',
+                          letterSpacing: '8px',
+                          fontWeight: 700,
+                          height: '52px',
+                          fontFamily: 'monospace',
+                          borderRadius: '10px'
+                        }}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Countdown & Resend */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    margin: '14px 0 10px 0',
+                    fontSize: '0.85rem'
+                  }}>
+                    {otpCountdown > 0 ? (
+                      <span style={{ color: '#64748B' }}>
+                        Gửi lại mã mới sau: <strong style={{ color: 'var(--primary)' }}>{otpCountdown}s</strong>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        disabled={sendingOtp}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary)',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: 0
+                        }}
+                      >
+                        {sendingOtp ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            <span>Đang gửi lại mã...</span>
+                          </>
+                        ) : (
+                          <>
+                            <RotateCw size={14} />
+                            <span>Chưa nhận được mã? Gửi lại mã OTP</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  <p style={{ textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 18px 0', lineHeight: 1.45 }}>
+                    Vui lòng kiểm tra thêm thư mục <strong>Thư rác (Spam)</strong> hoặc <strong>Quảng cáo</strong> nếu không thấy trong hộp thư chính.
+                  </p>
+
+                  {/* Submit Button */}
+                  <button 
+                    type="submit" 
+                    className="auth-submit-btn"
+                    disabled={loading || otp.trim().length < 4}
+                    style={{ height: '48px' }}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        <span>Đang xác thực mã OTP...</span>
+                      </>
+                    ) : (
+                      <>
+                        <LogIn size={18} />
+                        <span>Xác Nhận & Đăng Nhập</span>
+                        <ArrowRight size={16} />
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+            ) : (
+              /* STANDARD LOGIN SCREEN (EMAIL + OTP / PASSWORD) */
+              <div>
+                <div className="auth-form-header">
+                  {/* Trust Badge */}
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#EBF4EE',
+                    color: 'var(--primary)',
+                    padding: '4px 12px',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    marginBottom: '14px'
+                  }}>
+                    <ShieldCheck size={14} />
+                    <span>Đăng Nhập Bảo Mật & An Toàn</span>
+                  </div>
+
+                  <h1 className="auth-title">Chào Mừng Bạn Đến Vườn Sen Xinh! 🌿</h1>
+                  <p className="auth-subtitle">
+                    Lựa chọn phương thức xác thực để bảo vệ thông tin tài khoản và đơn hàng
                   </p>
                 </div>
-              )}
 
-              {/* METHOD 2: PASSWORD VERIFICATION */}
-              {authMethod === 'password' && (
-                <div className="auth-field" style={{ marginTop: '12px' }}>
-                  <label htmlFor="login-password">Mật Khẩu</label>
-                  <div className="auth-input-wrap" style={{ position: 'relative' }}>
-                    <span className="auth-input-icon">
-                      <Lock size={18} />
-                    </span>
-                    <input
-                      id="login-password"
-                      type={showPassword ? 'text' : 'password'}
-                      className="auth-input"
-                      placeholder="Nhập mật khẩu của bạn..."
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        if (errorMsg) setErrorMsg('');
-                      }}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      style={{
-                        position: 'absolute',
-                        right: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: '#64748B',
-                        padding: '4px'
-                      }}
-                      aria-label="Hiện mật khẩu"
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                  {email === 'admin@senxinh.vn' && (
-                    <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: '#059669', fontWeight: 500 }}>
-                      ✓ Tài khoản Quản trị viên: Mật khẩu mặc định là <code>admin123</code>
-                    </p>
-                  )}
+                {/* Priority 1: Google One-Click Auth */}
+                <div className="auth-social-row" style={{ marginBottom: '18px' }}>
+                  <button 
+                    type="button" 
+                    className="auth-social-btn"
+                    disabled={loading}
+                    onClick={handleGoogleLogin}
+                    style={{
+                      width: '100%',
+                      height: '48px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1.5px solid var(--border-light)',
+                      background: '#ffffff',
+                      fontSize: '0.94rem',
+                      fontWeight: 600,
+                      color: 'var(--text-main)',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="Đăng nhập bảo mật 1 chạm với tài khoản Google"
+                  >
+                    {loading ? (
+                      <Loader2 size={20} className="animate-spin" />
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                      </svg>
+                    )}
+                    <span>Tiếp Tục Với Google</span>
+                  </button>
                 </div>
-              )}
 
-              {/* Remember Me */}
-              <div className="auth-meta-row" style={{ marginTop: '14px' }}>
-                <label className="auth-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                  />
-                  <span>Duy trì đăng nhập trên thiết bị này</span>
-                </label>
-              </div>
+                {/* Social Separator */}
+                <div className="auth-separator" style={{ margin: '0 0 18px 0' }}>
+                  <span>hoặc đăng nhập an toàn bằng email</span>
+                </div>
 
-              {/* Submit Button */}
-              <button 
-                type="submit" 
-                className="auth-submit-btn"
-                disabled={loading}
-                style={{ height: '48px', marginTop: '10px' }}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    <span>Đang xác thực...</span>
-                  </>
-                ) : (
-                  <>
-                    <LogIn size={18} />
-                    <span>
-                      {authMethod === 'otp' ? 'Xác Nhận OTP & Đăng Nhập' : 'Đăng Nhập Với Mật Khẩu'}
-                    </span>
-                    <ArrowRight size={16} />
-                  </>
+                {/* Error Message */}
+                {errorMsg && (
+                  <div className="auth-error-msg" style={{ marginBottom: '14px', fontSize: '0.86rem', padding: '10px 14px', background: '#FEE2E2', borderRadius: '8px', border: '1px solid #FCA5A5' }}>
+                    <HelpCircle size={16} />
+                    <span>{errorMsg}</span>
+                  </div>
                 )}
-              </button>
-            </form>
+
+                {/* Info Message */}
+                {infoMsg && (
+                  <div style={{
+                    marginBottom: '14px',
+                    fontSize: '0.85rem',
+                    padding: '10px 14px',
+                    background: '#ECFDF5',
+                    borderRadius: '8px',
+                    border: '1px solid #A7F3D0',
+                    color: '#065F46',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <CheckCircle2 size={16} color="#059669" style={{ flexShrink: 0 }} />
+                    <span>{infoMsg}</span>
+                  </div>
+                )}
+
+                {/* Customer Login Form: Email -> Request OTP */}
+                <form className="auth-form" onSubmit={handleRequestOtpAndProceed}>
+                  <div className="auth-field">
+                    <label htmlFor="login-email">Địa Chỉ Email Của Bạn</label>
+                    <div className="auth-input-wrap">
+                      <span className="auth-input-icon">
+                        <Mail size={18} />
+                      </span>
+                      <input
+                        id="login-email"
+                        type="email"
+                        className={`auth-input ${errorMsg ? 'has-error' : ''}`}
+                        placeholder="VD: ban@gmail.com"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          if (errorMsg) setErrorMsg('');
+                        }}
+                        required
+                        autoFocus
+                      />
+                    </div>
+                    <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      Chúng tôi sẽ gửi mã bảo mật 6 số đến email của bạn để đăng nhập nhanh chóng.
+                    </p>
+                  </div>
+
+                  {/* Remember Me */}
+                  <div className="auth-meta-row" style={{ marginTop: '14px' }}>
+                    <label className="auth-checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                      />
+                      <span>Duy trì đăng nhập trên thiết bị này</span>
+                    </label>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="auth-submit-btn"
+                    disabled={sendingOtp || !email.trim()}
+                    style={{ height: '48px', marginTop: '14px' }}
+                  >
+                    {sendingOtp ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        <span>Đang gửi mã OTP đến email...</span>
+                      </>
+                    ) : (
+                      <>
+                        <KeyRound size={18} />
+                        <span>Nhận Mã OTP & Tiếp Tục</span>
+                        <ArrowRight size={16} />
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+            )}
 
             {/* New Member Perk Box */}
             <div style={{
@@ -713,6 +815,29 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                 }}
               >
                 ← Quay lại trang chủ
+              </button>
+            </div>
+
+            {/* Dedicated Admin Portal Link */}
+            <div style={{ textAlign: 'center', marginTop: '18px', paddingTop: '14px', borderTop: '1px solid #E2E8F0' }}>
+              <span style={{ fontSize: '0.82rem', color: '#64748B' }}>
+                Quản trị viên vườn?{' '}
+              </span>
+              <button
+                type="button"
+                onClick={() => onNavigate && onNavigate('admin')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--primary)',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: 0,
+                  textDecoration: 'underline'
+                }}
+              >
+                Cổng Đăng Nhập Quản Trị (Admin) →
               </button>
             </div>
           </div>

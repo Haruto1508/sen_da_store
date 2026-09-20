@@ -1022,6 +1022,7 @@ export default function App() {
               />
             }
           />
+          <Route path="/admin/login" element={<Navigate to="/admin" replace />} />
 
           {/* Dedicated Login Route */}
           <Route

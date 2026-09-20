@@ -246,4 +246,25 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResult.error(e.getMessage()));
         }
     }
+
+    @PostMapping("/admins")
+    public ResponseEntity<ApiResult<UserResponse>> createAdmin(@RequestBody CreateAdminRequest request) {
+        try {
+            UserResponse response = adminService.createAdmin(request);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResult.ok("Tạo tài khoản quản trị viên mới thành công!", response));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResult.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResult<UserResponse>> changePassword(@RequestBody ChangePasswordRequest request) {
+        try {
+            UserResponse response = adminService.changePassword(request);
+            return ResponseEntity.ok(ApiResult.ok("Đổi mật khẩu tài khoản thành công!", response));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResult.error(e.getMessage()));
+        }
+    }
 }

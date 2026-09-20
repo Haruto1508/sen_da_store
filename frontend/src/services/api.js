@@ -1042,6 +1042,83 @@ export async function deleteAdminCustomer(userId) {
   return data;
 }
 
+/**
+ * Admin: Tạo tài khoản quản trị viên mới
+ */
+export async function createAdminAccount({ name, email, phone = '', password, role = 'Quản trị viên (Admin)' }) {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  if (!cleanEmail) throw new Error('Vui lòng nhập email quản trị viên!');
+  if (!password || password.trim().length < 6) throw new Error('Mật khẩu khởi tạo phải có ít nhất 6 ký tự!');
+
+  if (USE_MOCK_DATA) {
+    const users = getStoredUsers();
+    if (users.some((u) => u.email && u.email.toLowerCase() === cleanEmail)) {
+      throw new Error('Email này đã được sử dụng bởi một tài khoản khác!');
+    }
+    const newAdmin = {
+      id: `admin_${Date.now()}`,
+      publicId: `mock-uuid-${Date.now()}`,
+      name: name?.trim() || cleanEmail.split('@')[0],
+      email: cleanEmail,
+      phone: phone?.trim() || '',
+      password: password.trim(),
+      role: role?.trim() || 'Quản trị viên (Admin)',
+      status: 'ACTIVE',
+      authProvider: 'LOCAL',
+      address: 'Trụ sở Sen Xinh Garden',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+      points: 100,
+      createdAt: new Date().toISOString()
+    };
+    saveStoredUsers([newAdmin, ...users]);
+    const { password: _, ...safeAdmin } = newAdmin;
+    return { success: true, message: 'Tạo tài khoản quản trị viên mới thành công!', data: safeAdmin };
+  }
+
+  const res = await fetch(`${API_BASE}/admin/admins`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email: cleanEmail, phone, password, role })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Không thể tạo tài khoản quản trị viên');
+  return data;
+}
+
+/**
+ * Admin: Đổi mật khẩu tài khoản quản trị viên
+ */
+export async function changeAdminPassword({ email, oldPassword = '', newPassword }) {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  if (!cleanEmail) throw new Error('Vui lòng nhập địa chỉ email!');
+  if (!newPassword || newPassword.trim().length < 6) throw new Error('Mật khẩu mới phải có ít nhất 6 ký tự!');
+
+  if (USE_MOCK_DATA) {
+    const users = getStoredUsers();
+    const userIndex = users.findIndex((u) => u.email && u.email.toLowerCase() === cleanEmail);
+    if (userIndex === -1) throw new Error('Không tìm thấy tài khoản với email này!');
+
+    const existingUser = users[userIndex];
+    if (oldPassword && existingUser.password && existingUser.password !== oldPassword && existingUser.password !== 'admin123') {
+      throw new Error('Mật khẩu hiện tại không chính xác!');
+    }
+
+    users[userIndex] = { ...existingUser, password: newPassword.trim() };
+    saveStoredUsers(users);
+    const { password: _, ...safeUser } = users[userIndex];
+    return { success: true, message: 'Đổi mật khẩu tài khoản thành công!', data: safeUser };
+  }
+
+  const res = await fetch(`${API_BASE}/admin/change-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: cleanEmail, oldPassword, newPassword })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Không thể đổi mật khẩu');
+  return data;
+}
+
 // ==============================================================================
 // MOMO PAYMENT APIs
 // ==============================================================================

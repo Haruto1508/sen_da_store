@@ -41,6 +41,7 @@ import CustomerOrdersView from '../components/admin/CustomerOrdersView';
 import OrderDetailView from '../components/admin/OrderDetailView';
 import ProductModal from '../components/admin/ProductModal';
 import CouponModal from '../components/admin/CouponModal';
+import AdminAccountsTab from '../components/admin/AdminAccountsTab';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -611,6 +612,7 @@ export default function AdminPage({
         mobileSidebarOpen={mobileSidebarOpen}
         setMobileSidebarOpen={setMobileSidebarOpen}
         onNavigateHome={onNavigateHome}
+        onLogout={onLogout}
       />
 
       {/* Right Content Area */}
@@ -619,6 +621,7 @@ export default function AdminPage({
         <AdminHeader
           viewMode={viewMode}
           activeTab={activeTab}
+          setActiveTab={setActiveTab}
           activeCustomer={activeCustomer}
           activeOrder={activeOrder}
           setMobileSidebarOpen={setMobileSidebarOpen}
@@ -634,6 +637,8 @@ export default function AdminPage({
           }}
           onNavigateHome={onNavigateHome}
           isRealtimeConnected={isRealtimeConnected}
+          user={user}
+          onLogout={onLogout}
         />
 
         {/* Content Body */}
@@ -737,6 +742,24 @@ export default function AdminPage({
                     setShippingConfig(def);
                     return def;
                   }}
+                  addToast={addToast}
+                />
+              )}
+
+              {/* TAB 6: ADMIN ACCOUNTS & PASSWORD MANAGEMENT */}
+              {activeTab === 'admin-accounts' && (
+                <AdminAccountsTab
+                  currentUser={user}
+                  customers={customers}
+                  onReloadCustomers={async () => {
+                    try {
+                      const latest = await getAdminCustomers();
+                      setCustomers(latest);
+                    } catch (err) {
+                      console.warn('Lỗi khi tải lại danh sách khách hàng/admin:', err);
+                    }
+                  }}
+                  onLogout={onLogout}
                   addToast={addToast}
                 />
               )}

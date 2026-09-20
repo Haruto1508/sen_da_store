@@ -7,7 +7,9 @@ import {
   Users,
   PanelLeft,
   Store,
-  Truck
+  Truck,
+  ShieldCheck,
+  LogOut
 } from 'lucide-react';
 import { USE_MOCK_DATA } from '../../services/api';
 
@@ -20,7 +22,8 @@ export default function AdminSidebar({
   setSidebarCollapsed,
   mobileSidebarOpen,
   setMobileSidebarOpen,
-  onNavigateHome
+  onNavigateHome,
+  onLogout
 }) {
   return (
     <>
@@ -178,6 +181,22 @@ export default function AdminSidebar({
             )}
           </button>
 
+          <button
+            type="button"
+            className={`admin-nav-item ${(viewMode === 'tabs' && activeTab === 'admin-accounts') ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('admin-accounts');
+              setViewMode('tabs');
+              setMobileSidebarOpen(false);
+            }}
+            title="Quản Lý Tài Khoản Quản Trị Viên & Đổi Mật Khẩu"
+          >
+            <ShieldCheck size={19} className="nav-icon" />
+            {!sidebarCollapsed && (
+              <span className="nav-text">Tài Khoản Admin</span>
+            )}
+          </button>
+
           <div className="admin-nav-group-label">
             {!sidebarCollapsed ? 'XEM CỬA HÀNG' : '•••'}
           </div>
@@ -196,6 +215,31 @@ export default function AdminSidebar({
               <span className="nav-text">Về Trang Cửa Hàng</span>
             )}
           </button>
+
+          {onLogout && (
+            <button
+              type="button"
+              className="admin-nav-item logout-link"
+              onClick={() => {
+                setMobileSidebarOpen(false);
+                onLogout();
+              }}
+              title="Đăng xuất khỏi tài khoản Quản trị"
+              style={{
+                marginTop: '16px',
+                color: '#ef4444',
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.18)'
+              }}
+            >
+              <LogOut size={19} className="nav-icon" style={{ color: '#ef4444' }} />
+              {!sidebarCollapsed && (
+                <span className="nav-text" style={{ fontWeight: 600, color: '#ef4444' }}>
+                  Đăng Xuất Admin
+                </span>
+              )}
+            </button>
+          )}
         </nav>
 
         {/* Dedicated Bottom Collapse Bar */}
