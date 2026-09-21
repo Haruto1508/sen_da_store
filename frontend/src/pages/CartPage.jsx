@@ -6,6 +6,8 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { getShippingConfig, fetchShippingConfig } from "../services/api";
+import { formatPrice } from "../utils/formatters";
+
 
 import CartFreeShippingBar from "../components/cart/CartFreeShippingBar";
 import CartItemRow from "../components/cart/CartItemRow";
@@ -29,9 +31,6 @@ export default function CartPage({
   const [couponError, setCouponError] = useState("");
   const [couponSuccess, setCouponSuccess] = useState(false);
   const [couponLoading, setCouponLoading] = useState(false);
-
-  const formatPrice = (amount) =>
-    new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount || 0);
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0);
   const discountAmount = Math.round(subtotal * (discountPercent / 100));

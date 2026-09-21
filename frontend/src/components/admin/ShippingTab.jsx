@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import ShippingRateModal from './ShippingRateModal';
 import Pagination from '../Pagination';
+import { formatPrice } from './adminConstants';
+
 
 export default function ShippingTab({
   shippingConfig,
@@ -54,9 +56,6 @@ export default function ShippingTab({
   }, [shippingConfig]);
 
   const [policySaved, setPolicySaved] = useState(false);
-
-  const formatPrice = (amount) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
 
   const provinceRates = shippingConfig?.provinceRates || [];
 

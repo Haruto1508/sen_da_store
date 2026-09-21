@@ -1,5 +1,6 @@
 import React from 'react';
 import { Heart, Plus, Star, Sun, Droplets, Zap } from 'lucide-react';
+import { formatPrice } from '../utils/formatters';
 
 export default function ProductCard({ 
   product, 
@@ -9,11 +10,8 @@ export default function ProductCard({
   isWishlisted, 
   onToggleWishlist 
 }) {
-  const formatPrice = (amount) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
-  };
-
   const productId = product?.id || product?.publicId;
+
 
   return (
     <article className="product-card">

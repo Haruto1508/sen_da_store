@@ -12,7 +12,8 @@ import {
   deleteCustomerOrdersBulk
 } from '../services/api';
 import NotificationModal from '../components/NotificationModal';
-import useModal from '../components/useModal';
+import useModal from '../hooks/useModal';
+
 
 // Modular Account Subcomponents
 import AccountSidebar from '../components/account/AccountSidebar';

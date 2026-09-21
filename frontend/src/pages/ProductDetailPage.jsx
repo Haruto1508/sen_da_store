@@ -11,6 +11,8 @@ import ProductCard from '../components/ProductCard';
 import ProductGuaranteeBox from '../components/product/ProductGuaranteeBox';
 import ProductSpecsGrid from '../components/product/ProductSpecsGrid';
 import ProductActionBar from '../components/product/ProductActionBar';
+import { formatPrice } from '../utils/formatters';
+
 
 export default function ProductDetailPage({
   product,
@@ -41,10 +43,6 @@ export default function ProductDetailPage({
       </div>
     );
   }
-
-  const formatPrice = (amount) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-  };
 
   const handleDecrease = () => {
     if (qty > 1) setQty(qty - 1);

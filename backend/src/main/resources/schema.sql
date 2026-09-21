@@ -2,7 +2,7 @@
 -- SCHEMA.SQL
 -- Standalone Database Creation Script for Sen Xinh Garden
 -- Database Engine: PostgreSQL 12+
--- Synchronized with Flyway Migrations (V1, V2, V3, V4)
+-- Synchronized with Flyway Migrations (V1, V2, V3, V4, V5)
 -- =======================================================
 
 DROP TABLE IF EXISTS shipping_rates CASCADE;
@@ -88,6 +88,13 @@ CREATE TABLE IF NOT EXISTS orders (
     status VARCHAR(50),
     stock_deducted BOOLEAN NOT NULL DEFAULT FALSE,
     points_awarded BOOLEAN NOT NULL DEFAULT FALSE,
+    completed_at TIMESTAMP,
+    return_reason VARCHAR(255),
+    return_note VARCHAR(1000),
+    refund_bank_info VARCHAR(255),
+    return_requested_at TIMESTAMP,
+    returned_at TIMESTAMP,
+    return_reject_reason VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

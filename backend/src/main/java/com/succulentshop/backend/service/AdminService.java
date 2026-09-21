@@ -2,7 +2,9 @@ package com.succulentshop.backend.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.succulentshop.backend.constant.OrderStatus;
 import com.succulentshop.backend.dto.*;
+
 import com.succulentshop.backend.entity.Coupon;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.entity.OrderItem;
@@ -120,11 +122,11 @@ public class AdminService {
             throw new AppException(ErrorCode.ORDER_STATUS_REQUIRED);
         }
 
-        List<String> validStatuses = List.of("PENDING", "PAID", "SHIPPING", "COMPLETED", "CANCELLED", "RETURN_REQUESTED", "RETURNED");
         String formattedStatus = status.trim().toUpperCase();
-        if (!validStatuses.contains(formattedStatus)) {
-            throw new AppException(ErrorCode.INVALID_ORDER_STATUS, "Trạng thái không hợp lệ: " + validStatuses);
+        if (!OrderStatus.isValid(formattedStatus)) {
+            throw new AppException(ErrorCode.INVALID_ORDER_STATUS, "Trạng thái không hợp lệ: " + formattedStatus);
         }
+
 
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng"));
@@ -179,7 +181,7 @@ public class AdminService {
                 }
                 order.setPointsAwarded(false);
             }
-            order.setReturnedAt(java.time.LocalDateTime.now());
+            order.setReturnedAt(java.time.Instant.now());
         }
 
         if (List.of("PAID", "SHIPPING", "COMPLETED").contains(formattedStatus) && !Boolean.TRUE.equals(order.isStockDeducted())) {
@@ -204,7 +206,7 @@ public class AdminService {
 
         if ("COMPLETED".equals(formattedStatus)) {
             if (order.getCompletedAt() == null) {
-                order.setCompletedAt(java.time.LocalDateTime.now());
+                order.setCompletedAt(java.time.Instant.now());
             }
             if (!Boolean.TRUE.equals(order.isPointsAwarded())) {
                 int totalAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;

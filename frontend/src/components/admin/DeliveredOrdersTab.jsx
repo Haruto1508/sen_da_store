@@ -17,7 +17,7 @@ import {
   Truck
 } from 'lucide-react';
 import Pagination from '../Pagination';
-import { formatPrice } from './adminConstants';
+import { formatPrice, formatDateTime } from './adminConstants';
 
 export default function DeliveredOrdersTab({
   orders = [],
@@ -181,7 +181,7 @@ export default function DeliveredOrdersTab({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                     <Calendar size={14} />
-                    {order.createdAt ? new Date(order.createdAt).toLocaleDateString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Vừa xong'}
+                    {order.createdAt ? formatDateTime(order.createdAt) : 'Vừa xong'}
                   </span>
 
                   <button

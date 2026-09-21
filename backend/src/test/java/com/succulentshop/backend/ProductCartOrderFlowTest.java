@@ -368,7 +368,7 @@ public class ProductCartOrderFlowTest {
         completedOrder.setId(11L);
         completedOrder.setOrderCode("SX111111");
         completedOrder.setStatus("COMPLETED");
-        completedOrder.setCompletedAt(java.time.LocalDateTime.now().minusDays(2)); // Hoàn tất 2 ngày trước (<= 7 ngày)
+        completedOrder.setCompletedAt(java.time.Instant.now().minus(2, java.time.temporal.ChronoUnit.DAYS)); // Hoàn tất 2 ngày trước (<= 7 ngày)
         when(orderRepository.findById(11L)).thenReturn(Optional.of(completedOrder));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -401,7 +401,7 @@ public class ProductCartOrderFlowTest {
         Order expiredOrder = new Order();
         expiredOrder.setId(13L);
         expiredOrder.setStatus("COMPLETED");
-        expiredOrder.setCompletedAt(java.time.LocalDateTime.now().minusDays(9)); // Đã 9 ngày trước (> 7 ngày)
+        expiredOrder.setCompletedAt(java.time.Instant.now().minus(9, java.time.temporal.ChronoUnit.DAYS)); // Đã 9 ngày trước (> 7 ngày)
         when(orderRepository.findById(13L)).thenReturn(Optional.of(expiredOrder));
 
         ReturnOrderRequest req = new ReturnOrderRequest("Cây bị sâu bệnh", null, null);

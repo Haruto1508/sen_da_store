@@ -11,6 +11,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { QUIZ_QUESTIONS, PRODUCTS } from '../data/products';
+import { formatPrice } from '../utils/formatters';
 
 export default function QuizPage({
   products = [],
@@ -23,9 +24,6 @@ export default function QuizPage({
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
 
-  const formatPrice = (amount) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-  };
 
   const handleSelectOption = (questionId, option) => {
     const updatedAnswers = { ...answers, [questionId]: option };

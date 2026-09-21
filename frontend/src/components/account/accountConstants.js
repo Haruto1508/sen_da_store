@@ -35,6 +35,6 @@ export const DELIVERY_STEPS = [
   { step: 4, label: 'Hoàn Tất' }
 ];
 
-export const formatPrice = (amount) => {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
-};
+import { formatPrice, formatDateTime, formatDate } from '../../utils/formatters';
+export { formatPrice, formatDateTime, formatDate };
+

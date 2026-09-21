@@ -9,7 +9,8 @@ import {
   getShippingConfig,
   fetchShippingConfig
 } from '../services/api';
-import useModal from '../components/useModal';
+import useModal from '../hooks/useModal';
+import { formatPrice } from '../utils/formatters';
 import NotificationModal from '../components/NotificationModal';
 
 // Modular Checkout Components
@@ -99,11 +100,8 @@ export default function CheckoutPage({
     }
   }, [initialOrderCode]);
 
-  const formatPrice = (amount) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
-  };
-
   const subtotal = checkoutItems.reduce((sum, item) => sum + (item?.price || 0) * (item?.quantity || 1), 0);
+
   const discountAmount = Math.round(subtotal * (discountPercent / 100));
 
   const [shippingConfig, setShippingConfig] = useState(getShippingConfig());

@@ -10,7 +10,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -42,7 +43,7 @@ public class OrderCleanupScheduler {
     @Scheduled(fixedRate = 600_000) // 10 phút
     @Transactional
     public void cancelStalePendingOrders() {
-        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(pendingTimeoutMinutes);
+        Instant cutoff = Instant.now().minus(pendingTimeoutMinutes, ChronoUnit.MINUTES);
         List<Order> staleOrders = orderRepository.findByStatusAndCreatedAtBefore("PENDING", cutoff);
 
         if (staleOrders.isEmpty()) {

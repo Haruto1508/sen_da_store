@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * OrderEventPublisher chịu trách nhiệm phát các sự kiện miền (Domain Events)
@@ -36,7 +36,7 @@ public class OrderEventPublisher {
                 order.getCustomerName(),
                 order.getTotalAmount(),
                 order.getStatus(),
-                order.getCreatedAt() != null ? order.getCreatedAt() : LocalDateTime.now()
+                order.getCreatedAt() != null ? order.getCreatedAt() : Instant.now()
         );
         log.info("📢 [EVENT] Phát sự kiện OrderCreatedEvent: #{} (Khách: {}, Tổng: {}đ)",
                 event.getOrderCode(), event.getCustomerName(), event.getTotalAmount());
@@ -52,7 +52,7 @@ public class OrderEventPublisher {
                 orderCode,
                 oldStatus,
                 newStatus,
-                LocalDateTime.now()
+                Instant.now()
         );
         log.info("📢 [EVENT] Phát sự kiện OrderStatusChangedEvent: #{} ({} -> {})",
                 orderCode, oldStatus, newStatus);

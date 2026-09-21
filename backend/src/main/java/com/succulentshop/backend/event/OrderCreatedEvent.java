@@ -1,6 +1,6 @@
 package com.succulentshop.backend.event;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public class OrderCreatedEvent {
     private final Long orderId;
@@ -8,15 +8,15 @@ public class OrderCreatedEvent {
     private final String customerName;
     private final Integer totalAmount;
     private final String status;
-    private final LocalDateTime createdAt;
+    private final Instant createdAt;
 
-    public OrderCreatedEvent(Long orderId, String orderCode, String customerName, Integer totalAmount, String status, LocalDateTime createdAt) {
+    public OrderCreatedEvent(Long orderId, String orderCode, String customerName, Integer totalAmount, String status, Instant createdAt) {
         this.orderId = orderId;
         this.orderCode = orderCode;
         this.customerName = customerName;
         this.totalAmount = totalAmount;
         this.status = status;
-        this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+        this.createdAt = createdAt != null ? createdAt : Instant.now();
     }
 
     public Long getOrderId() { return orderId; }
@@ -24,7 +24,7 @@ public class OrderCreatedEvent {
     public String getCustomerName() { return customerName; }
     public Integer getTotalAmount() { return totalAmount; }
     public String getStatus() { return status; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
+    public Instant getCreatedAt() { return createdAt; }
 
     @Override
     public String toString() {

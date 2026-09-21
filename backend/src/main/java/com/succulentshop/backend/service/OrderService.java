@@ -1,6 +1,9 @@
 package com.succulentshop.backend.service;
 
 import com.succulentshop.backend.config.BankTransferConfig;
+import com.succulentshop.backend.constant.OrderStatus;
+import com.succulentshop.backend.constant.PaymentMethod;
+
 import com.succulentshop.backend.dto.CreateOrderRequest;
 import com.succulentshop.backend.dto.CreateOrderResponse;
 import com.succulentshop.backend.dto.OrderItemResponse;
@@ -28,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
@@ -205,15 +208,16 @@ public class OrderService {
             order.setCustomerEmail(request.getCustomerEmail().trim());
         }
         order.setNote(request.getNote());
-        order.setPaymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "vietqr");
+        order.setPaymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : PaymentMethod.VIETQR.getCode());
         order.setSubtotal(subtotal);
         order.setDiscountAmount(couponResult.discountAmount);
         order.setDiscountCode(couponResult.validCouponCode);
         order.setShippingFee(shippingFee);
         order.setTotalAmount(totalAmount);
-        order.setStatus("PENDING");
+        order.setStatus(OrderStatus.PENDING.getCode());
         order.setStockDeducted(false);
         order.setPointsAwarded(false);
+
 
         for (OrderItem it : orderItems) {
             order.addItem(it);
@@ -423,7 +427,7 @@ public class OrderService {
         if ("RETURNED".equals(formatted) && !"RETURNED".equals(oldStatus)) {
             restoreOrderStock(order);
             revokeLoyaltyPoints(order);
-            order.setReturnedAt(LocalDateTime.now());
+            order.setReturnedAt(Instant.now());
         }
 
         // Xử lý trừ kho khi đơn được duyệt / thanh toán / giao hàng (PAID, SHIPPING, COMPLETED)
@@ -434,7 +438,7 @@ public class OrderService {
         // Xử lý tích điểm và mốc hoàn tất khi đơn hoàn tất
         if ("COMPLETED".equals(formatted)) {
             if (order.getCompletedAt() == null) {
-                order.setCompletedAt(LocalDateTime.now());
+                order.setCompletedAt(Instant.now());
             }
             awardLoyaltyPoints(order);
         }
@@ -498,7 +502,7 @@ public class OrderService {
 
         order.setStatus("COMPLETED");
         if (order.getCompletedAt() == null) {
-            order.setCompletedAt(LocalDateTime.now());
+            order.setCompletedAt(Instant.now());
         }
         orderRepository.save(order);
 
@@ -547,9 +551,9 @@ public class OrderService {
         }
 
         // Kiểm tra thời hạn đổi trả
-        LocalDateTime refTime = order.getCompletedAt() != null ? order.getCompletedAt() : order.getCreatedAt();
+        Instant refTime = order.getCompletedAt() != null ? order.getCompletedAt() : order.getCreatedAt();
         if (refTime != null) {
-            long daysPassed = ChronoUnit.DAYS.between(refTime, LocalDateTime.now());
+            long daysPassed = ChronoUnit.DAYS.between(refTime, Instant.now());
             if (daysPassed > returnWindowDays) {
                 throw new AppException(ErrorCode.RETURN_WINDOW_EXPIRED,
                     String.format("Đơn hàng đã hoàn tất quá thời hạn %d ngày theo quy định của shop (đã qua %d ngày). Không thể yêu cầu hoàn trả.", returnWindowDays, daysPassed));
@@ -565,7 +569,7 @@ public class OrderService {
         if (request.getBankInfo() != null && !request.getBankInfo().trim().isBlank()) {
             order.setRefundBankInfo(request.getBankInfo().trim());
         }
-        order.setReturnRequestedAt(LocalDateTime.now());
+        order.setReturnRequestedAt(Instant.now());
         orderRepository.save(order);
 
         if (orderEventPublisher != null) {
@@ -593,7 +597,7 @@ public class OrderService {
         revokeLoyaltyPoints(order);
 
         order.setStatus("RETURNED");
-        order.setReturnedAt(LocalDateTime.now());
+        order.setReturnedAt(Instant.now());
         orderRepository.save(order);
 
         if (orderEventPublisher != null) {

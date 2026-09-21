@@ -1,7 +1,8 @@
 import React from 'react';
 import { Sprout, Phone, Mail, MapPin, Heart } from 'lucide-react';
 import NotificationModal from './NotificationModal';
-import useModal from './useModal';
+import useModal from '../hooks/useModal';
+
 
 export default function Footer() {
   const { modalProps, showModal } = useModal();

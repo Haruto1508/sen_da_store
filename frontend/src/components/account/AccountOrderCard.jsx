@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle2, ArrowRight, Radio, RotateCcw, RefreshCw } from 'lucide-react';
-import { STATUS_CONFIG, DELIVERY_STEPS, formatPrice } from './accountConstants';
+import { STATUS_CONFIG, DELIVERY_STEPS, formatPrice, formatDateTime } from './accountConstants';
 import { useOrderStatusPolling } from '../../hooks/useOrderStatusPolling';
 
 export default function AccountOrderCard({
@@ -78,7 +78,7 @@ export default function AccountOrderCard({
               #{order.orderCode || order.id}
             </strong>
             <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
-              • {order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : 'Vừa tạo'}
+              • {order.createdAt ? formatDateTime(order.createdAt) : 'Vừa tạo'}
             </span>
             {isPolling && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', background: '#ECFDF5', color: '#059669', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
@@ -244,6 +244,7 @@ export default function AccountOrderCard({
             Lý do: <strong>"{order.returnReason}"</strong>
             {order.returnNote && <span> • Chi tiết: {order.returnNote}</span>}
             {order.refundBankInfo && <span> • TK nhận hoàn: {order.refundBankInfo}</span>}
+            {order.returnRequestedAt && <span> • Gửi lúc: {formatDateTime(order.returnRequestedAt)}</span>}
           </div>
         </div>
       )}
@@ -264,7 +265,7 @@ export default function AccountOrderCard({
           </div>
           <div style={{ marginTop: '6px', fontSize: '0.82rem' }}>
             Lý do hoàn trả: <em>"{order.returnReason || 'Theo thỏa thuận khách hàng'}"</em>
-            {order.returnedAt && <span> • Ngày hoàn tất: {new Date(order.returnedAt).toLocaleString('vi-VN')}</span>}
+            {order.returnedAt && <span> • Ngày hoàn tất: {formatDateTime(order.returnedAt)}</span>}
           </div>
         </div>
       )}

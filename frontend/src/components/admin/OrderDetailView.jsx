@@ -14,7 +14,7 @@ import {
   ChevronRight,
   RotateCcw
 } from 'lucide-react';
-import { ORDER_STATUS_LABELS, formatPrice } from './adminConstants';
+import { ORDER_STATUS_LABELS, formatPrice, formatDateTime } from './adminConstants';
 
 export default function OrderDetailView({
   activeOrder,
@@ -84,7 +84,7 @@ export default function OrderDetailView({
         <div className="order-detail-title-group">
           <div className="order-detail-code-badge">#{activeOrder.orderCode}</div>
           <span style={{ fontSize: '0.88rem', color: '#64748B' }}>
-            📅 {activeOrder.createdAt ? new Date(activeOrder.createdAt).toLocaleString('vi-VN') : 'Vừa tạo'}
+            📅 {activeOrder.createdAt ? formatDateTime(activeOrder.createdAt) : 'Vừa tạo'}
           </span>
           <span
             style={{
@@ -220,9 +220,9 @@ export default function OrderDetailView({
                 </h4>
                 <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', color: '#64748B' }}>
                   {activeOrder.returnRequestedAt
-                    ? `Thời gian gửi yêu cầu: ${new Date(activeOrder.returnRequestedAt).toLocaleString('vi-VN')}`
+                    ? `Thời gian gửi yêu cầu: ${formatDateTime(activeOrder.returnRequestedAt)}`
                     : 'Chính sách hoàn trả trong 7 ngày'}
-                  {activeOrder.returnedAt && ` • Hoàn trả ngày: ${new Date(activeOrder.returnedAt).toLocaleString('vi-VN')}`}
+                  {activeOrder.returnedAt && ` • Hoàn trả ngày: ${formatDateTime(activeOrder.returnedAt)}`}
                 </p>
               </div>
             </div>

@@ -18,6 +18,6 @@ export const SAMPLE_IMAGES = [
   'https://images.unsplash.com/photo-1520302630591-fd1c66edc19d?auto=format&fit=crop&w=800&q=80'
 ];
 
-export const formatPrice = (amount) => {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
-};
+import { formatPrice, formatDateTime, formatDate } from '../../utils/formatters';
+export { formatPrice, formatDateTime, formatDate };
+

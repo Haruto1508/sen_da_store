@@ -18,7 +18,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import Pagination from '../Pagination';
-import { ORDER_STATUS_LABELS, formatPrice } from './adminConstants';
+import { ORDER_STATUS_LABELS, formatPrice, formatDateTime } from './adminConstants';
 
 export default function OrdersTab({
   orders = [],
@@ -245,7 +245,7 @@ export default function OrdersTab({
 
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: 'var(--text-light)' }}>
                       <Calendar size={13} />
-                      <span>{order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : 'Vừa tạo'}</span>
+                      <span>{order.createdAt ? formatDateTime(order.createdAt) : 'Vừa tạo'}</span>
                     </div>
                   </div>
 
@@ -454,6 +454,16 @@ export default function OrdersTab({
                     {order.refundBankInfo && (
                       <div style={{ color: '#0F172A', marginBottom: '4px' }}>
                         <strong>Thông tin chuyển khoản hoàn tiền:</strong> {order.refundBankInfo}
+                      </div>
+                    )}
+                    {order.returnRequestedAt && (
+                      <div style={{ color: '#64748B', fontSize: '0.8rem', marginBottom: '4px' }}>
+                        <strong>Thời gian gửi yêu cầu:</strong> {formatDateTime(order.returnRequestedAt)}
+                      </div>
+                    )}
+                    {order.returnedAt && (
+                      <div style={{ color: '#059669', fontSize: '0.8rem', marginBottom: '4px' }}>
+                        <strong>Thời gian hoàn tất:</strong> {formatDateTime(order.returnedAt)}
                       </div>
                     )}
                     {order.returnRejectReason && (

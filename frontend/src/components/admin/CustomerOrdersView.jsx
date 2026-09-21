@@ -5,7 +5,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import Pagination from '../Pagination';
-import { ORDER_STATUS_LABELS, formatPrice } from './adminConstants';
+import { ORDER_STATUS_LABELS, formatPrice, formatDateTime } from './adminConstants';
 
 export default function CustomerOrdersView({
   activeCustomer,
@@ -166,7 +166,7 @@ export default function CustomerOrdersView({
                   <div className="order-card-new-meta">
                     <span className="order-code-badge">#{ord.orderCode}</span>
                     <span className="order-date-text">
-                      📅 {ord.createdAt ? new Date(ord.createdAt).toLocaleString('vi-VN') : 'Vừa tạo'}
+                      📅 {ord.createdAt ? formatDateTime(ord.createdAt) : 'Vừa tạo'}
                     </span>
                     <span
                       style={{

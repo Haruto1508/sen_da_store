@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import NotificationModal from '../components/NotificationModal';
-import useModal from '../components/useModal';
+import useModal from '../hooks/useModal';
 import useOrderEvents from '../hooks/useOrderEvents';
+
 import {
   getAdminOrders,
   updateOrderStatus,

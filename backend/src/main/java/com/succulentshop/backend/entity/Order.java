@@ -1,7 +1,7 @@
 package com.succulentshop.backend.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -49,14 +49,14 @@ public class Order {
     @Column(name = "points_awarded", nullable = false)
     private Boolean pointsAwarded = false;
 
-    private LocalDateTime createdAt;
-    private LocalDateTime completedAt;
+    private Instant createdAt;
+    private Instant completedAt;
 
     private String returnReason;
     private String returnNote;
     private String refundBankInfo;
-    private LocalDateTime returnRequestedAt;
-    private LocalDateTime returnedAt;
+    private Instant returnRequestedAt;
+    private Instant returnedAt;
     private String returnRejectReason;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
@@ -64,7 +64,7 @@ public class Order {
 
     public Order() {
         this.publicId = UUID.randomUUID().toString();
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
         this.status = "PENDING";
         this.stockDeducted = false;
         this.pointsAwarded = false;
@@ -121,8 +121,8 @@ public class Order {
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
     public List<OrderItem> getItems() { return items; }
     public void setItems(List<OrderItem> items) { this.items = items; }
@@ -135,8 +135,8 @@ public class Order {
     public Boolean getPointsAwarded() { return pointsAwarded; }
     public void setPointsAwarded(Boolean pointsAwarded) { this.pointsAwarded = pointsAwarded; }
 
-    public LocalDateTime getCompletedAt() { return completedAt; }
-    public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
+    public Instant getCompletedAt() { return completedAt; }
+    public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
 
     public String getReturnReason() { return returnReason; }
     public void setReturnReason(String returnReason) { this.returnReason = returnReason; }
@@ -147,11 +147,11 @@ public class Order {
     public String getRefundBankInfo() { return refundBankInfo; }
     public void setRefundBankInfo(String refundBankInfo) { this.refundBankInfo = refundBankInfo; }
 
-    public LocalDateTime getReturnRequestedAt() { return returnRequestedAt; }
-    public void setReturnRequestedAt(LocalDateTime returnRequestedAt) { this.returnRequestedAt = returnRequestedAt; }
+    public Instant getReturnRequestedAt() { return returnRequestedAt; }
+    public void setReturnRequestedAt(Instant returnRequestedAt) { this.returnRequestedAt = returnRequestedAt; }
 
-    public LocalDateTime getReturnedAt() { return returnedAt; }
-    public void setReturnedAt(LocalDateTime returnedAt) { this.returnedAt = returnedAt; }
+    public Instant getReturnedAt() { return returnedAt; }
+    public void setReturnedAt(Instant returnedAt) { this.returnedAt = returnedAt; }
 
     public String getReturnRejectReason() { return returnRejectReason; }
     public void setReturnRejectReason(String returnRejectReason) { this.returnRejectReason = returnRejectReason; }

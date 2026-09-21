@@ -1,27 +1,27 @@
 package com.succulentshop.backend.event;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public class OrderStatusChangedEvent {
     private final Long orderId;
     private final String orderCode;
     private final String oldStatus;
     private final String status;
-    private final LocalDateTime updatedAt;
+    private final Instant updatedAt;
 
-    public OrderStatusChangedEvent(Long orderId, String orderCode, String oldStatus, String status, LocalDateTime updatedAt) {
+    public OrderStatusChangedEvent(Long orderId, String orderCode, String oldStatus, String status, Instant updatedAt) {
         this.orderId = orderId;
         this.orderCode = orderCode;
         this.oldStatus = oldStatus;
         this.status = status;
-        this.updatedAt = updatedAt != null ? updatedAt : LocalDateTime.now();
+        this.updatedAt = updatedAt != null ? updatedAt : Instant.now();
     }
 
     public Long getOrderId() { return orderId; }
     public String getOrderCode() { return orderCode; }
     public String getOldStatus() { return oldStatus; }
     public String getStatus() { return status; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 
     @Override
     public String toString() {
