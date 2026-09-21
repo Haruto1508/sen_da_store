@@ -105,37 +105,16 @@ export default function HomePage({
             {/* Top Rated Product Grid */}
             <div className="top-rated-grid">
               {topRatedProducts.map((product, idx) => (
-                <div key={product.id} style={{ position: 'relative' }}>
-                  {/* Top ranking badge */}
-                  <div style={{
-                    position: 'absolute',
-                    top: '12px',
-                    left: '12px',
-                    zIndex: 2,
-                    background: idx === 0 ? 'linear-gradient(135deg, #F59E0B, #D97706)' : 'rgba(16, 185, 129, 0.92)',
-                    color: '#fff',
-                    padding: '4px 10px',
-                    borderRadius: 'var(--radius-full)',
-                    fontSize: '0.75rem',
-                    fontWeight: 800,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-                  }}>
-                    <Star size={12} fill="#fff" />
-                    <span>Top #{idx + 1} Yêu Thích</span>
-                  </div>
-
-                  <ProductCard
-                    product={product}
-                    onOpenDetail={() => onOpenProductDetail(product.id)}
-                    onAddToCart={onAddToCart}
-                    onBuyNow={onBuyNow}
-                    isWishlisted={wishlist.some(wId => String(wId) === String(product.id) || (product.publicId && String(wId) === String(product.publicId)))}
-                    onToggleWishlist={onToggleWishlist}
-                  />
-                </div>
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  rank={idx + 1}
+                  onOpenDetail={() => onOpenProductDetail(product.id)}
+                  onAddToCart={onAddToCart}
+                  onBuyNow={onBuyNow}
+                  isWishlisted={wishlist.some(wId => String(wId) === String(product.id) || (product.publicId && String(wId) === String(product.publicId)))}
+                  onToggleWishlist={onToggleWishlist}
+                />
               ))}
             </div>
           </div>

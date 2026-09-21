@@ -4,6 +4,7 @@ import { formatPrice } from '../utils/formatters';
 
 export default function ProductCard({ 
   product, 
+  rank,
   onOpenDetail, 
   onAddToCart, 
   onBuyNow,
@@ -12,26 +13,22 @@ export default function ProductCard({
 }) {
   const productId = product?.id || product?.publicId;
 
-
   return (
     <article className="product-card">
       {/* Image Container */}
       <div className="card-image-wrap" onClick={() => onOpenDetail && onOpenDetail(product)}>
-        {product.badge && (
-          <span className="card-badge">{product.badge}</span>
-        )}
-
-        <button 
-          className={`card-wishlist-btn ${isWishlisted ? 'active' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onToggleWishlist) onToggleWishlist(productId);
-          }}
-          title={isWishlisted ? 'Bỏ khỏi yêu thích' : 'Thêm vào yêu thích'}
-          aria-label="Yêu thích"
-        >
-          <Heart size={16} fill={isWishlisted ? '#E63946' : 'none'} color={isWishlisted ? '#E63946' : 'currentColor'} />
-        </button>
+        {/* Badges Container: Ranking badge on left, Product badge on right */}
+        <div className="card-badges-container">
+          {rank && (
+            <span className={`card-rank-badge rank-${rank}`}>
+              <Star size={11} fill="#fff" />
+              <span>Top #{rank} Yêu Thích</span>
+            </span>
+          )}
+          {product.badge && (
+            <span className="card-badge">{product.badge}</span>
+          )}
+        </div>
 
         <img 
           src={product.image} 
@@ -74,7 +71,19 @@ export default function ProductCard({
             )}
           </div>
 
-          <div className="card-actions-wrap" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="card-actions-wrap">
+            <button 
+              className={`btn-card-wishlist ${isWishlisted ? 'active' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onToggleWishlist) onToggleWishlist(productId);
+              }}
+              title={isWishlisted ? 'Bỏ khỏi yêu thích' : 'Thêm vào yêu thích'}
+              aria-label="Yêu thích"
+            >
+              <Heart size={15} fill={isWishlisted ? '#E63946' : 'none'} color={isWishlisted ? '#E63946' : 'currentColor'} />
+            </button>
+
             <button 
               className="btn-add-cart"
               onClick={(e) => {
