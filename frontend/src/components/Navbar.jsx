@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Sprout, 
   ShoppingBag, 
@@ -294,8 +295,9 @@ export default function Navbar({
   };
 
   return (
-    <header className="header">
-      <div className="container">
+    <>
+      <header className="header">
+        <div className="container">
         <nav className="nav-container">
           {/* Logo & Mobile Hamburger */}
           <div className="nav-left" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -803,10 +805,13 @@ export default function Navbar({
           </div>
         </nav>
       </div>
+    </header>
 
-      {/* Mobile Navigation Drawer & Backdrop */}
-      <div 
-        className={`mobile-nav-overlay ${isMobileDrawerOpen ? 'open' : ''}`}
+    {/* Mobile Navigation Drawer & Backdrop - Mounted to document.body via Portal to prevent containment by header */}
+    {typeof document !== 'undefined' && createPortal(
+      <>
+        <div 
+          className={`mobile-nav-overlay ${isMobileDrawerOpen ? 'open' : ''}`}
         onClick={() => setIsMobileDrawerOpen(false)}
         aria-hidden="true"
       />
@@ -1051,6 +1056,9 @@ export default function Navbar({
           )}
         </div>
       </aside>
-    </header>
+    </>,
+    document.body
+  )}
+    </>
   );
 }
