@@ -22,9 +22,13 @@ import {
   Gem,
   Gift,
   Sparkles,
-  Star
+  Star,
+  Truck,
+  CheckCircle2,
+  PhoneCall
 } from 'lucide-react';
 import { CATEGORIES } from '../data/products';
+import { MEGA_MENU_DATA } from '../data/megaMenuData';
 import webLogo from '../assets/logo/web_logo.png';
 
 // Danh sách các chủng loại sen đá đặc trưng của Sen Xinh Garden
@@ -113,6 +117,7 @@ export default function Navbar({
   // States for Plants Mega-Menu
   const [isPlantsMegaMenuOpen, setIsPlantsMegaMenuOpen] = useState(false);
   const [hoveredCategory, setHoveredCategory] = useState('echeveria');
+  const [hoveredCategoryIndex, setHoveredCategoryIndex] = useState(0);
   const [isMobilePlantsOpen, setIsMobilePlantsOpen] = useState(false);
 
   const menuRef = useRef(null);
@@ -195,6 +200,27 @@ export default function Navbar({
     setIsPlantsMegaMenuOpen(false);
     setIsMobileDrawerOpen(false);
     onNavigate('product-detail', productId);
+  };
+
+  const handleSearchTermAndNavigate = (term) => {
+    setIsPlantsMegaMenuOpen(false);
+    setIsMobileDrawerOpen(false);
+    if (onSearchChange) onSearchChange(term);
+    onNavigate('shop');
+  };
+
+  const handleLightFilterAndNavigate = (light) => {
+    setIsPlantsMegaMenuOpen(false);
+    setIsMobileDrawerOpen(false);
+    if (onSelectLight) onSelectLight(light);
+    onNavigate('shop');
+  };
+
+  const handleDifficultyFilterAndNavigate = (diff) => {
+    setIsPlantsMegaMenuOpen(false);
+    setIsMobileDrawerOpen(false);
+    if (onSelectDifficulty) onSelectDifficulty(diff);
+    onNavigate('shop');
   };
 
   // Matching products for live instant search suggestions
@@ -312,7 +338,7 @@ export default function Navbar({
               </a>
             </li>
 
-            {/* Tab: Sản Phẩm & Các Loại Sen with Mega Menu */}
+            {/* Tab: SẢN PHẨM with VietThuong-Style Mega Menu */}
             <li 
               className="nav-item-has-megamenu"
               ref={megaMenuRef}
@@ -328,112 +354,138 @@ export default function Navbar({
                 aria-expanded={isPlantsMegaMenuOpen}
                 aria-haspopup="true"
               >
-                <span>Sản Phẩm & Các Loại Sen</span>
+                <span>SẢN PHẨM</span>
                 <ChevronDown size={14} className={`nav-chevron ${isPlantsMegaMenuOpen ? 'open' : ''}`} />
               </button>
 
               {/* Mega Menu Dropdown */}
               {isPlantsMegaMenuOpen && (
                 <div className="plants-mega-menu" role="menu">
-                  <div className="mega-menu-inner">
-                    {/* Left Column: Categories */}
-                    <div className="mega-categories-col">
-                      <div className="mega-col-header">
-                        <Sprout size={16} color="var(--primary)" />
-                        <span>Các Chủng Loại Sen Đá</span>
-                      </div>
-                      <div className="mega-categories-list">
-                        {SUCCULENT_TYPES.map((cat) => {
-                          const IconComp = cat.icon;
-                          const isSelected = hoveredCategory === cat.id;
-                          const count = cat.id === 'all' 
-                            ? products.length 
-                            : products.filter((p) => p.category === cat.id).length;
-                          return (
-                            <div
-                              key={cat.id}
-                              className={`mega-category-item ${isSelected ? 'active' : ''}`}
-                              onMouseEnter={() => setHoveredCategory(cat.id)}
-                              onClick={() => handleSelectCategoryAndNavigate(cat.id)}
-                            >
-                              <div className="mega-cat-icon" style={{ background: cat.bg, color: cat.color }}>
-                                <IconComp size={18} />
-                              </div>
-                              <div className="mega-cat-info">
-                                <div className="mega-cat-name-row">
-                                  <span className="mega-cat-name">{cat.name}</span>
-                                  {count > 0 && <span className="mega-cat-count">{count}</span>}
-                                </div>
-                                <span className="mega-cat-desc">{cat.desc}</span>
-                              </div>
-                              <ChevronRight size={14} className="mega-cat-arrow" />
-                            </div>
-                          );
-                        })}
-                      </div>
+                  <div className="mega-menu-catalog-container">
+                    
+                    {/* 1. CỘT TRÁI: DANH MỤC CÂY & PHỤ KIỆN (Yellow Bar Left Indicator) */}
+                    <div className="mega-catalog-left">
+                      {MEGA_MENU_DATA.categories.map((cat, index) => {
+                        const isActive = hoveredCategoryIndex === index;
+                        return (
+                          <div 
+                            key={`${cat.id}-${index}`}
+                            className={`mega-left-item ${isActive ? 'active' : ''}`}
+                            onMouseEnter={() => setHoveredCategoryIndex(index)}
+                            onClick={() => handleSelectCategoryAndNavigate(cat.id)}
+                          >
+                            <span className="mega-left-title">{cat.title}</span>
+                          </div>
+                        );
+                      })}
                     </div>
 
-                    {/* Right Column: Products for selected category */}
-                    <div className="mega-products-col">
-                      <div className="mega-col-header" style={{ justifyContent: 'space-between' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Star size={15} color="#F59E0B" fill="#F59E0B" />
-                          <span>Sản Phẩm Tiêu Biểu ({SUCCULENT_TYPES.find((c) => c.id === hoveredCategory)?.name || 'Sen Đá'})</span>
-                        </span>
-                        <button
-                          type="button"
-                          className="mega-view-all-link"
-                          onClick={() => handleSelectCategoryAndNavigate(hoveredCategory)}
-                        >
-                          <span>Xem tất cả</span>
-                          <ArrowRight size={13} />
-                        </button>
-                      </div>
-
-                      <div className="mega-products-grid">
-                        {megaMenuProducts.length === 0 ? (
-                          <div style={{ gridColumn: '1 / -1', padding: '30px 10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                            Chưa có sản phẩm nào trong danh mục này.
-                          </div>
-                        ) : (
-                          megaMenuProducts.map((prod) => (
-                            <div 
-                              key={prod.id} 
-                              className="mega-product-card"
-                              onClick={() => handleSelectProductAndNavigate(prod.id)}
-                            >
-                              <div className="mega-product-thumb-wrap">
-                                <img src={prod.image} alt={prod.name} className="mega-product-thumb" />
-                                {prod.badge && <span className="mega-product-badge">{prod.badge}</span>}
-                              </div>
-                              <div className="mega-product-body">
-                                <span className="mega-product-title">{prod.name}</span>
-                                <span className="mega-product-sci">{prod.scientificName}</span>
-                                <div className="mega-product-meta">
-                                  <span className="mega-product-price">
-                                    {(prod.price || 0).toLocaleString('vi-VN')}₫
-                                  </span>
-                                  <div className="mega-product-rating">
-                                    <Star size={12} fill="#F59E0B" color="#F59E0B" />
-                                    <span>{prod.rating || 5.0}</span>
-                                  </div>
+                    {/* 2. KHU VỰC GIỮA: MA TRẬN PHÂN LOẠI & SẢN PHẨM (3 Cột Mỗi Hàng) */}
+                    <div className="mega-catalog-middle">
+                      {MEGA_MENU_DATA.categories.map((cat, index) => {
+                        const isHighlighted = hoveredCategoryIndex === index;
+                        return (
+                          <div 
+                            key={`row-${cat.id}-${index}`}
+                            className={`mega-catalog-row ${isHighlighted ? 'highlighted' : ''}`}
+                            onMouseEnter={() => setHoveredCategoryIndex(index)}
+                          >
+                            {cat.subgroups.map((sub, sIdx) => (
+                              <div key={sIdx} className="mega-catalog-col">
+                                <div 
+                                  className="mega-subgroup-title"
+                                  onClick={() => handleSearchTermAndNavigate(sub.title)}
+                                >
+                                  {sub.title}
+                                </div>
+                                <div className="mega-subgroup-items">
+                                  {sub.items.map((item, iIdx) => (
+                                    <div 
+                                      key={iIdx}
+                                      className="mega-subgroup-item"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (item.id) {
+                                          handleSelectProductAndNavigate(item.id);
+                                        } else {
+                                          handleSearchTermAndNavigate(item.name);
+                                        }
+                                      }}
+                                    >
+                                      {item.name}
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
 
-                      <div className="mega-footer-banner">
-                        <span>🌿 Cây thuần dưỡng rễ khỏe, bọc bông gòn 4 lớp chống dập</span>
-                        <button
-                          type="button"
-                          className="mega-cta-btn"
-                          onClick={() => handleSelectCategoryAndNavigate(hoveredCategory)}
-                        >
-                          <span>Đến Cửa Hàng Xem Thêm</span>
-                          <ArrowRight size={13} />
-                        </button>
+                    {/* 3. CỘT PHẢI: BỘ SƯU TẬP, THƯƠNG HIỆU & TIÊU CHÍ */}
+                    <div className="mega-catalog-right">
+                      {MEGA_MENU_DATA.rightSidebar.map((group, gIdx) => (
+                        <div key={gIdx} className="mega-right-group">
+                          <div className="mega-right-title">
+                            <span>{group.title}</span>
+                            <ChevronDown size={13} color="#9CA3AF" />
+                          </div>
+                          <div className="mega-right-items">
+                            {group.items.map((item, itIdx) => (
+                              <div 
+                                key={itIdx}
+                                className="mega-right-item"
+                                onClick={() => {
+                                  if (item.filter) {
+                                    if (item.filter.light) handleLightFilterAndNavigate(item.filter.light);
+                                    if (item.filter.difficulty) handleDifficultyFilterAndNavigate(item.filter.difficulty);
+                                  } else if (item.search) {
+                                    handleSearchTermAndNavigate(item.search);
+                                  } else {
+                                    onNavigate('shop');
+                                  }
+                                }}
+                              >
+                                <span className="mega-right-item-label">{item.label}</span>
+                                {item.badge && <span className="mega-right-badge">{item.badge}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                  </div>
+
+                  {/* 4. CHÂN TRANG: TRUST BADGES & CAM KẾT */}
+                  <div className="mega-catalog-footer">
+                    <div className="mega-footer-item">
+                      <Truck size={17} color="#EAB308" />
+                      <div className="mega-footer-text">
+                        <strong>VẬN CHUYỂN TOÀN QUỐC</strong>
+                        <span>Bọc 4 lớp bông gòn chống dập lá</span>
+                      </div>
+                    </div>
+                    <div className="mega-footer-item">
+                      <CheckCircle2 size={17} color="#EAB308" />
+                      <div className="mega-footer-text">
+                        <strong>BẢO HÀNH 7 NGÀY</strong>
+                        <span>1 đổi 1 nhanh chóng nếu cây úng gãy</span>
+                      </div>
+                    </div>
+                    <div className="mega-footer-item">
+                      <Gift size={17} color="#EAB308" />
+                      <div className="mega-footer-text">
+                        <strong>TẶNG KÈM PHỤ KIỆN</strong>
+                        <span>Sỏi lót đáy & cẩm nang chăm sóc</span>
+                      </div>
+                    </div>
+                    <div className="mega-footer-item">
+                      <PhoneCall size={17} color="#EAB308" />
+                      <div className="mega-footer-text">
+                        <strong>TƯ VẤN NHÀ VƯỜN</strong>
+                        <span>Hỗ trợ cứu cây và kỹ thuật trọn đời</span>
                       </div>
                     </div>
                   </div>
