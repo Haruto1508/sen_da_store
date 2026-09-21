@@ -22,6 +22,8 @@ public enum ErrorCode {
     PASSWORD_NOT_SET("AUTH_008", "Tài khoản của bạn được tạo qua Google và chưa thiết lập mật khẩu. Vui lòng thiết lập mật khẩu trước khi đăng nhập bằng Email/Mật khẩu hoặc tiếp tục Đăng nhập bằng Google.", HttpStatus.BAD_REQUEST),
     ACCOUNT_LINKING_REQUIRED("AUTH_009", "Tài khoản này yêu cầu xác thực trước khi liên kết danh tính", HttpStatus.BAD_REQUEST),
     ACCOUNT_DISABLED("AUTH_010", "Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động. Vui lòng liên hệ quản trị viên.", HttpStatus.FORBIDDEN),
+    OTP_COOLDOWN("AUTH_011", "Yêu cầu gửi mã OTP quá nhanh, vui lòng đợi thêm giây lát!", HttpStatus.TOO_MANY_REQUESTS),
+    OTP_MAX_ATTEMPTS_EXCEEDED("AUTH_012", "Bạn đã nhập sai mã OTP quá 5 lần. Mã đã bị hủy để đảm bảo an toàn!", HttpStatus.BAD_REQUEST),
 
     // Product Codes
     PRODUCT_NOT_FOUND("PROD_001", "Không tìm thấy sản phẩm yêu cầu", HttpStatus.NOT_FOUND),

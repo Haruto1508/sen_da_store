@@ -93,4 +93,45 @@ public class EmailPasswordlessAuthTest {
         });
         Assertions.assertEquals(ErrorCode.ACCOUNT_DISABLED, ex.getErrorCode());
     }
+
+    @Test
+    @DisplayName("Chống spam: Yêu cầu OTP liên tiếp trong vòng 60s bị chặn bởi OTP_COOLDOWN")
+    public void testSendOtpCooldown60s() {
+        String testEmail = "spam_test_" + System.currentTimeMillis() + "@gmail.com";
+        authService.sendOtp(testEmail);
+
+        AppException ex = Assertions.assertThrows(AppException.class, () -> {
+            authService.sendOtp(testEmail);
+        });
+        Assertions.assertEquals(ErrorCode.OTP_COOLDOWN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Chống dò mã: Nhập sai OTP quá 5 lần sẽ bị hủy mã với OTP_MAX_ATTEMPTS_EXCEEDED")
+    public void testMax5FailedAttemptsInvalidatesOtp() {
+        String testEmail = "attempts_test_" + System.currentTimeMillis() + "@gmail.com";
+        authService.sendOtp(testEmail);
+
+        // 4 lần đầu nhập sai
+        for (int i = 1; i <= 4; i++) {
+            final int attempt = i;
+            AppException ex = Assertions.assertThrows(AppException.class, () -> {
+                authService.login(testEmail, null, "00000" + attempt);
+            });
+            Assertions.assertEquals(ErrorCode.INVALID_OTP, ex.getErrorCode());
+            Assertions.assertTrue(ex.getMessage().contains("lần thử lại"));
+        }
+
+        // Lần thứ 5 nhập sai -> Hủy mã
+        AppException finalEx = Assertions.assertThrows(AppException.class, () -> {
+            authService.login(testEmail, null, "999999");
+        });
+        Assertions.assertEquals(ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED, finalEx.getErrorCode());
+
+        // Lần tiếp theo gọi verify -> Báo mã chưa được yêu cầu hoặc đã hết hạn
+        AppException notFoundEx = Assertions.assertThrows(AppException.class, () -> {
+            authService.login(testEmail, null, "123456");
+        });
+        Assertions.assertEquals(ErrorCode.INVALID_OTP, notFoundEx.getErrorCode());
+    }
 }

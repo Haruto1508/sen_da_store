@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Plus, Store, LogOut, KeyRound, ShieldCheck } from 'lucide-react';
+import { Menu, Plus, LogOut, KeyRound } from 'lucide-react';
 
 export default function AdminHeader({
   viewMode,
@@ -21,7 +21,7 @@ export default function AdminHeader({
           type="button"
           className="admin-mobile-toggle"
           onClick={() => setMobileSidebarOpen(true)}
-          title="Mở menu quản trị"
+          title="Mở menu điều hướng quản trị"
         >
           <Menu size={20} />
         </button>
@@ -38,10 +38,10 @@ export default function AdminHeader({
                   {activeTab === 'orders' && 'Đơn Hàng Cần Xử Lý'}
                   {activeTab === 'delivered' && 'Đơn Hàng Đã Giao'}
                   {activeTab === 'products' && 'Kho Sen Đá & Tồn Kho'}
-                  {activeTab === 'coupons' && 'Mã Ưu Đãi & Voucher'}
+                  {activeTab === 'coupons' && 'Mã Giảm Giá & Voucher'}
                   {activeTab === 'customers' && 'Khách Hàng & Phân Quyền'}
                   {activeTab === 'shipping' && 'Cấu Hình Phí Vận Chuyển'}
-                  {activeTab === 'admin-accounts' && 'Tài Khoản Quản Trị & Mật Khẩu'}
+                  {activeTab === 'admin-accounts' && 'Tài Khoản Quản Trị'}
                 </>
               )}
             </span>
@@ -51,95 +51,57 @@ export default function AdminHeader({
             {viewMode === 'order-detail' && `Chi Tiết Đơn Hàng #${activeOrder?.orderCode || ''}`}
             {viewMode === 'tabs' && (
               <>
-                {activeTab === 'orders' && 'Quản Lý Đơn Hàng Cần Xử Lý'}
-                {activeTab === 'delivered' && 'Đối Soát Đơn Hàng Đã Giao Thành Công'}
-                {activeTab === 'products' && 'Kho Sen Đá & Quản Lý Tồn Kho'}
-                {activeTab === 'coupons' && 'Mã Ưu Đãi & Voucher Giảm Giá'}
-                {activeTab === 'customers' && 'Khách Hàng & Phân Quyền Quản Trị'}
-                {activeTab === 'shipping' && 'Cấu Hình Phí Vận Chuyển Từng Tỉnh / Thành Phố'}
-                {activeTab === 'admin-accounts' && 'Quản Lý Tài Khoản Quản Trị Viên & Đổi Mật Khẩu'}
+                {activeTab === 'orders' && 'Đơn Hàng Cần Xử Lý'}
+                {activeTab === 'delivered' && 'Đơn Hàng Đã Giao'}
+                {activeTab === 'products' && 'Kho Sen Đá & Tồn Kho'}
+                {activeTab === 'coupons' && 'Mã Giảm Giá & Voucher'}
+                {activeTab === 'customers' && 'Khách Hàng & Phân Quyền'}
+                {activeTab === 'shipping' && 'Cấu Hình Phí Vận Chuyển'}
+                {activeTab === 'admin-accounts' && 'Tài Khoản Quản Trị'}
               </>
             )}
           </h1>
         </div>
       </div>
 
-      <div className="admin-topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="admin-topbar-actions">
         {isRealtimeConnected ? (
           <div
             className="admin-realtime-badge"
             title="Đang kết nối luồng sự kiện đơn hàng thời gian thực (Server-Sent Events)"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              background: '#ecfdf5',
-              border: '1px solid #10b981',
-              color: '#065f46',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              letterSpacing: '0.2px'
-            }}
           >
-            <span
-              style={{
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                background: '#10b981',
-                boxShadow: '0 0 0 2px rgba(16, 185, 129, 0.35)'
-              }}
-            />
-            <span>Realtime Live</span>
+            <span className="admin-realtime-dot" />
+            <span className="admin-realtime-label">Realtime Live</span>
           </div>
         ) : null}
 
         <button
-          className="btn-primary"
+          type="button"
+          className="btn-primary admin-header-action-btn"
           onClick={onOpenAddProduct}
-          style={{ padding: '8px 14px', fontSize: '0.84rem' }}
+          title="Thêm cây sen đá mới vào kho"
         >
           <Plus size={15} />
-          <span>Thêm Sen Đá</span>
+          <span className="admin-btn-text">Thêm Sen Đá</span>
         </button>
 
         <button
-          className="btn-secondary"
+          type="button"
+          className="btn-secondary admin-header-action-btn"
           onClick={onOpenAddCoupon}
-          style={{ padding: '8px 14px', fontSize: '0.84rem' }}
+          title="Tạo mã giảm giá / voucher khuyến mãi mới"
         >
           <Plus size={15} />
-          <span>Tạo Voucher</span>
+          <span className="admin-btn-text">Tạo Voucher</span>
         </button>
 
         {/* Cụm Thông Tin Admin & Đăng Xuất */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginLeft: '6px',
-            paddingLeft: '12px',
-            borderLeft: '1px solid var(--border-light, #e2e8f0)'
-          }}
-        >
+        <div className="admin-topbar-user-section">
           <button
             type="button"
             onClick={() => setActiveTab && setActiveTab('admin-accounts')}
             title="Xem hồ sơ & Đổi mật khẩu tài khoản Quản trị"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: activeTab === 'admin-accounts' ? '#ecfdf5' : '#f8fafc',
-              border: activeTab === 'admin-accounts' ? '1px solid #10b981' : '1px solid #cbd5e1',
-              padding: '4px 10px 4px 6px',
-              borderRadius: '20px',
-              cursor: 'pointer',
-              transition: 'all 0.15s'
-            }}
+            className={`admin-header-profile-btn ${activeTab === 'admin-accounts' ? 'active' : ''}`}
           >
             <img
               src={
@@ -147,24 +109,9 @@ export default function AdminHeader({
                 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
               }
               alt="Admin"
-              style={{
-                width: '26px',
-                height: '26px',
-                borderRadius: '50%',
-                objectFit: 'cover'
-              }}
+              className="admin-header-avatar"
             />
-            <span
-              style={{
-                fontSize: '0.82rem',
-                fontWeight: 600,
-                color: '#1e293b',
-                maxWidth: '120px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
-              }}
-            >
+            <span className="admin-header-username">
               {user?.name || 'Admin'}
             </span>
             <KeyRound size={13} color="#2563eb" title="Đổi mật khẩu" />
@@ -175,24 +122,10 @@ export default function AdminHeader({
               type="button"
               onClick={onLogout}
               title="Đăng xuất khỏi tài khoản Quản trị"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '5px',
-                padding: '7px 12px',
-                borderRadius: '8px',
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                color: '#dc2626',
-                fontSize: '0.82rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s'
-              }}
+              className="admin-header-logout-btn"
             >
               <LogOut size={14} />
-              <span>Đăng Xuất</span>
+              <span className="admin-btn-text">Đăng Xuất</span>
             </button>
           )}
         </div>

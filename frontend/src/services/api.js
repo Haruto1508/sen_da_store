@@ -1409,11 +1409,29 @@ export async function sendOtp(email) {
   }
 
   if (USE_MOCK_DATA) {
+    let existing = null;
+    try {
+      existing = JSON.parse(sessionStorage.getItem(`senxinh_mock_otp_${cleanEmail}`));
+    } catch {}
+
+    if (existing && existing.createdAt && Date.now() < existing.expiry) {
+      const elapsed = Math.floor((Date.now() - existing.createdAt) / 1000);
+      if (elapsed < 60) {
+        const waitSec = 60 - elapsed;
+        throw new Error(`Bạn đang gửi yêu cầu quá nhanh. Vui lòng đợi ${waitSec} giây trước khi yêu cầu mã mới!`);
+      }
+    }
+
     const mockOtp = String(Math.floor(100000 + Math.random() * 900000));
     try {
       sessionStorage.setItem(
         `senxinh_mock_otp_${cleanEmail}`,
-        JSON.stringify({ code: mockOtp, expiry: Date.now() + 5 * 60 * 1000 })
+        JSON.stringify({ 
+          code: mockOtp, 
+          expiry: Date.now() + 5 * 60 * 1000,
+          createdAt: Date.now(),
+          attempts: 0
+        })
       );
     } catch {}
     console.info(`🔑 [SEN XINH MOCK OTP] Mã xác thực cho ${cleanEmail}: ${mockOtp}`);
@@ -1470,8 +1488,18 @@ export async function loginUser(email, password = '', otp = '') {
           throw new Error('Mã OTP chưa được yêu cầu hoặc đã hết hạn. Vui lòng nhấn gửi lại mã!');
         }
         if (stored.code !== otp.trim()) {
-          throw new Error('Mã OTP không chính xác. Vui lòng kiểm tra lại!');
+          stored.attempts = (stored.attempts || 0) + 1;
+          const remaining = 5 - stored.attempts;
+          if (remaining <= 0) {
+            try { sessionStorage.removeItem(`senxinh_mock_otp_${cleanEmail}`); } catch {}
+            throw new Error('Bạn đã nhập sai mã OTP quá 5 lần. Mã đã bị hủy để đảm bảo an toàn. Vui lòng yêu cầu mã mới!');
+          }
+          try {
+            sessionStorage.setItem(`senxinh_mock_otp_${cleanEmail}`, JSON.stringify(stored));
+          } catch {}
+          throw new Error(`Mã OTP không chính xác. Bạn còn ${remaining} lần thử lại!`);
         }
+        try { sessionStorage.removeItem(`senxinh_mock_otp_${cleanEmail}`); } catch {}
       } else {
         throw new Error('Tài khoản Quản trị viên bắt buộc phải nhập Mật khẩu hoặc mã OTP!');
       }
@@ -1486,9 +1514,18 @@ export async function loginUser(email, password = '', otp = '') {
           throw new Error('Mã OTP chưa được yêu cầu hoặc đã hết hạn. Vui lòng nhấn gửi lại mã!');
         }
         if (stored.code !== otp.trim()) {
-          throw new Error('Mã OTP không chính xác. Vui lòng kiểm tra lại!');
+          stored.attempts = (stored.attempts || 0) + 1;
+          const remaining = 5 - stored.attempts;
+          if (remaining <= 0) {
+            try { sessionStorage.removeItem(`senxinh_mock_otp_${cleanEmail}`); } catch {}
+            throw new Error('Bạn đã nhập sai mã OTP quá 5 lần. Mã đã bị hủy để đảm bảo an toàn. Vui lòng yêu cầu mã mới!');
+          }
+          try {
+            sessionStorage.setItem(`senxinh_mock_otp_${cleanEmail}`, JSON.stringify(stored));
+          } catch {}
+          throw new Error(`Mã OTP không chính xác. Bạn còn ${remaining} lần thử lại!`);
         }
-        // Xóa OTP sau khi dùng
+        // Xóa OTP sau khi dùng thành công
         try { sessionStorage.removeItem(`senxinh_mock_otp_${cleanEmail}`); } catch {}
       } else if (password) {
         if (existingUser) {

@@ -41,6 +41,26 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     return () => clearInterval(interval);
   }, [otpCountdown]);
 
+  // Khôi phục bộ đếm countdown từ sessionStorage khi đổi email hoặc tải lại trang
+  useEffect(() => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) return;
+    try {
+      const sentAtStr = sessionStorage.getItem(`senxinh_otp_sent_at_${cleanEmail}`);
+      if (sentAtStr) {
+        const sentAt = parseInt(sentAtStr, 10);
+        const elapsed = Math.floor((Date.now() - sentAt) / 1000);
+        const remaining = 60 - elapsed;
+        if (remaining > 0) {
+          setOtpCountdown(remaining);
+        } else {
+          setOtpCountdown(0);
+          sessionStorage.removeItem(`senxinh_otp_sent_at_${cleanEmail}`);
+        }
+      }
+    } catch {}
+  }, [email]);
+
   // Gửi mã OTP và chuyển sang trang/màn hình nhập OTP chuyên biệt
   const handleRequestOtpAndProceed = async (e) => {
     if (e) e.preventDefault();
@@ -58,6 +78,9 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
       const res = await sendOtp(cleanEmail);
       setOtpSent(true);
       setOtpCountdown(60);
+      try {
+        sessionStorage.setItem(`senxinh_otp_sent_at_${cleanEmail.toLowerCase()}`, Date.now().toString());
+      } catch {}
       setStep('verify-otp');
       setOtp('');
       setInfoMsg(res.message || `Mã xác thực OTP đã được gửi đến ${cleanEmail}.`);
@@ -82,6 +105,9 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     try {
       const res = await sendOtp(cleanEmail);
       setOtpCountdown(60);
+      try {
+        sessionStorage.setItem(`senxinh_otp_sent_at_${cleanEmail.toLowerCase()}`, Date.now().toString());
+      } catch {}
       setOtp('');
       setInfoMsg(res.message || `Đã gửi lại mã OTP mới đến ${cleanEmail}.`);
       if (addToast) {
@@ -94,11 +120,11 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     }
   };
 
-  // Xác thực mã OTP và hoàn tất đăng nhập
-  const handleVerifyOtpAndLogin = async (e) => {
+  // Xác thực mã OTP và hoàn tất đăng nhập (hỗ trợ auto-submit)
+  const handleVerifyOtpAndLogin = async (e, explicitOtp = null) => {
     if (e) e.preventDefault();
     const cleanEmail = email.trim();
-    const cleanOtp = otp.trim();
+    const cleanOtp = (explicitOtp !== null ? explicitOtp : otp).trim();
     if (!cleanOtp) {
       setErrorMsg('Vui lòng nhập mã OTP 6 chữ số đã được gửi về email của bạn!');
       return;
@@ -111,6 +137,10 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
       const res = await loginUser(cleanEmail, '', cleanOtp);
 
       if (res.success && res.data) {
+        try {
+          sessionStorage.removeItem(`senxinh_otp_sent_at_${cleanEmail.toLowerCase()}`);
+        } catch {}
+
         const displayName = res.data.name || res.data.user?.name || 'bạn';
         const isAdmin = Boolean(
           res.data.role?.toLowerCase().includes('admin') ||
@@ -136,6 +166,9 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
         ? 'Không thể kết nối đến máy chủ. Quý khách vui lòng thử lại sau!'
         : msg;
       setErrorMsg(friendlyMsg);
+      if (friendlyMsg.includes('quá 5 lần')) {
+        setOtp('');
+      }
     } finally {
       setLoading(false);
     }
@@ -438,9 +471,12 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                         placeholder="• • • • • •"
                         value={otp}
                         onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '');
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 6);
                           setOtp(val);
                           if (errorMsg) setErrorMsg('');
+                          if (val.length === 6 && !loading) {
+                            handleVerifyOtpAndLogin(null, val);
+                          }
                         }}
                         style={{
                           textAlign: 'center',

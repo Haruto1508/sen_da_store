@@ -36,15 +36,26 @@ public class AuthService {
     public static class OtpEntry {
         private final String code;
         private final LocalDateTime expiry;
+        private final LocalDateTime createdAt;
+        private int failedAttempts;
 
         public OtpEntry(String code, LocalDateTime expiry) {
+            this(code, expiry, LocalDateTime.now());
+        }
+
+        public OtpEntry(String code, LocalDateTime expiry, LocalDateTime createdAt) {
             this.code = code;
             this.expiry = expiry;
+            this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+            this.failedAttempts = 0;
         }
 
         public String getCode() { return code; }
         public LocalDateTime getExpiry() { return expiry; }
+        public LocalDateTime getCreatedAt() { return createdAt; }
         public boolean isExpired() { return LocalDateTime.now().isAfter(expiry); }
+        public int getFailedAttempts() { return failedAttempts; }
+        public int incrementFailedAttempts() { return ++this.failedAttempts; }
     }
 
     private final Map<String, OtpEntry> otpStorage = new ConcurrentHashMap<>();
@@ -81,13 +92,27 @@ public class AuthService {
 
     /**
      * Gửi mã OTP xác thực 6 số về Email
-     * Hiệu lực 5 phút
+     * Áp dụng Cooldown 60s chống spam và hiệu lực 5 phút
      */
     public SendOtpResponse sendOtp(String email) {
         if (email == null || email.isBlank()) {
             throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING, "Vui lòng nhập email để nhận mã xác thực OTP");
         }
         String cleanEmail = email.trim().toLowerCase();
+
+        // 1. Kiểm tra Cooldown 60 giây chống spam gửi mã
+        OtpEntry existing = otpStorage.get(cleanEmail);
+        if (existing != null && !existing.isExpired()) {
+            long secondsSinceCreated = java.time.Duration.between(existing.getCreatedAt(), LocalDateTime.now()).getSeconds();
+            if (secondsSinceCreated < 60) {
+                long waitSeconds = 60 - secondsSinceCreated;
+                throw new AppException(
+                    ErrorCode.OTP_COOLDOWN,
+                    "Bạn đang gửi yêu cầu quá nhanh. Vui lòng đợi " + waitSeconds + " giây trước khi yêu cầu mã mới!"
+                );
+            }
+        }
+
         String otpCode = String.format("%06d", new Random().nextInt(999999));
         otpStorage.put(cleanEmail, new OtpEntry(otpCode, LocalDateTime.now().plusMinutes(5)));
         log.info("🔑 [SEN XINH OTP] Mã xác thực OTP cho [{}]: {} (Hiệu lực 5 phút)", cleanEmail, otpCode);
@@ -119,6 +144,7 @@ public class AuthService {
 
     /**
      * Xác thực tính hợp lệ của mã OTP
+     * Giới hạn tối đa 5 lần nhập sai
      */
     private void verifyOtp(String email, String otpInput) {
         if (otpInput == null || otpInput.isBlank()) {
@@ -133,9 +159,27 @@ public class AuthService {
             otpStorage.remove(cleanEmail);
             throw new AppException(ErrorCode.INVALID_OTP, "Mã OTP đã hết hiệu lực (quá 5 phút). Vui lòng yêu cầu mã mới!");
         }
+
+        // Kiểm tra mã OTP
         if (!entry.getCode().equals(otpInput.trim())) {
-            throw new AppException(ErrorCode.INVALID_OTP, "Mã OTP không chính xác. Vui lòng kiểm tra lại!");
+            int currentFailures = entry.incrementFailedAttempts();
+            int remaining = 5 - currentFailures;
+
+            if (remaining <= 0) {
+                // Đạt tối đa 5 lần sai -> Hủy mã ngay lập tức
+                otpStorage.remove(cleanEmail);
+                throw new AppException(
+                    ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED,
+                    "Bạn đã nhập sai mã OTP quá 5 lần. Mã đã bị hủy để đảm bảo an toàn. Vui lòng yêu cầu mã mới!"
+                );
+            }
+
+            throw new AppException(
+                ErrorCode.INVALID_OTP,
+                "Mã OTP không chính xác. Bạn còn " + remaining + " lần thử lại!"
+            );
         }
+
         // Xóa mã sau khi xác thực thành công
         otpStorage.remove(cleanEmail);
     }
