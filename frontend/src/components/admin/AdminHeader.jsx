@@ -8,8 +8,6 @@ export default function AdminHeader({
   activeCustomer,
   activeOrder,
   setMobileSidebarOpen,
-  onOpenAddProduct,
-  onOpenAddCoupon,
   isRealtimeConnected = false,
   user,
   onLogout
@@ -74,27 +72,7 @@ export default function AdminHeader({
             <span className="admin-realtime-label">Realtime Live</span>
           </div>
         ) : null}
-
-        <button
-          type="button"
-          className="btn-primary admin-header-action-btn"
-          onClick={onOpenAddProduct}
-          title="Thêm cây sen đá mới vào kho"
-        >
-          <Plus size={15} />
-          <span className="admin-btn-text">Thêm Sen Đá</span>
-        </button>
-
-        <button
-          type="button"
-          className="btn-secondary admin-header-action-btn"
-          onClick={onOpenAddCoupon}
-          title="Tạo mã giảm giá / voucher khuyến mãi mới"
-        >
-          <Plus size={15} />
-          <span className="admin-btn-text">Tạo Voucher</span>
-        </button>
-
+        
         {/* Cụm Thông Tin Admin & Đăng Xuất */}
         <div className="admin-topbar-user-section">
           <button
