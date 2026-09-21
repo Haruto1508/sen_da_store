@@ -1,15 +1,18 @@
 package com.succulentshop.backend.dto;
 
+import java.io.Serializable;
 import java.util.List;
 
-public class ShippingConfigResponse {
+public class ShippingConfigResponse implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     private Boolean freeShippingEnabled;
     private Integer freeShippingThreshold;
     private Integer defaultShippingFee;
     private List<ShippingRateDto> provinceRates;
 
-    public static class ShippingRateDto {
+    public static class ShippingRateDto implements Serializable {
+        private static final long serialVersionUID = 1L;
         private String id;
         private String province;
         private Integer fee;

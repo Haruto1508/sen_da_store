@@ -19,6 +19,7 @@ import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.repository.ProductRepository;
 import com.succulentshop.backend.repository.UserRepository;
 import com.succulentshop.backend.util.SlugUtil;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -117,6 +118,7 @@ public class AdminService {
     }
 
     @Transactional
+    @CacheEvict(value = {"product_detail", "products_filtered"}, allEntries = true)
     public UpdateOrderStatusResponse updateOrderStatus(Long id, String status) {
         if (status == null || status.isBlank()) {
             throw new AppException(ErrorCode.ORDER_STATUS_REQUIRED);
@@ -289,6 +291,7 @@ public class AdminService {
     }
 
     @Transactional
+    @CacheEvict(value = {"product_detail", "products_filtered"}, allEntries = true)
     public ProductResponse createProduct(ProductUpsertRequest request) {
         if (request == null || request.getName() == null || request.getName().isBlank()) {
             throw new AppException(ErrorCode.PRODUCT_NAME_REQUIRED);
@@ -312,6 +315,7 @@ public class AdminService {
     }
 
     @Transactional
+    @CacheEvict(value = {"product_detail", "products_filtered"}, allEntries = true)
     public ProductResponse updateProduct(String id, ProductUpsertRequest request) {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND, "Không tìm thấy sản phẩm với mã: " + id));
@@ -332,6 +336,7 @@ public class AdminService {
     }
 
     @Transactional
+    @CacheEvict(value = {"product_detail", "products_filtered"}, allEntries = true)
     public UpdateStockResponse updateProductStock(String id, UpdateStockRequest request) {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND, "Không tìm thấy sản phẩm"));
@@ -345,6 +350,7 @@ public class AdminService {
     }
 
     @Transactional
+    @CacheEvict(value = {"product_detail", "products_filtered"}, allEntries = true)
     public void deleteProduct(String id) {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND, "Không tìm thấy sản phẩm"));

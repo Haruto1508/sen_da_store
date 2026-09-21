@@ -1,8 +1,11 @@
 package com.succulentshop.backend.dto;
 
+import java.io.Serializable;
 import java.util.List;
 
-public class ProductResponse {
+public class ProductResponse implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String id;
     private String publicId;
     private String name;

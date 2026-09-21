@@ -10,6 +10,8 @@ import com.succulentshop.backend.exception.ErrorCode;
 import com.succulentshop.backend.exception.InsufficientStockException;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.ProductRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,7 @@ public class ProductService {
         this.productRepository = productRepository;
     }
 
+    @Cacheable(value = "products_filtered", key = "(#category ?: 'all') + '_' + (#search ?: '') + '_' + (#light ?: 'all') + '_' + (#difficulty ?: 'all') + '_' + (#sort ?: 'default')")
     public List<ProductResponse> getFilteredProducts(String category, String search, String light, String difficulty, String sort) {
         boolean hasFilter = (category != null && !category.isBlank() && !"all".equalsIgnoreCase(category))
                 || (search != null && !search.isBlank())
@@ -57,6 +60,7 @@ public class ProductService {
         return responseList;
     }
 
+    @Cacheable(value = "product_detail", key = "#id")
     public ProductResponse getProductDetail(String id) {
         Product p = findByIdOrThrow(id);
         return convertProductToResponse(p);
@@ -80,6 +84,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(value = {"product_detail", "products_filtered"}, allEntries = true)
     public void deductStock(String productId, int quantity) {
         Product p = findActiveByIdOrThrow(productId);
         int currentStock = p.getInStock() != null ? p.getInStock() : 0;
@@ -101,6 +106,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(value = {"product_detail", "products_filtered"}, allEntries = true)
     public void restoreStock(String productId, int quantity) {
         Optional<Product> pOpt = productRepository.findById(productId);
         if (pOpt.isPresent()) {
@@ -112,6 +118,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(value = {"product_detail", "products_filtered"}, allEntries = true)
     public ReviewResponse addReview(String productId, int newRating, String comment, String reviewerName) {
         Product p = findByIdOrThrow(productId);
         int clampedRating = Math.max(1, Math.min(5, newRating));

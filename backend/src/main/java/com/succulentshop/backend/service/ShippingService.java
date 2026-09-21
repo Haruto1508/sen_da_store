@@ -6,6 +6,8 @@ import com.succulentshop.backend.entity.ShippingRate;
 import com.succulentshop.backend.entity.ShippingSetting;
 import com.succulentshop.backend.repository.ShippingRateRepository;
 import com.succulentshop.backend.repository.ShippingSettingRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class ShippingService {
     }
 
     @Transactional
+    @Cacheable(value = "shipping_config", key = "'default'")
     public ShippingConfigResponse getShippingConfig() {
         ShippingSetting setting = getOrCreateShippingSetting();
 
@@ -55,6 +58,7 @@ public class ShippingService {
     }
 
     @Transactional
+    @CacheEvict(value = "shipping_config", allEntries = true)
     public ShippingConfigResponse updateShippingConfig(UpdateShippingConfigRequest req) {
         ShippingSetting setting = getOrCreateShippingSetting();
 

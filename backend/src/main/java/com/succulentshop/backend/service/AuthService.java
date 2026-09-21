@@ -25,9 +25,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import com.succulentshop.backend.service.otp.OtpStore;
+import com.succulentshop.backend.service.otp.RedisOtpStore;
+
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AuthService {
@@ -85,8 +87,7 @@ public class AuthService {
         public int incrementFailedAttempts() { return ++this.failedAttempts; }
     }
 
-    private final Map<String, OtpEntry> otpStorage = new ConcurrentHashMap<>();
-
+    private final OtpStore otpStore;
     private final UserRepository userRepository;
     private final SocialAccountRepository socialAccountRepository;
     private final PasswordEncoder passwordEncoder;
@@ -97,23 +98,32 @@ public class AuthService {
     private String configuredClientId;
 
     public AuthService(UserRepository userRepository) {
-        this(userRepository, null, new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(), null);
+        this(userRepository, null, new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(), null, null);
     }
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
-        this(userRepository, null, passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(), null);
+        this(userRepository, null, passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(), null, null);
     }
 
     public AuthService(UserRepository userRepository, SocialAccountRepository socialAccountRepository, PasswordEncoder passwordEncoder) {
-        this(userRepository, socialAccountRepository, passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(), null);
+        this(userRepository, socialAccountRepository, passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(), null, null);
+    }
+
+    public AuthService(UserRepository userRepository, SocialAccountRepository socialAccountRepository, PasswordEncoder passwordEncoder, EmailService emailService) {
+        this(userRepository, socialAccountRepository, passwordEncoder, emailService, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
-    public AuthService(UserRepository userRepository, SocialAccountRepository socialAccountRepository, PasswordEncoder passwordEncoder, @org.springframework.beans.factory.annotation.Autowired(required = false) EmailService emailService) {
+    public AuthService(UserRepository userRepository,
+                       SocialAccountRepository socialAccountRepository,
+                       PasswordEncoder passwordEncoder,
+                       @org.springframework.beans.factory.annotation.Autowired(required = false) EmailService emailService,
+                       @org.springframework.beans.factory.annotation.Autowired(required = false) OtpStore otpStore) {
         this.userRepository = userRepository;
         this.socialAccountRepository = socialAccountRepository;
         this.passwordEncoder = passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
         this.emailService = emailService;
+        this.otpStore = otpStore != null ? otpStore : new RedisOtpStore();
         this.restTemplate = new RestTemplate();
     }
 
@@ -128,20 +138,17 @@ public class AuthService {
         String cleanEmail = email.trim().toLowerCase();
 
         // 1. Kiểm tra Cooldown chống spam gửi mã
-        OtpEntry existing = otpStorage.get(cleanEmail);
-        if (existing != null && !existing.isExpired()) {
-            long secondsSinceCreated = java.time.Duration.between(existing.getCreatedAt(), LocalDateTime.now()).getSeconds();
-            if (secondsSinceCreated < otpCooldownSeconds) {
-                long waitSeconds = otpCooldownSeconds - secondsSinceCreated;
-                throw new AppException(
-                    ErrorCode.OTP_COOLDOWN,
-                    "Bạn đang gửi yêu cầu quá nhanh. Vui lòng đợi " + waitSeconds + " giây trước khi yêu cầu mã mới!"
-                );
-            }
+        long waitSeconds = otpStore.getCooldownSecondsRemaining(cleanEmail, otpCooldownSeconds);
+        if (waitSeconds > 0) {
+            throw new AppException(
+                ErrorCode.OTP_COOLDOWN,
+                "Bạn đang gửi yêu cầu quá nhanh. Vui lòng đợi " + waitSeconds + " giây trước khi yêu cầu mã mới!"
+            );
         }
 
         String otpCode = String.format("%06d", new Random().nextInt(999999));
-        otpStorage.put(cleanEmail, new OtpEntry(otpCode, LocalDateTime.now().plusSeconds(otpExpirySeconds)));
+        otpStore.saveOtp(cleanEmail, otpCode, otpExpirySeconds);
+        otpStore.setCooldown(cleanEmail, otpCooldownSeconds);
         log.info("🔑 [SEN XINH OTP] Mã xác thực OTP cho [{}]: {} (Hiệu lực {} giây)", cleanEmail, otpCode, otpExpirySeconds);
 
         boolean emailSent = false;
@@ -166,8 +173,7 @@ public class AuthService {
      */
     public String getOtpForTesting(String email) {
         if (email == null) return null;
-        OtpEntry entry = otpStorage.get(email.trim().toLowerCase());
-        return entry != null ? entry.getCode() : null;
+        return otpStore.getOtp(email);
     }
 
     /**
@@ -179,24 +185,19 @@ public class AuthService {
             throw new AppException(ErrorCode.INVALID_OTP, "Vui lòng nhập mã OTP xác thực");
         }
         String cleanEmail = email.trim().toLowerCase();
-        OtpEntry entry = otpStorage.get(cleanEmail);
-        if (entry == null) {
+        String currentOtp = otpStore.getOtp(cleanEmail);
+        if (currentOtp == null) {
             throw new AppException(ErrorCode.INVALID_OTP, "Mã OTP chưa được yêu cầu hoặc đã hết hạn. Vui lòng nhấn gửi lại mã!");
-        }
-        if (entry.isExpired()) {
-            otpStorage.remove(cleanEmail);
-            String expiryDesc = (otpExpirySeconds % 60 == 0) ? (otpExpirySeconds / 60) + " phút" : otpExpirySeconds + " giây";
-            throw new AppException(ErrorCode.INVALID_OTP, "Mã OTP đã hết hiệu lực (quá " + expiryDesc + "). Vui lòng yêu cầu mã mới!");
         }
 
         // Kiểm tra mã OTP
-        if (!entry.getCode().equals(otpInput.trim())) {
-            int currentFailures = entry.incrementFailedAttempts();
+        if (!currentOtp.equals(otpInput.trim())) {
+            int currentFailures = otpStore.incrementFailedAttempts(cleanEmail, otpExpirySeconds);
             int remaining = maxFailedAttempts - currentFailures;
 
             if (remaining <= 0) {
                 // Đạt tối đa số lần sai -> Hủy mã ngay lập tức
-                otpStorage.remove(cleanEmail);
+                otpStore.removeOtp(cleanEmail);
                 throw new AppException(
                     ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED,
                     "Bạn đã nhập sai mã OTP quá " + maxFailedAttempts + " lần. Mã đã bị hủy để đảm bảo an toàn. Vui lòng yêu cầu mã mới!"
@@ -210,7 +211,7 @@ public class AuthService {
         }
 
         // Xóa mã sau khi xác thực thành công
-        otpStorage.remove(cleanEmail);
+        otpStore.removeOtp(cleanEmail);
     }
 
     /**
