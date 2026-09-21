@@ -44,6 +44,7 @@
 
 html {
   overflow-y: scroll; /* Luôn giữ thanh cuộn dọc cố định để triệt tiêu hiện tượng giật ngang màn hình */
+  overflow-x: clip;
 }
 
 body {
@@ -53,7 +54,7 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+  overflow-x: clip; /* Dùng clip thay vì hidden để không phá vỡ position: sticky của header */
 }
 
 /* Cấu trúc Sticky Footer đảm bảo footer luôn ở đáy màn hình */
@@ -125,12 +126,13 @@ input::-webkit-contacts-auto-fill-button {
 .header {
   position: sticky;
   top: 0;
-  z-index: 100;
-  background: rgba(251, 251, 250, 0.88);
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border-light);
   transition: var(--transition);
+  width: 100%;
 }
 
 .nav-container {
@@ -139,6 +141,7 @@ input::-webkit-contacts-auto-fill-button {
   justify-content: space-between;
   height: 64px;
   gap: 16px;
+  flex-wrap: nowrap;
 }
 
 .logo {
@@ -1758,7 +1761,7 @@ input::-webkit-contacts-auto-fill-button {
     display: none;
   }
   .navbar-search-wrapper {
-    display: none;
+    display: none !important;
   }
   .nav-container {
     height: 58px;
@@ -8495,9 +8498,9 @@ html.modal-open {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 992px) {
   .navbar-search-wrapper {
-    display: none;
+    display: none !important;
   }
   .plant-filter-card {
     padding: 24px 16px;

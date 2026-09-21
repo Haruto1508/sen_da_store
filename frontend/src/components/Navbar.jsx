@@ -118,7 +118,7 @@ export default function Navbar({
   const [isPlantsMegaMenuOpen, setIsPlantsMegaMenuOpen] = useState(false);
   const [hoveredCategory, setHoveredCategory] = useState('echeveria');
   const [hoveredCategoryIndex, setHoveredCategoryIndex] = useState(0);
-  const [isMobilePlantsOpen, setIsMobilePlantsOpen] = useState(false);
+  const [isMobilePlantsOpen, setIsMobilePlantsOpen] = useState(true);
 
   const menuRef = useRef(null);
   const searchRef = useRef(null);
@@ -348,8 +348,9 @@ export default function Navbar({
               <button 
                 type="button"
                 className={`nav-link nav-link-dropdown-trigger ${currentRoute === 'shop' || currentRoute === 'product-detail' || isPlantsMegaMenuOpen ? 'active' : ''}`} 
-                onClick={() => {
-                  onNavigate('shop');
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsPlantsMegaMenuOpen((prev) => !prev);
                 }}
                 aria-expanded={isPlantsMegaMenuOpen}
                 aria-haspopup="true"
