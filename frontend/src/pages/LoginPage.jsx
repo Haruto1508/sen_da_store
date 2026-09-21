@@ -568,7 +568,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                   </p>
                 </div>
 
-                {/* Priority 1: Google One-Click Auth */}
+                {/* Priority 1: Google Auth */}
                 <div className="auth-social-row" style={{ marginBottom: '18px' }}>
                   <button 
                     type="button" 
