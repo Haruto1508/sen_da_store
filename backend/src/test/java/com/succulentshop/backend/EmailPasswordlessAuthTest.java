@@ -1,6 +1,7 @@
 package com.succulentshop.backend;
 
 import com.succulentshop.backend.dto.AuthResponse;
+import com.succulentshop.backend.dto.OtpConfigDto;
 import com.succulentshop.backend.entity.User;
 import com.succulentshop.backend.exception.AppException;
 import com.succulentshop.backend.exception.ErrorCode;
@@ -133,5 +134,23 @@ public class EmailPasswordlessAuthTest {
             authService.login(testEmail, null, "123456");
         });
         Assertions.assertEquals(ErrorCode.INVALID_OTP, notFoundEx.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Cấu hình OTP: Kiểm tra giá trị mặc định (120s, 60s, 5 lần) và cập nhật thành công")
+    public void testOtpConfigDefaultsAndCustomUpdate() {
+        OtpConfigDto defaultConfig = authService.getOtpConfig();
+        Assertions.assertNotNull(defaultConfig);
+        Assertions.assertEquals(120, defaultConfig.getExpirySeconds(), "Hiệu lực OTP mặc định phải là 120 giây (2 phút)");
+        Assertions.assertEquals(60, defaultConfig.getCooldownSeconds(), "Cooldown mặc định phải là 60 giây");
+        Assertions.assertEquals(5, defaultConfig.getMaxFailedAttempts(), "Tối đa lần thử sai mặc định phải là 5");
+
+        OtpConfigDto updated = authService.updateOtpConfig(new OtpConfigDto(300, 90, 8));
+        Assertions.assertEquals(300, updated.getExpirySeconds());
+        Assertions.assertEquals(90, updated.getCooldownSeconds());
+        Assertions.assertEquals(8, updated.getMaxFailedAttempts());
+
+        // Khôi phục lại mặc định cho các test case khác
+        authService.updateOtpConfig(new OtpConfigDto(120, 60, 5));
     }
 }

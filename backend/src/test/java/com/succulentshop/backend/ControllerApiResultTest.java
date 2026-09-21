@@ -199,4 +199,32 @@ class ControllerApiResultTest {
         assertEquals(10L, statsResp.getBody().getData().getTotalOrders());
         assertEquals(20L, statsResp.getBody().getData().getTotalProducts());
     }
+
+    @Test
+    @DisplayName("AdminController trả về ApiResult thành công trên otp-config")
+    void testAdminControllerOtpConfig() {
+        AdminService adminService = mock(AdminService.class);
+        AdminOrderSseService sseService = mock(AdminOrderSseService.class);
+        AuthService authService = mock(AuthService.class);
+
+        OtpConfigDto mockConfig = new OtpConfigDto(120, 60, 5);
+        when(authService.getOtpConfig()).thenReturn(mockConfig);
+        when(authService.updateOtpConfig(any(OtpConfigDto.class))).thenReturn(new OtpConfigDto(180, 45, 3));
+
+        AdminController controller = new AdminController(adminService, sseService, authService);
+
+        ResponseEntity<ApiResult<OtpConfigDto>> getResp = controller.getOtpConfig();
+        assertEquals(HttpStatus.OK, getResp.getStatusCode());
+        assertTrue(getResp.getBody().isSuccess());
+        assertEquals(120, getResp.getBody().getData().getExpirySeconds());
+        assertEquals(60, getResp.getBody().getData().getCooldownSeconds());
+        assertEquals(5, getResp.getBody().getData().getMaxFailedAttempts());
+
+        ResponseEntity<ApiResult<OtpConfigDto>> putResp = controller.updateOtpConfig(new OtpConfigDto(180, 45, 3));
+        assertEquals(HttpStatus.OK, putResp.getStatusCode());
+        assertTrue(putResp.getBody().isSuccess());
+        assertEquals(180, putResp.getBody().getData().getExpirySeconds());
+        assertEquals(45, putResp.getBody().getData().getCooldownSeconds());
+        assertEquals(3, putResp.getBody().getData().getMaxFailedAttempts());
+    }
 }

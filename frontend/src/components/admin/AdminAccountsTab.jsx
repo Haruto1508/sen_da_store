@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck,
   KeyRound,
@@ -13,12 +13,13 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  Sparkles,
   Shield,
   RefreshCw,
-  X
+  X,
+  Save,
+  RotateCcw
 } from 'lucide-react';
-import { createAdminAccount, changeAdminPassword } from '../../services/api';
+import { createAdminAccount, changeAdminPassword, getOtpConfig, saveOtpConfig } from '../../services/api';
 
 export default function AdminAccountsTab({
   currentUser,
@@ -36,6 +37,125 @@ export default function AdminAccountsTab({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changePasswordLoading, setChangePasswordLoading] = useState(false);
   const [changePasswordMsg, setChangePasswordMsg] = useState({ type: '', text: '' });
+
+  // --- States for OTP Security Configuration ---
+  const [otpConfig, setOtpConfig] = useState({
+    expirySeconds: 120, // 2 phút mặc định
+    cooldownSeconds: 60, // 60 giây chống spam
+    maxFailedAttempts: 5 // Tối đa 5 lần thử sai
+  });
+  const [otpConfigLoading, setOtpConfigLoading] = useState(false);
+  const [otpConfigSaving, setOtpConfigSaving] = useState(false);
+  const [otpConfigMsg, setOtpConfigMsg] = useState({ type: '', text: '' });
+
+  // Tải cấu hình bảo mật OTP khi mở tab
+  useEffect(() => {
+    let isMounted = true;
+    const fetchConfig = async () => {
+      setOtpConfigLoading(true);
+      try {
+        const cfg = await getOtpConfig();
+        if (isMounted && cfg) {
+          setOtpConfig({
+            expirySeconds: cfg.expirySeconds || 120,
+            cooldownSeconds: cfg.cooldownSeconds || 60,
+            maxFailedAttempts: cfg.maxFailedAttempts || 5
+          });
+        }
+      } catch (err) {
+        console.warn('Lỗi khi tải cấu hình OTP:', err);
+      } finally {
+        if (isMounted) setOtpConfigLoading(false);
+      }
+    };
+    fetchConfig();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Xử lý lưu cấu hình OTP
+  const handleSaveOtpConfig = async (e) => {
+    if (e) e.preventDefault();
+    setOtpConfigMsg({ type: '', text: '' });
+
+    if (otpConfig.expirySeconds < 30 || otpConfig.expirySeconds > 1800) {
+      setOtpConfigMsg({
+        type: 'error',
+        text: 'Thời gian hiệu lực của mã OTP phải từ 30 giây đến 1800 giây (30 phút)!'
+      });
+      return;
+    }
+
+    if (otpConfig.cooldownSeconds < 10 || otpConfig.cooldownSeconds > 600) {
+      setOtpConfigMsg({
+        type: 'error',
+        text: 'Thời gian chờ gửi lại mã phải từ 10 giây đến 600 giây (10 phút)!'
+      });
+      return;
+    }
+
+    if (otpConfig.maxFailedAttempts < 1 || otpConfig.maxFailedAttempts > 20) {
+      setOtpConfigMsg({
+        type: 'error',
+        text: 'Giới hạn số lần thử sai phải từ 1 đến 20 lần!'
+      });
+      return;
+    }
+
+    setOtpConfigSaving(true);
+    try {
+      const saved = await saveOtpConfig(otpConfig);
+      setOtpConfig({
+        expirySeconds: saved.expirySeconds || otpConfig.expirySeconds,
+        cooldownSeconds: saved.cooldownSeconds || otpConfig.cooldownSeconds,
+        maxFailedAttempts: saved.maxFailedAttempts || otpConfig.maxFailedAttempts
+      });
+
+      const expiryDesc = otpConfig.expirySeconds % 60 === 0
+        ? `${otpConfig.expirySeconds / 60} phút`
+        : `${otpConfig.expirySeconds} giây`;
+
+      setOtpConfigMsg({
+        type: 'success',
+        text: `Đã lưu cấu hình OTP thành công! Hiệu lực mã: ${expiryDesc}, Thời gian chờ: ${otpConfig.cooldownSeconds}s, Thử sai tối đa: ${otpConfig.maxFailedAttempts} lần.`
+      });
+
+      if (addToast) {
+        addToast(`Đã cập nhật cấu hình OTP: Hiệu lực ${expiryDesc}!`, 'success');
+      }
+    } catch (err) {
+      setOtpConfigMsg({
+        type: 'error',
+        text: err.message || 'Lỗi khi lưu cấu hình OTP. Vui lòng thử lại sau!'
+      });
+    } finally {
+      setOtpConfigSaving(false);
+    }
+  };
+
+  // Khôi phục cài đặt OTP về mặc định (2 phút, 60s cooldown, 5 lần sai)
+  const handleResetDefaultOtpConfig = async () => {
+    const defaults = { expirySeconds: 120, cooldownSeconds: 60, maxFailedAttempts: 5 };
+    setOtpConfig(defaults);
+    setOtpConfigMsg({ type: '', text: '' });
+    setOtpConfigSaving(true);
+    try {
+      await saveOtpConfig(defaults);
+      setOtpConfigMsg({
+        type: 'success',
+        text: 'Đã khôi phục về cấu hình chuẩn khuyến nghị: Hiệu lực 2 phút, Chờ gửi lại 60s, Tối đa 5 lần thử sai!'
+      });
+      if (addToast) {
+        addToast('Đã khôi phục cấu hình bảo mật OTP mặc định (2 phút)!', 'info');
+      }
+    } catch (err) {
+      setOtpConfigMsg({
+        type: 'error',
+        text: 'Lỗi khi khôi phục cấu hình mặc định. Vui lòng thử lại!'
+      });
+    } finally {
+      setOtpConfigSaving(false);
+    }
+  };
 
   // --- States for Add Admin Modal ---
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -588,6 +708,408 @@ export default function AdminAccountsTab({
             </button>
           </form>
         </div>
+      </div>
+
+      {/* Card 3: Cấu Hình Bảo Mật & Thời Gian Hiệu Lực OTP */}
+      <div
+        style={{
+          background: '#ffffff',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          padding: '24px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+          marginBottom: '28px'
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: '0 2px 8px rgba(2, 132, 199, 0.3)'
+              }}
+            >
+              <Clock size={22} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>Cấu Hình Bảo Mật & Thời Gian OTP</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: '12px', border: '1px solid #bfdbfe' }}>
+                  Admin Security
+                </span>
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: '0.84rem', color: '#64748b' }}>
+                Tùy chỉnh thời gian hiệu lực mã OTP (mặc định 2 phút), thời gian chờ gửi lại chống spam và giới hạn số lần nhập sai.
+              </p>
+            </div>
+          </div>
+
+          {/* Current Quick Stats */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ padding: '6px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.82rem', color: '#334155' }}>
+              Hiệu lực: <strong style={{ color: '#0284c7' }}>{otpConfig.expirySeconds % 60 === 0 ? `${otpConfig.expirySeconds / 60} phút` : `${otpConfig.expirySeconds}s`}</strong>
+            </div>
+            <div style={{ padding: '6px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.82rem', color: '#059669' }}>
+              Chờ gửi lại: <strong>{otpConfig.cooldownSeconds}s</strong>
+            </div>
+            <div style={{ padding: '6px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.82rem', color: '#dc2626' }}>
+              Tối đa sai: <strong>{otpConfig.maxFailedAttempts} lần</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Status Message */}
+        {otpConfigMsg.text && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              fontSize: '0.85rem',
+              marginBottom: '20px',
+              background: otpConfigMsg.type === 'error' ? '#fef2f2' : '#f0fdf4',
+              color: otpConfigMsg.type === 'error' ? '#dc2626' : '#15803d',
+              border: `1px solid ${otpConfigMsg.type === 'error' ? '#fecaca' : '#bbf7d0'}`
+            }}
+          >
+            {otpConfigMsg.type === 'error' ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+            <span>{otpConfigMsg.text}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSaveOtpConfig}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '20px',
+              marginBottom: '24px'
+            }}
+          >
+            {/* Setting 1: Thời gian hiệu lực mã OTP */}
+            <div
+              style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0',
+                padding: '18px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <Clock size={16} color="#0284c7" />
+                  <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1e293b' }}>
+                    Thời gian hiệu lực của mã OTP
+                  </label>
+                </div>
+                <p style={{ margin: '0 0 12px', fontSize: '0.8rem', color: '#64748b', lineHeight: 1.45 }}>
+                  Khoảng thời gian mã 6 chữ số có thể dùng để đăng nhập. Hiển thị đồng hồ đếm ngược trên trang Đăng nhập và trong Email.
+                </p>
+
+                {/* Preset Chips */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                  {[
+                    { label: '1 phút (60s)', val: 60 },
+                    { label: '2 phút (120s) ⭐ Khuyến nghị', val: 120 },
+                    { label: '3 phút (180s)', val: 180 },
+                    { label: '5 phút (300s)', val: 300 }
+                  ].map((preset) => (
+                    <button
+                      key={preset.val}
+                      type="button"
+                      onClick={() => setOtpConfig((prev) => ({ ...prev, expirySeconds: preset.val }))}
+                      style={{
+                        padding: '5px 10px',
+                        fontSize: '0.78rem',
+                        fontWeight: otpConfig.expirySeconds === preset.val ? 700 : 500,
+                        background: otpConfig.expirySeconds === preset.val ? '#e0f2fe' : '#ffffff',
+                        border: `1px solid ${otpConfig.expirySeconds === preset.val ? '#0284c7' : '#cbd5e1'}`,
+                        color: otpConfig.expirySeconds === preset.val ? '#0369a1' : '#475569',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                  Số giây tùy chỉnh (30 - 1800 giây):
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="number"
+                    min={30}
+                    max={1800}
+                    step={10}
+                    className="admin-form-input"
+                    value={otpConfig.expirySeconds}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setOtpConfig((prev) => ({ ...prev, expirySeconds: isNaN(val) ? 0 : val }));
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.88rem'
+                    }}
+                    required
+                  />
+                  <span style={{ fontSize: '0.85rem', color: '#64748b', whiteSpace: 'nowrap' }}>giây</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Setting 2: Thời gian chờ gửi lại mã (Cooldown) */}
+            <div
+              style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0',
+                padding: '18px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <RefreshCw size={16} color="#059669" />
+                  <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1e293b' }}>
+                    Thời gian chờ gửi lại mã (Cooldown)
+                  </label>
+                </div>
+                <p style={{ margin: '0 0 12px', fontSize: '0.8rem', color: '#64748b', lineHeight: 1.45 }}>
+                  Khóa tạm thời nút "Gửi lại mã" để ngăn spam click liên tục, tiết kiệm tài nguyên gửi mail và đảm bảo an ninh mạng.
+                </p>
+
+                {/* Preset Chips */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                  {[
+                    { label: '30 giây', val: 30 },
+                    { label: '60 giây (1p) ⭐ Chuẩn', val: 60 },
+                    { label: '90 giây', val: 90 },
+                    { label: '120 giây (2p)', val: 120 }
+                  ].map((preset) => (
+                    <button
+                      key={preset.val}
+                      type="button"
+                      onClick={() => setOtpConfig((prev) => ({ ...prev, cooldownSeconds: preset.val }))}
+                      style={{
+                        padding: '5px 10px',
+                        fontSize: '0.78rem',
+                        fontWeight: otpConfig.cooldownSeconds === preset.val ? 700 : 500,
+                        background: otpConfig.cooldownSeconds === preset.val ? '#d1fae5' : '#ffffff',
+                        border: `1px solid ${otpConfig.cooldownSeconds === preset.val ? '#059669' : '#cbd5e1'}`,
+                        color: otpConfig.cooldownSeconds === preset.val ? '#065f46' : '#475569',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                  Số giây chờ (10 - 600 giây):
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="number"
+                    min={10}
+                    max={600}
+                    step={5}
+                    className="admin-form-input"
+                    value={otpConfig.cooldownSeconds}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setOtpConfig((prev) => ({ ...prev, cooldownSeconds: isNaN(val) ? 0 : val }));
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.88rem'
+                    }}
+                    required
+                  />
+                  <span style={{ fontSize: '0.85rem', color: '#64748b', whiteSpace: 'nowrap' }}>giây</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Setting 3: Giới hạn số lần thử sai */}
+            <div
+              style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0',
+                padding: '18px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <Shield size={16} color="#dc2626" />
+                  <label style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1e293b' }}>
+                    Giới hạn số lần thử sai (Brute-force)
+                  </label>
+                </div>
+                <p style={{ margin: '0 0 12px', fontSize: '0.8rem', color: '#64748b', lineHeight: 1.45 }}>
+                  Khi người dùng nhập sai quá số lần này, mã OTP sẽ tự động hủy ngay lập tức để phòng chống kẻ gian dò mã ngẫu nhiên.
+                </p>
+
+                {/* Preset Chips */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                  {[
+                    { label: '3 lần (Nghiêm ngặt)', val: 3 },
+                    { label: '5 lần ⭐ Khuyến nghị', val: 5 },
+                    { label: '8 lần', val: 8 },
+                    { label: '10 lần', val: 10 }
+                  ].map((preset) => (
+                    <button
+                      key={preset.val}
+                      type="button"
+                      onClick={() => setOtpConfig((prev) => ({ ...prev, maxFailedAttempts: preset.val }))}
+                      style={{
+                        padding: '5px 10px',
+                        fontSize: '0.78rem',
+                        fontWeight: otpConfig.maxFailedAttempts === preset.val ? 700 : 500,
+                        background: otpConfig.maxFailedAttempts === preset.val ? '#fee2e2' : '#ffffff',
+                        border: `1px solid ${otpConfig.maxFailedAttempts === preset.val ? '#dc2626' : '#cbd5e1'}`,
+                        color: otpConfig.maxFailedAttempts === preset.val ? '#991b1b' : '#475569',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                  Số lần sai tối đa (1 - 20 lần):
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    className="admin-form-input"
+                    value={otpConfig.maxFailedAttempts}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setOtpConfig((prev) => ({ ...prev, maxFailedAttempts: isNaN(val) ? 0 : val }));
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.88rem'
+                    }}
+                    required
+                  />
+                  <span style={{ fontSize: '0.85rem', color: '#64748b', whiteSpace: 'nowrap' }}>lần</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleResetDefaultOtpConfig}
+              disabled={otpConfigSaving}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                borderRadius: '10px',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                color: '#475569',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                cursor: otpConfigSaving ? 'not-allowed' : 'pointer'
+              }}
+            >
+              <RotateCcw size={16} />
+              <span>Khôi Phục Mặc Định (2 phút)</span>
+            </button>
+
+            <button
+              type="submit"
+              disabled={otpConfigSaving || otpConfigLoading}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 22px',
+                borderRadius: '10px',
+                border: 'none',
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                color: '#ffffff',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                cursor: otpConfigSaving ? 'not-allowed' : 'pointer',
+                boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)'
+              }}
+            >
+              {otpConfigSaving ? (
+                <>
+                  <RefreshCw size={16} className="spin-slow" />
+                  <span>Đang lưu cấu hình...</span>
+                </>
+              ) : (
+                <>
+                  <Save size={16} />
+                  <span>Lưu Cấu Hình Bảo Mật OTP</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* Danh Sách Tất Cả Các Tài Khoản Quản Trị Viên */}

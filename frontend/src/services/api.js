@@ -1400,6 +1400,59 @@ export async function validateCartItems(items) {
 // ==============================================================================
 
 /**
+ * Lấy cấu hình bảo mật OTP (Thời gian hiệu lực, Cooldown gửi lại, Giới hạn thử sai)
+ */
+export async function getOtpConfig() {
+  if (USE_MOCK_DATA) {
+    try {
+      const stored = localStorage.getItem('senxinh_otp_config');
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return { expirySeconds: 120, cooldownSeconds: 60, maxFailedAttempts: 5 };
+  }
+  try {
+    const res = await fetch(`${API_BASE}/admin/otp-config`);
+    const data = await res.json();
+    if (res.ok && data.data) {
+      return data.data;
+    }
+  } catch (err) {
+    console.warn('Không thể tải cấu hình OTP từ backend, dùng fallback local:', err);
+  }
+  try {
+    const stored = localStorage.getItem('senxinh_otp_config');
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return { expirySeconds: 120, cooldownSeconds: 60, maxFailedAttempts: 5 };
+}
+
+/**
+ * Lưu cấu hình bảo mật OTP từ Quản trị viên
+ */
+export async function saveOtpConfig(config) {
+  try {
+    localStorage.setItem('senxinh_otp_config', JSON.stringify(config));
+  } catch {}
+
+  if (!USE_MOCK_DATA) {
+    try {
+      const res = await fetch(`${API_BASE}/admin/otp-config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+      const data = await res.json();
+      if (res.ok && data.data) {
+        return data.data;
+      }
+    } catch (err) {
+      console.warn('Lỗi khi đồng bộ cấu hình OTP lên backend:', err);
+    }
+  }
+  return config;
+}
+
+/**
  * Gửi mã OTP xác thực 6 số về Email
  */
 export async function sendOtp(email) {
@@ -1409,6 +1462,15 @@ export async function sendOtp(email) {
   }
 
   if (USE_MOCK_DATA) {
+    let config = { expirySeconds: 120, cooldownSeconds: 60, maxFailedAttempts: 5 };
+    try {
+      const storedCfg = localStorage.getItem('senxinh_otp_config');
+      if (storedCfg) config = JSON.parse(storedCfg);
+    } catch {}
+
+    const cooldownSec = config.cooldownSeconds || 60;
+    const expirySec = config.expirySeconds || 120;
+
     let existing = null;
     try {
       existing = JSON.parse(sessionStorage.getItem(`senxinh_mock_otp_${cleanEmail}`));
@@ -1416,8 +1478,8 @@ export async function sendOtp(email) {
 
     if (existing && existing.createdAt && Date.now() < existing.expiry) {
       const elapsed = Math.floor((Date.now() - existing.createdAt) / 1000);
-      if (elapsed < 60) {
-        const waitSec = 60 - elapsed;
+      if (elapsed < cooldownSec) {
+        const waitSec = cooldownSec - elapsed;
         throw new Error(`Bạn đang gửi yêu cầu quá nhanh. Vui lòng đợi ${waitSec} giây trước khi yêu cầu mã mới!`);
       }
     }
@@ -1428,17 +1490,19 @@ export async function sendOtp(email) {
         `senxinh_mock_otp_${cleanEmail}`,
         JSON.stringify({ 
           code: mockOtp, 
-          expiry: Date.now() + 5 * 60 * 1000,
+          expiry: Date.now() + expirySec * 1000,
           createdAt: Date.now(),
           attempts: 0
         })
       );
     } catch {}
-    console.info(`🔑 [SEN XINH MOCK OTP] Mã xác thực cho ${cleanEmail}: ${mockOtp}`);
+    console.info(`🔑 [SEN XINH MOCK OTP] Mã xác thực cho ${cleanEmail}: ${mockOtp} (Hiệu lực ${expirySec}s)`);
+    const expiryDesc = (expirySec % 60 === 0) ? `${expirySec / 60} phút` : `${expirySec} giây`;
     return {
       success: true,
-      message: `Mã xác thực OTP gồm 6 chữ số đã được gửi đến email ${cleanEmail}.`,
-      expiresInSeconds: 300
+      message: `Mã xác thực OTP gồm 6 chữ số (hiệu lực ${expiryDesc}) đã được gửi đến email ${cleanEmail}.`,
+      expiresInSeconds: expirySec,
+      cooldownSeconds: cooldownSec
     };
   }
 
@@ -1464,6 +1528,13 @@ export async function loginUser(email, password = '', otp = '') {
   }
 
   if (USE_MOCK_DATA) {
+    let config = { expirySeconds: 120, cooldownSeconds: 60, maxFailedAttempts: 5 };
+    try {
+      const storedCfg = localStorage.getItem('senxinh_otp_config');
+      if (storedCfg) config = JSON.parse(storedCfg);
+    } catch {}
+    const maxAttempts = config.maxFailedAttempts || 5;
+
     const users = getStoredUsers();
     let existingUser = users.find(
       (u) => (u.email && u.email.toLowerCase() === cleanEmail) || u.phone === cleanEmail
@@ -1489,10 +1560,10 @@ export async function loginUser(email, password = '', otp = '') {
         }
         if (stored.code !== otp.trim()) {
           stored.attempts = (stored.attempts || 0) + 1;
-          const remaining = 5 - stored.attempts;
+          const remaining = maxAttempts - stored.attempts;
           if (remaining <= 0) {
             try { sessionStorage.removeItem(`senxinh_mock_otp_${cleanEmail}`); } catch {}
-            throw new Error('Bạn đã nhập sai mã OTP quá 5 lần. Mã đã bị hủy để đảm bảo an toàn. Vui lòng yêu cầu mã mới!');
+            throw new Error(`Bạn đã nhập sai mã OTP quá ${maxAttempts} lần. Mã đã bị hủy để đảm bảo an toàn. Vui lòng yêu cầu mã mới!`);
           }
           try {
             sessionStorage.setItem(`senxinh_mock_otp_${cleanEmail}`, JSON.stringify(stored));
@@ -1515,10 +1586,10 @@ export async function loginUser(email, password = '', otp = '') {
         }
         if (stored.code !== otp.trim()) {
           stored.attempts = (stored.attempts || 0) + 1;
-          const remaining = 5 - stored.attempts;
+          const remaining = maxAttempts - stored.attempts;
           if (remaining <= 0) {
             try { sessionStorage.removeItem(`senxinh_mock_otp_${cleanEmail}`); } catch {}
-            throw new Error('Bạn đã nhập sai mã OTP quá 5 lần. Mã đã bị hủy để đảm bảo an toàn. Vui lòng yêu cầu mã mới!');
+            throw new Error(`Bạn đã nhập sai mã OTP quá ${maxAttempts} lần. Mã đã bị hủy để đảm bảo an toàn. Vui lòng yêu cầu mã mới!`);
           }
           try {
             sessionStorage.setItem(`senxinh_mock_otp_${cleanEmail}`, JSON.stringify(stored));

@@ -24,12 +24,19 @@ public class EmailService {
     }
 
     /**
-     * Gửi email chứa mã xác thực OTP 6 số
+     * Gửi email chứa mã xác thực OTP 6 số (mặc định 2 phút)
      * @param toEmail Địa chỉ người nhận
      * @param otpCode Mã OTP 6 số
      * @return true nếu gửi email thành công qua SMTP; false nếu chưa cấu hình hoặc lỗi
      */
     public boolean sendOtpEmail(String toEmail, String otpCode) {
+        return sendOtpEmail(toEmail, otpCode, 120);
+    }
+
+    /**
+     * Gửi email chứa mã xác thực OTP 6 số với thời gian hiệu lực tùy chỉnh
+     */
+    public boolean sendOtpEmail(String toEmail, String otpCode, int expirySeconds) {
         if (mailSender == null || fromEmail == null || fromEmail.isBlank()) {
             log.info("ℹ️ [EMAIL] Chưa cấu hình SMTP Mail (MAIL_USERNAME). Mã OTP sinh nội bộ: [{}] gửi đến [{}]", otpCode, toEmail);
             return false;
@@ -43,7 +50,7 @@ public class EmailService {
             helper.setTo(toEmail);
             helper.setSubject("[Sen Xinh Garden] Mã xác thực OTP đăng nhập: " + otpCode);
 
-            String htmlContent = buildOtpEmailHtml(otpCode);
+            String htmlContent = buildOtpEmailHtml(otpCode, expirySeconds);
 
             helper.setText(htmlContent, true);
             mailSender.send(message);
@@ -55,7 +62,14 @@ public class EmailService {
         }
     }
 
-    private String buildOtpEmailHtml(String otpCode) {
+    private String buildOtpEmailHtml(String otpCode, int expirySeconds) {
+        String expiryText;
+        if (expirySeconds % 60 == 0) {
+            expiryText = (expirySeconds / 60) + " phút";
+        } else {
+            expiryText = expirySeconds + " giây";
+        }
+
         return String.format("""
             <!DOCTYPE html>
             <html>
@@ -82,7 +96,7 @@ public class EmailService {
                         <p style="color: #334155; font-size: 15px; margin-bottom: 8px;">Xin chào quý khách,</p>
                         <p style="color: #64748b; font-size: 14px; margin: 0;">Mã xác thực OTP gồm 6 chữ số để truy cập vào tài khoản của bạn là:</p>
                         <div class="otp-box">%s</div>
-                        <p class="notice">Mã OTP này có hiệu lực trong vòng <strong>5 phút</strong>.<br/>Vì lý do an toàn, vui lòng không chia sẻ mã này cho bất kỳ ai khác.</p>
+                        <p class="notice">Mã OTP này có hiệu lực trong vòng <strong>%s</strong>.<br/>Vì lý do an toàn, vui lòng không chia sẻ mã này cho bất kỳ ai khác.</p>
                     </div>
                     <div class="footer">
                         <p>Sen Xinh Garden - Vườn sen đá & cây cảnh phong thủy thuần dưỡng tự nhiên</p>
@@ -91,6 +105,6 @@ public class EmailService {
                 </div>
             </body>
             </html>
-            """, otpCode);
+            """, otpCode, expiryText);
     }
 }

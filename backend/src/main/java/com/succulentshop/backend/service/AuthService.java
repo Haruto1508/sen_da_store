@@ -2,6 +2,7 @@ package com.succulentshop.backend.service;
 
 import com.succulentshop.backend.dto.AuthResponse;
 import com.succulentshop.backend.dto.GoogleLoginRequest;
+import com.succulentshop.backend.dto.OtpConfigDto;
 import com.succulentshop.backend.dto.SendOtpResponse;
 import com.succulentshop.backend.dto.UpdateProfileRequest;
 import com.succulentshop.backend.dto.UserResponse;
@@ -32,6 +33,32 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
+    // Cấu hình linh hoạt thời gian OTP & Cooldown (có thể chỉnh trong Admin)
+    private volatile int otpExpirySeconds = 120;     // Mặc định 2 phút (120 giây)
+    private volatile int otpCooldownSeconds = 60;    // Mặc định 60 giây chống spam
+    private volatile int maxFailedAttempts = 5;      // Tối đa 5 lần thử sai
+
+    public OtpConfigDto getOtpConfig() {
+        return new OtpConfigDto(otpExpirySeconds, otpCooldownSeconds, maxFailedAttempts);
+    }
+
+    public OtpConfigDto updateOtpConfig(OtpConfigDto dto) {
+        if (dto != null) {
+            if (dto.getExpirySeconds() >= 30 && dto.getExpirySeconds() <= 1800) {
+                this.otpExpirySeconds = dto.getExpirySeconds();
+            }
+            if (dto.getCooldownSeconds() >= 10 && dto.getCooldownSeconds() <= 600) {
+                this.otpCooldownSeconds = dto.getCooldownSeconds();
+            }
+            if (dto.getMaxFailedAttempts() >= 1 && dto.getMaxFailedAttempts() <= 20) {
+                this.maxFailedAttempts = dto.getMaxFailedAttempts();
+            }
+        }
+        log.info("⚙️ [CẤU HÌNH OTP] Đã cập nhật: Hiệu lực = {}s, Cooldown = {}s, Max sai = {} lần",
+                otpExpirySeconds, otpCooldownSeconds, maxFailedAttempts);
+        return getOtpConfig();
+    }
 
     public static class OtpEntry {
         private final String code;
@@ -92,7 +119,7 @@ public class AuthService {
 
     /**
      * Gửi mã OTP xác thực 6 số về Email
-     * Áp dụng Cooldown 60s chống spam và hiệu lực 5 phút
+     * Áp dụng Cooldown và thời gian hiệu lực theo cấu hình Admin (mặc định 2 phút)
      */
     public SendOtpResponse sendOtp(String email) {
         if (email == null || email.isBlank()) {
@@ -100,12 +127,12 @@ public class AuthService {
         }
         String cleanEmail = email.trim().toLowerCase();
 
-        // 1. Kiểm tra Cooldown 60 giây chống spam gửi mã
+        // 1. Kiểm tra Cooldown chống spam gửi mã
         OtpEntry existing = otpStorage.get(cleanEmail);
         if (existing != null && !existing.isExpired()) {
             long secondsSinceCreated = java.time.Duration.between(existing.getCreatedAt(), LocalDateTime.now()).getSeconds();
-            if (secondsSinceCreated < 60) {
-                long waitSeconds = 60 - secondsSinceCreated;
+            if (secondsSinceCreated < otpCooldownSeconds) {
+                long waitSeconds = otpCooldownSeconds - secondsSinceCreated;
                 throw new AppException(
                     ErrorCode.OTP_COOLDOWN,
                     "Bạn đang gửi yêu cầu quá nhanh. Vui lòng đợi " + waitSeconds + " giây trước khi yêu cầu mã mới!"
@@ -114,21 +141,22 @@ public class AuthService {
         }
 
         String otpCode = String.format("%06d", new Random().nextInt(999999));
-        otpStorage.put(cleanEmail, new OtpEntry(otpCode, LocalDateTime.now().plusMinutes(5)));
-        log.info("🔑 [SEN XINH OTP] Mã xác thực OTP cho [{}]: {} (Hiệu lực 5 phút)", cleanEmail, otpCode);
+        otpStorage.put(cleanEmail, new OtpEntry(otpCode, LocalDateTime.now().plusSeconds(otpExpirySeconds)));
+        log.info("🔑 [SEN XINH OTP] Mã xác thực OTP cho [{}]: {} (Hiệu lực {} giây)", cleanEmail, otpCode, otpExpirySeconds);
 
         boolean emailSent = false;
         if (emailService != null) {
-            emailSent = emailService.sendOtpEmail(cleanEmail, otpCode);
+            emailSent = emailService.sendOtpEmail(cleanEmail, otpCode, otpExpirySeconds);
         }
 
-        String message = "Mã xác thực OTP gồm 6 chữ số đã được gửi đến " + cleanEmail + ". Quý khách vui lòng kiểm tra hộp thư!";
+        String expiryDesc = (otpExpirySeconds % 60 == 0) ? (otpExpirySeconds / 60) + " phút" : otpExpirySeconds + " giây";
+        String message = "Mã xác thực OTP gồm 6 chữ số (hiệu lực " + expiryDesc + ") đã được gửi đến " + cleanEmail + ". Quý khách vui lòng kiểm tra hộp thư!";
 
         return new SendOtpResponse(
             true, 
             message, 
             cleanEmail, 
-            300, 
+            otpExpirySeconds, 
             null
         );
     }
@@ -144,7 +172,7 @@ public class AuthService {
 
     /**
      * Xác thực tính hợp lệ của mã OTP
-     * Giới hạn tối đa 5 lần nhập sai
+     * Giới hạn tối đa số lần nhập sai theo cấu hình (mặc định 5 lần)
      */
     private void verifyOtp(String email, String otpInput) {
         if (otpInput == null || otpInput.isBlank()) {
@@ -157,20 +185,21 @@ public class AuthService {
         }
         if (entry.isExpired()) {
             otpStorage.remove(cleanEmail);
-            throw new AppException(ErrorCode.INVALID_OTP, "Mã OTP đã hết hiệu lực (quá 5 phút). Vui lòng yêu cầu mã mới!");
+            String expiryDesc = (otpExpirySeconds % 60 == 0) ? (otpExpirySeconds / 60) + " phút" : otpExpirySeconds + " giây";
+            throw new AppException(ErrorCode.INVALID_OTP, "Mã OTP đã hết hiệu lực (quá " + expiryDesc + "). Vui lòng yêu cầu mã mới!");
         }
 
         // Kiểm tra mã OTP
         if (!entry.getCode().equals(otpInput.trim())) {
             int currentFailures = entry.incrementFailedAttempts();
-            int remaining = 5 - currentFailures;
+            int remaining = maxFailedAttempts - currentFailures;
 
             if (remaining <= 0) {
-                // Đạt tối đa 5 lần sai -> Hủy mã ngay lập tức
+                // Đạt tối đa số lần sai -> Hủy mã ngay lập tức
                 otpStorage.remove(cleanEmail);
                 throw new AppException(
                     ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED,
-                    "Bạn đã nhập sai mã OTP quá 5 lần. Mã đã bị hủy để đảm bảo an toàn. Vui lòng yêu cầu mã mới!"
+                    "Bạn đã nhập sai mã OTP quá " + maxFailedAttempts + " lần. Mã đã bị hủy để đảm bảo an toàn. Vui lòng yêu cầu mã mới!"
                 );
             }
 

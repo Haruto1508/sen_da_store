@@ -13,7 +13,8 @@ import {
   Loader2,
   KeyRound,
   CheckCircle2,
-  RotateCw
+  RotateCw,
+  Clock
 } from 'lucide-react';
 import { loginUser, loginWithGoogle, sendOtp } from '../services/api';
 
@@ -21,7 +22,8 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [otpCountdown, setOtpCountdown] = useState(0); // Cooldown gửi lại mã (mặc định 60s)
+  const [otpValidityCountdown, setOtpValidityCountdown] = useState(0); // Thời gian hiệu lực mã OTP (mặc định 120s / 2 phút)
   const [step, setStep] = useState('login'); // 'login' | 'verify-otp'
 
   const [rememberMe, setRememberMe] = useState(true);
@@ -30,7 +32,15 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [infoMsg, setInfoMsg] = useState('');
 
-  // Countdown timer cho nút gửi lại OTP
+  // Định dạng hiển thị phút:giây (ví dụ: 02:00, 01:45)
+  const formatTimeMMSS = (totalSeconds) => {
+    if (totalSeconds <= 0) return '00:00';
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  // Countdown timer cho nút gửi lại OTP (Cooldown chống spam)
   useEffect(() => {
     let interval = null;
     if (otpCountdown > 0) {
@@ -41,21 +51,53 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     return () => clearInterval(interval);
   }, [otpCountdown]);
 
+  // Countdown timer cho thời gian hiệu lực thực tế của mã OTP (2 phút)
+  useEffect(() => {
+    let interval = null;
+    if (otpValidityCountdown > 0) {
+      interval = setInterval(() => {
+        setOtpValidityCountdown((prev) => {
+          if (prev <= 1) {
+            setErrorMsg('Mã OTP đã hết thời hạn hiệu lực (2 phút). Quý khách vui lòng nhấn gửi lại mã mới!');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [otpValidityCountdown]);
+
   // Khôi phục bộ đếm countdown từ sessionStorage khi đổi email hoặc tải lại trang
   useEffect(() => {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail) return;
     try {
+      // 1. Cooldown gửi lại
       const sentAtStr = sessionStorage.getItem(`senxinh_otp_sent_at_${cleanEmail}`);
+      const cooldownSec = parseInt(sessionStorage.getItem(`senxinh_otp_cooldown_${cleanEmail}`) || '60', 10);
       if (sentAtStr) {
         const sentAt = parseInt(sentAtStr, 10);
         const elapsed = Math.floor((Date.now() - sentAt) / 1000);
-        const remaining = 60 - elapsed;
+        const remaining = cooldownSec - elapsed;
         if (remaining > 0) {
           setOtpCountdown(remaining);
         } else {
           setOtpCountdown(0);
           sessionStorage.removeItem(`senxinh_otp_sent_at_${cleanEmail}`);
+        }
+      }
+
+      // 2. Thời hạn hiệu lực OTP
+      const expiresAtStr = sessionStorage.getItem(`senxinh_otp_expires_at_${cleanEmail}`);
+      if (expiresAtStr) {
+        const expiresAt = parseInt(expiresAtStr, 10);
+        const remainingValidity = Math.floor((expiresAt - Date.now()) / 1000);
+        if (remainingValidity > 0) {
+          setOtpValidityCountdown(remainingValidity);
+        } else {
+          setOtpValidityCountdown(0);
+          sessionStorage.removeItem(`senxinh_otp_expires_at_${cleanEmail}`);
         }
       }
     } catch {}
@@ -77,9 +119,14 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     try {
       const res = await sendOtp(cleanEmail);
       setOtpSent(true);
-      setOtpCountdown(60);
+      const cooldownSec = res.cooldownSeconds || 60;
+      const validitySec = res.expiresInSeconds || 120; // 2 phút mặc định
+      setOtpCountdown(cooldownSec);
+      setOtpValidityCountdown(validitySec);
       try {
         sessionStorage.setItem(`senxinh_otp_sent_at_${cleanEmail.toLowerCase()}`, Date.now().toString());
+        sessionStorage.setItem(`senxinh_otp_cooldown_${cleanEmail.toLowerCase()}`, cooldownSec.toString());
+        sessionStorage.setItem(`senxinh_otp_expires_at_${cleanEmail.toLowerCase()}`, (Date.now() + validitySec * 1000).toString());
       } catch {}
       setStep('verify-otp');
       setOtp('');
@@ -104,9 +151,14 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
     setSendingOtp(true);
     try {
       const res = await sendOtp(cleanEmail);
-      setOtpCountdown(60);
+      const cooldownSec = res.cooldownSeconds || 60;
+      const validitySec = res.expiresInSeconds || 120; // 2 phút mặc định
+      setOtpCountdown(cooldownSec);
+      setOtpValidityCountdown(validitySec);
       try {
         sessionStorage.setItem(`senxinh_otp_sent_at_${cleanEmail.toLowerCase()}`, Date.now().toString());
+        sessionStorage.setItem(`senxinh_otp_cooldown_${cleanEmail.toLowerCase()}`, cooldownSec.toString());
+        sessionStorage.setItem(`senxinh_otp_expires_at_${cleanEmail.toLowerCase()}`, (Date.now() + validitySec * 1000).toString());
       } catch {}
       setOtp('');
       setInfoMsg(res.message || `Đã gửi lại mã OTP mới đến ${cleanEmail}.`);
@@ -130,6 +182,11 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
       return;
     }
 
+    if (otpValidityCountdown === 0 && otpSent) {
+      setErrorMsg('Mã OTP này đã hết hiệu lực (2 phút). Quý khách vui lòng nhấn "Gửi lại mã OTP" để nhận mã mới!');
+      return;
+    }
+
     setErrorMsg('');
     setLoading(true);
 
@@ -139,6 +196,8 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
       if (res.success && res.data) {
         try {
           sessionStorage.removeItem(`senxinh_otp_sent_at_${cleanEmail.toLowerCase()}`);
+          sessionStorage.removeItem(`senxinh_otp_cooldown_${cleanEmail.toLowerCase()}`);
+          sessionStorage.removeItem(`senxinh_otp_expires_at_${cleanEmail.toLowerCase()}`);
         } catch {}
 
         const displayName = res.data.name || res.data.user?.name || 'bạn';
@@ -455,6 +514,53 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
 
                 {/* Form Nhập OTP */}
                 <form className="auth-form" onSubmit={handleVerifyOtpAndLogin}>
+                  {/* OTP Validity Countdown Badge (Hiệu lực mã 2 phút) */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: otpValidityCountdown > 30 
+                      ? 'linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)' 
+                      : (otpValidityCountdown > 0 ? '#fffbeb' : '#fef2f2'),
+                    border: `1px solid ${
+                      otpValidityCountdown > 30 
+                        ? '#bae6fd' 
+                        : (otpValidityCountdown > 0 ? '#fde68a' : '#fecaca')
+                    }`,
+                    borderRadius: '10px',
+                    padding: '8px 14px',
+                    marginBottom: '16px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Clock 
+                        size={16} 
+                        color={otpValidityCountdown > 30 ? '#0284c7' : (otpValidityCountdown > 0 ? '#d97706' : '#dc2626')} 
+                      />
+                      <span style={{ 
+                        fontSize: '0.83rem', 
+                        fontWeight: 600, 
+                        color: otpValidityCountdown > 30 ? '#0369a1' : (otpValidityCountdown > 0 ? '#92400e' : '#991b1b') 
+                      }}>
+                        {otpValidityCountdown > 0 ? 'Mã có hiệu lực trong:' : 'Mã xác nhận đã hết hạn:'}
+                      </span>
+                    </div>
+                    <div style={{
+                      fontFamily: 'monospace',
+                      fontWeight: 700,
+                      fontSize: '0.98rem',
+                      letterSpacing: '0.5px',
+                      color: otpValidityCountdown > 30 ? '#0284c7' : (otpValidityCountdown > 0 ? '#b45309' : '#b91c1c'),
+                      background: '#ffffff',
+                      padding: '2px 10px',
+                      borderRadius: '6px',
+                      border: `1px solid ${otpValidityCountdown > 30 ? '#e0f2fe' : (otpValidityCountdown > 0 ? '#fef3c7' : '#fee2e2')}`,
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                    }}>
+                      {otpValidityCountdown > 0 ? formatTimeMMSS(otpValidityCountdown) : '00:00 (Hết hạn)'}
+                    </div>
+                  </div>
+
                   <div className="auth-field">
                     <label htmlFor="login-otp-code" style={{ textAlign: 'center', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
                       Mã Xác Thực (6 chữ số)
@@ -467,8 +573,9 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                         autoComplete="one-time-code"
                         maxLength={6}
                         autoFocus
+                        disabled={otpValidityCountdown === 0 && otpSent}
                         className={`auth-input ${errorMsg ? 'has-error' : ''}`}
-                        placeholder="• • • • • •"
+                        placeholder={otpValidityCountdown === 0 && otpSent ? 'Mã đã hết hạn' : '• • • • • •'}
                         value={otp}
                         onChange={(e) => {
                           const val = e.target.value.replace(/\D/g, '').slice(0, 6);
@@ -485,7 +592,8 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                           fontWeight: 700,
                           height: '52px',
                           fontFamily: 'monospace',
-                          borderRadius: '10px'
+                          borderRadius: '10px',
+                          backgroundColor: (otpValidityCountdown === 0 && otpSent) ? '#f8fafc' : undefined
                         }}
                         required
                       />
@@ -544,7 +652,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                   <button
                     type="submit"
                     className="auth-submit-btn"
-                    disabled={loading || otp.trim().length < 4}
+                    disabled={loading || otp.trim().length < 4 || (otpValidityCountdown === 0 && otpSent)}
                     style={{ height: '48px' }}
                   >
                     {loading ? (
@@ -552,6 +660,8 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                         <Loader2 size={18} className="animate-spin" />
                         <span>Đang xác thực mã OTP...</span>
                       </>
+                    ) : (otpValidityCountdown === 0 && otpSent) ? (
+                      <span>Mã Đã Hết Hạn - Vui Lòng Gửi Lại Mã</span>
                     ) : (
                       <>
                         <LogIn size={18} />

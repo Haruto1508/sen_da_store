@@ -26,12 +26,15 @@ public class AdminController {
 
     private final AdminService adminService;
     private final AdminOrderSseService adminOrderSseService;
+    private final com.succulentshop.backend.service.AuthService authService;
 
     @Autowired
     public AdminController(AdminService adminService,
-                           @Autowired(required = false) AdminOrderSseService adminOrderSseService) {
+                           @Autowired(required = false) AdminOrderSseService adminOrderSseService,
+                           @Autowired(required = false) com.succulentshop.backend.service.AuthService authService) {
         this.adminService = adminService;
         this.adminOrderSseService = adminOrderSseService;
+        this.authService = authService;
     }
 
     public AdminController(OrderRepository orderRepository,
@@ -40,6 +43,30 @@ public class AdminController {
                            UserRepository userRepository) {
         this.adminService = new AdminService(orderRepository, productRepository, couponRepository, userRepository, null);
         this.adminOrderSseService = null;
+        this.authService = null;
+    }
+
+    /**
+     * Lấy cấu hình bảo mật OTP hiện tại (Thời gian hiệu lực, Cooldown, Số lần thử sai)
+     */
+    @GetMapping("/otp-config")
+    public ResponseEntity<ApiResult<OtpConfigDto>> getOtpConfig() {
+        if (authService == null) {
+            return ResponseEntity.ok(ApiResult.ok(MessageCode.SUCCESS, new OtpConfigDto(120, 60, 5)));
+        }
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.SUCCESS, authService.getOtpConfig()));
+    }
+
+    /**
+     * Cập nhật cấu hình bảo mật OTP từ trang Quản trị Admin
+     */
+    @PutMapping("/otp-config")
+    public ResponseEntity<ApiResult<OtpConfigDto>> updateOtpConfig(@RequestBody OtpConfigDto request) {
+        if (authService == null) {
+            return ResponseEntity.ok(ApiResult.ok(MessageCode.SUCCESS, request));
+        }
+        OtpConfigDto updated = authService.updateOtpConfig(request);
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.SUCCESS, updated));
     }
 
     /**
