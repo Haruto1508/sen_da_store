@@ -6,7 +6,6 @@ import {
   Edit3,
   Sparkles,
   ShieldCheck,
-  Sprout,
   LogIn,
   Gift,
   HelpCircle,
