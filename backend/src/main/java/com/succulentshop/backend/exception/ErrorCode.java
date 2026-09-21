@@ -36,6 +36,9 @@ public enum ErrorCode {
     ORDER_CUSTOMER_INFO_REQUIRED("ORD_003", "Vui lòng cung cấp đầy đủ họ tên, số điện thoại và địa chỉ nhận hàng", HttpStatus.BAD_REQUEST),
     ORDER_STATUS_REQUIRED("ORD_004", "Trạng thái đơn hàng không được để trống", HttpStatus.BAD_REQUEST),
     INVALID_ORDER_STATUS("ORD_005", "Trạng thái đơn hàng không hợp lệ", HttpStatus.BAD_REQUEST),
+    ORDER_CANNOT_BE_RETURNED("ORD_006", "Đơn hàng chưa hoàn tất hoặc không đủ điều kiện để hoàn trả", HttpStatus.BAD_REQUEST),
+    RETURN_REASON_REQUIRED("ORD_007", "Vui lòng chọn hoặc cung cấp lý do hoàn trả sản phẩm", HttpStatus.BAD_REQUEST),
+    RETURN_WINDOW_EXPIRED("ORD_008", "Đơn hàng đã quá thời hạn đổi trả theo quy định của Sen Xinh Garden", HttpStatus.BAD_REQUEST),
 
     // Coupon Codes
     COUPON_CODE_REQUIRED("CPN_001", "Vui lòng nhập mã giảm giá", HttpStatus.BAD_REQUEST),

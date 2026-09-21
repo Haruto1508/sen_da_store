@@ -44,6 +44,10 @@ public enum MessageCode {
     ORDER_RECEIVED("ORD_MSG_006", "Xác nhận đã nhận hàng thành công!"),
     ORDER_DELETED("ORD_MSG_007", "Đã xóa đơn hàng thành công"),
     ORDERS_BULK_DELETED("ORD_MSG_008", "Đã xóa các đơn hàng được chọn thành công"),
+    ORDER_RETURN_REQUESTED("ORD_MSG_009", "Gửi yêu cầu hoàn trả đơn hàng thành công! Quý khách vui lòng chờ nhân viên kiểm duyệt."),
+    ORDER_RETURN_APPROVED("ORD_MSG_010", "Duyệt yêu cầu hoàn trả thành công! Đã hoàn tồn kho và cập nhật doanh thu."),
+    ORDER_RETURN_REJECTED("ORD_MSG_011", "Đã từ chối yêu cầu hoàn trả đơn hàng."),
+    POLICY_CONFIG_RETRIEVED("ORD_MSG_012", "Lấy thông tin chính sách hoàn trả thành công"),
 
     // Coupon Messages
     COUPON_APPLIED("CPN_MSG_001", "Áp dụng mã giảm giá thành công"),

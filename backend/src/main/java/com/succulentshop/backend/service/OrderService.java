@@ -17,14 +17,19 @@ import com.succulentshop.backend.exception.InsufficientStockException;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.OrderRepository;
 import com.succulentshop.backend.repository.UserRepository;
+import com.succulentshop.backend.dto.ReturnOrderRequest;
+import com.succulentshop.backend.dto.ReturnPolicyResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Service
@@ -39,6 +44,9 @@ public class OrderService {
     private final BankTransferConfig bankTransferConfig;
     private final ShippingService shippingService;
     private final com.succulentshop.backend.event.OrderEventPublisher orderEventPublisher;
+
+    @Value("${order.return.window-days:7}")
+    private int returnWindowDays = 7;
 
     private static final String BANK_NAME = "MBBank";
     private static final String BANK_CODE = "MBBank";
@@ -251,6 +259,44 @@ public class OrderService {
         orderRepository.save(order);
     }
 
+    /**
+     * Thu hồi Điểm Sen thưởng đã tích lũy khi đơn hàng bị hoàn trả (RETURNED)
+     * Đảm bảo idempotent: Chỉ thu hồi khi pointsAwarded == true, không làm âm số dư điểm của khách
+     */
+    @Transactional
+    public void revokeLoyaltyPoints(Order order) {
+        if (order == null || !Boolean.TRUE.equals(order.isPointsAwarded())) {
+            return;
+        }
+        int totalAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
+        if (totalAmount <= 0) {
+            order.setPointsAwarded(false);
+            orderRepository.save(order);
+            return;
+        }
+
+        int pointsRevoked = Math.max(1, totalAmount / 10000);
+
+        Optional<User> customerOpt = Optional.empty();
+        if (order.getCustomerEmail() != null && !order.getCustomerEmail().isBlank()) {
+            customerOpt = userRepository.findByEmail(order.getCustomerEmail().trim().toLowerCase());
+        }
+        if (customerOpt.isEmpty() && order.getCustomerPhone() != null && !order.getCustomerPhone().isBlank()) {
+            customerOpt = userRepository.findByPhone(order.getCustomerPhone().trim());
+        }
+
+        customerOpt.ifPresent(customer -> {
+            int currentPoints = customer.getPoints() != null ? customer.getPoints() : 0;
+            customer.setPoints(Math.max(0, currentPoints - pointsRevoked));
+            userRepository.save(customer);
+            log.info("↩️ Đã thu hồi {} điểm Sen của khách hàng {} do đơn #{} hoàn trả",
+                    pointsRevoked, customer.getEmail() != null ? customer.getEmail() : customer.getPhone(), order.getOrderCode());
+        });
+
+        order.setPointsAwarded(false);
+        orderRepository.save(order);
+    }
+
     private VietQrResponse buildVietQrResponse(String orderCode, int totalAmount) {
         String activeBankCode = (bankTransferConfig != null && bankTransferConfig.getBankCode() != null && !bankTransferConfig.getBankCode().isBlank())
                 ? bankTransferConfig.getBankCode() : BANK_CODE;
@@ -373,13 +419,23 @@ public class OrderService {
             restoreOrderStock(order);
         }
 
+        // Xử lý hoàn trả đơn hàng (RETURNED)
+        if ("RETURNED".equals(formatted) && !"RETURNED".equals(oldStatus)) {
+            restoreOrderStock(order);
+            revokeLoyaltyPoints(order);
+            order.setReturnedAt(LocalDateTime.now());
+        }
+
         // Xử lý trừ kho khi đơn được duyệt / thanh toán / giao hàng (PAID, SHIPPING, COMPLETED)
         if (List.of("PAID", "SHIPPING", "COMPLETED").contains(formatted) && !Boolean.TRUE.equals(order.isStockDeducted())) {
             deductOrderStock(order);
         }
 
-        // Xử lý tích điểm khi đơn hoàn tất
+        // Xử lý tích điểm và mốc hoàn tất khi đơn hoàn tất
         if ("COMPLETED".equals(formatted)) {
+            if (order.getCompletedAt() == null) {
+                order.setCompletedAt(LocalDateTime.now());
+            }
             awardLoyaltyPoints(order);
         }
 
@@ -441,6 +497,9 @@ public class OrderService {
         }
 
         order.setStatus("COMPLETED");
+        if (order.getCompletedAt() == null) {
+            order.setCompletedAt(LocalDateTime.now());
+        }
         orderRepository.save(order);
 
         // Tích lũy Điểm Sen thưởng cho khách hàng
@@ -474,6 +533,110 @@ public class OrderService {
         }
     }
 
+    @Transactional
+    public OrderResponse requestReturn(Long orderId, ReturnOrderRequest request) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
+
+        if (!"COMPLETED".equalsIgnoreCase(order.getStatus())) {
+            throw new AppException(ErrorCode.ORDER_CANNOT_BE_RETURNED, "Chỉ đơn hàng đã giao thành công (COMPLETED) mới có thể gửi yêu cầu hoàn trả.");
+        }
+
+        if (request == null || request.getReason() == null || request.getReason().trim().isBlank()) {
+            throw new AppException(ErrorCode.RETURN_REASON_REQUIRED, "Vui lòng chọn hoặc nhập lý do hoàn trả.");
+        }
+
+        // Kiểm tra thời hạn đổi trả
+        LocalDateTime refTime = order.getCompletedAt() != null ? order.getCompletedAt() : order.getCreatedAt();
+        if (refTime != null) {
+            long daysPassed = ChronoUnit.DAYS.between(refTime, LocalDateTime.now());
+            if (daysPassed > returnWindowDays) {
+                throw new AppException(ErrorCode.RETURN_WINDOW_EXPIRED,
+                    String.format("Đơn hàng đã hoàn tất quá thời hạn %d ngày theo quy định của shop (đã qua %d ngày). Không thể yêu cầu hoàn trả.", returnWindowDays, daysPassed));
+            }
+        }
+
+        String oldStatus = order.getStatus();
+        order.setStatus("RETURN_REQUESTED");
+        order.setReturnReason(request.getReason().trim());
+        if (request.getNote() != null && !request.getNote().trim().isBlank()) {
+            order.setReturnNote(request.getNote().trim());
+        }
+        if (request.getBankInfo() != null && !request.getBankInfo().trim().isBlank()) {
+            order.setRefundBankInfo(request.getBankInfo().trim());
+        }
+        order.setReturnRequestedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        if (orderEventPublisher != null) {
+            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, "RETURN_REQUESTED");
+        }
+
+        return convertOrderToResponse(order);
+    }
+
+    @Transactional
+    public OrderResponse approveReturn(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
+
+        if (!"RETURN_REQUESTED".equalsIgnoreCase(order.getStatus()) && !"COMPLETED".equalsIgnoreCase(order.getStatus())) {
+            throw new AppException(ErrorCode.ORDER_CANNOT_BE_RETURNED, "Đơn hàng không ở trạng thái yêu cầu hoàn trả.");
+        }
+
+        String oldStatus = order.getStatus();
+
+        // Hoàn trả tồn kho nếu đã từng trừ
+        restoreOrderStock(order);
+
+        // Thu hồi điểm Sen thưởng đã tích lũy cho đơn này
+        revokeLoyaltyPoints(order);
+
+        order.setStatus("RETURNED");
+        order.setReturnedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        if (orderEventPublisher != null) {
+            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, "RETURNED");
+        }
+
+        return convertOrderToResponse(order);
+    }
+
+    @Transactional
+    public OrderResponse rejectReturn(Long orderId, String rejectReason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
+
+        if (!"RETURN_REQUESTED".equalsIgnoreCase(order.getStatus())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST, "Đơn hàng hiện không có yêu cầu hoàn trả để từ chối.");
+        }
+
+        String oldStatus = order.getStatus();
+        order.setStatus("COMPLETED");
+        order.setReturnRejectReason(rejectReason != null && !rejectReason.trim().isBlank() ? rejectReason.trim() : "Shop từ chối yêu cầu đổi trả theo chính sách.");
+        orderRepository.save(order);
+
+        if (orderEventPublisher != null) {
+            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, "COMPLETED");
+        }
+
+        return convertOrderToResponse(order);
+    }
+
+    public ReturnPolicyResponse getReturnPolicy() {
+        return new ReturnPolicyResponse(returnWindowDays,
+            String.format("Chính sách bảo hành & đổi trả Sen Xinh Garden hỗ trợ đổi trả hoặc hoàn tiền trong vòng %d ngày kể từ khi đơn hàng giao thành công.", returnWindowDays));
+    }
+
+    public int getReturnWindowDays() {
+        return returnWindowDays;
+    }
+
+    public void setReturnWindowDays(int returnWindowDays) {
+        this.returnWindowDays = returnWindowDays;
+    }
+
     public OrderResponse convertOrderToResponse(Order o) {
         OrderResponse response = new OrderResponse();
         response.setId(o.getId());
@@ -494,6 +657,13 @@ public class OrderService {
         response.setStockDeducted(o.isStockDeducted());
         response.setPointsAwarded(o.isPointsAwarded());
         response.setCreatedAt(o.getCreatedAt() != null ? o.getCreatedAt().toString() : null);
+        response.setCompletedAt(o.getCompletedAt() != null ? o.getCompletedAt().toString() : null);
+        response.setReturnReason(o.getReturnReason());
+        response.setReturnNote(o.getReturnNote());
+        response.setRefundBankInfo(o.getRefundBankInfo());
+        response.setReturnRequestedAt(o.getReturnRequestedAt() != null ? o.getReturnRequestedAt().toString() : null);
+        response.setReturnedAt(o.getReturnedAt() != null ? o.getReturnedAt().toString() : null);
+        response.setReturnRejectReason(o.getReturnRejectReason());
 
         List<OrderItemResponse> items = new ArrayList<>();
         if (o.getItems() != null) {

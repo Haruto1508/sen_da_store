@@ -19,6 +19,7 @@ import AccountPage from './pages/AccountPage';
 import CartPage from './pages/CartPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import PolicyPage from './pages/PolicyPage';
 
 import { PRODUCTS } from './data/products';
 import { NEWS_ARTICLES } from './data/news';
@@ -227,6 +228,7 @@ export default function App() {
     if (path.startsWith('/product/')) return 'product-detail';
     if (path === '/news') return 'news';
     if (path.startsWith('/news/')) return 'news-detail';
+    if (path === '/policy') return 'policy';
     if (path === '/admin/login') return 'admin-login';
     if (path === '/admin') return 'admin';
     if (path === '/cart') return 'cart';
@@ -259,6 +261,9 @@ export default function App() {
         break;
       case 'news-detail':
         navigate(`/news/${param}`);
+        break;
+      case 'policy':
+        navigate('/policy');
         break;
       case 'admin':
         navigate('/admin');
@@ -824,6 +829,14 @@ export default function App() {
       };
     }
 
+    if (path === '/policy') {
+      return {
+        title: 'Chính sách đổi trả & bảo hành 7 ngày',
+        description: 'Chính sách hoàn tiền, đổi trả trong vòng 7 ngày và cam kết chất lượng cây cảnh thuần dưỡng tại Sen Xinh Garden.',
+        image: 'https://senxinhgarden.com/hero-banner.jpg'
+      };
+    }
+
     return {
       title: 'Sen Xinh Garden',
       description: 'Cửa hàng sen đá, xương rồng và cây cảnh phong thủy với dịch vụ tư vấn chăm sóc chuyên nghiệp.',
@@ -951,6 +964,18 @@ export default function App() {
           <Route
             path="/news/:id"
             element={<NewsDetailRoute navigateTo={navigateTo} />}
+          />
+
+          {/* Shop Policy Route */}
+          <Route
+            path="/policy"
+            element={
+              <PolicyPage
+                onNavigateHome={() => navigateTo('home')}
+                onNavigateShop={() => navigateTo('shop')}
+                onNavigateAccount={() => navigateTo('account')}
+              />
+            }
           />
 
           {/* Dedicated Checkout Route */}

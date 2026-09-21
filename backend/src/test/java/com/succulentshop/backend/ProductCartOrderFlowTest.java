@@ -6,6 +6,9 @@ import com.succulentshop.backend.dto.CartItemValidationResult;
 import com.succulentshop.backend.dto.CartValidateRequest;
 import com.succulentshop.backend.dto.CartValidateResponse;
 import com.succulentshop.backend.dto.CreateOrderRequest;
+import com.succulentshop.backend.dto.OrderResponse;
+import com.succulentshop.backend.dto.ReturnOrderRequest;
+import com.succulentshop.backend.dto.ReturnPolicyResponse;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.entity.OrderItem;
 import com.succulentshop.backend.entity.Product;
@@ -356,5 +359,114 @@ public class ProductCartOrderFlowTest {
         // Khách bấm nhận hàng hoặc hệ thống gọi confirmReceived lần nữa -> Không bị cộng đúp điểm
         orderService.confirmReceived(10L);
         assertEquals(25, user.getPoints());
+    }
+
+    @Test
+    @DisplayName("Case 11: Yêu cầu hoàn trả trên đơn COMPLETED trong vòng 7 ngày -> Thành công sang RETURN_REQUESTED")
+    void testCase11_ReturnRequestWithin7Days_Success() {
+        Order completedOrder = new Order();
+        completedOrder.setId(11L);
+        completedOrder.setOrderCode("SX111111");
+        completedOrder.setStatus("COMPLETED");
+        completedOrder.setCompletedAt(java.time.LocalDateTime.now().minusDays(2)); // Hoàn tất 2 ngày trước (<= 7 ngày)
+        when(orderRepository.findById(11L)).thenReturn(Optional.of(completedOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReturnOrderRequest req = new ReturnOrderRequest("Cây bị dập nát khi vận chuyển", "Một nhánh sen đá bị gãy", "MBBank - 0123456789 - NGUYEN VAN A");
+        OrderResponse res = orderService.requestReturn(11L, req);
+
+        assertEquals("RETURN_REQUESTED", res.getStatus());
+        assertEquals("Cây bị dập nát khi vận chuyển", res.getReturnReason());
+        assertEquals("Một nhánh sen đá bị gãy", res.getReturnNote());
+        assertEquals("MBBank - 0123456789 - NGUYEN VAN A", res.getRefundBankInfo());
+        assertNotNull(res.getReturnRequestedAt());
+    }
+
+    @Test
+    @DisplayName("Case 12: Yêu cầu hoàn trả khi đơn chưa COMPLETED (ví dụ PENDING/SHIPPING) -> Ném lỗi ORDER_CANNOT_BE_RETURNED")
+    void testCase12_ReturnRequestOnNonCompletedOrder_ThrowsException() {
+        Order shippingOrder = new Order();
+        shippingOrder.setId(12L);
+        shippingOrder.setStatus("SHIPPING");
+        when(orderRepository.findById(12L)).thenReturn(Optional.of(shippingOrder));
+
+        ReturnOrderRequest req = new ReturnOrderRequest("Đổi ý", null, null);
+        AppException ex = assertThrows(AppException.class, () -> orderService.requestReturn(12L, req));
+        assertEquals(ErrorCode.ORDER_CANNOT_BE_RETURNED, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Case 13: Yêu cầu hoàn trả khi đơn COMPLETED đã quá 7 ngày -> Ném lỗi RETURN_WINDOW_EXPIRED")
+    void testCase13_ReturnRequestAfter7Days_ThrowsException() {
+        Order expiredOrder = new Order();
+        expiredOrder.setId(13L);
+        expiredOrder.setStatus("COMPLETED");
+        expiredOrder.setCompletedAt(java.time.LocalDateTime.now().minusDays(9)); // Đã 9 ngày trước (> 7 ngày)
+        when(orderRepository.findById(13L)).thenReturn(Optional.of(expiredOrder));
+
+        ReturnOrderRequest req = new ReturnOrderRequest("Cây bị sâu bệnh", null, null);
+        AppException ex = assertThrows(AppException.class, () -> orderService.requestReturn(13L, req));
+        assertEquals(ErrorCode.RETURN_WINDOW_EXPIRED, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Case 14: Duyệt hoàn trả -> Tồn kho được hoàn lại, Điểm Sen tích lũy bị thu hồi")
+    void testCase14_ApproveReturn_RestoresStockAndRevokesPoints() {
+        Product p = new Product();
+        p.setId("sen-da-tra-hang");
+        p.setInStock(5); // Hiện tại còn 5 cây
+        when(productRepository.findById("sen-da-tra-hang")).thenReturn(Optional.of(p));
+
+        com.succulentshop.backend.entity.User user = new com.succulentshop.backend.entity.User();
+        user.setEmail("khach@senxinh.vn");
+        user.setPoints(30); // Đang có 30 điểm
+        when(userRepository.findByEmail("khach@senxinh.vn")).thenReturn(Optional.of(user));
+
+        Order returnOrder = new Order();
+        returnOrder.setId(14L);
+        returnOrder.setStatus("RETURN_REQUESTED");
+        returnOrder.setCustomerEmail("khach@senxinh.vn");
+        returnOrder.setTotalAmount(200000); // 200k = 20 điểm
+        returnOrder.setStockDeducted(true);
+        returnOrder.setPointsAwarded(true);
+        returnOrder.addItem(new OrderItem("sen-da-tra-hang", "Sen Đá Trả Hàng", 100000, 2, null));
+
+        when(orderRepository.findById(14L)).thenReturn(Optional.of(returnOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderResponse res = orderService.approveReturn(14L);
+
+        assertEquals("RETURNED", res.getStatus());
+        // Tồn kho được hoàn trả: 5 + 2 = 7 cây
+        assertEquals(7, p.getInStock());
+        assertFalse(res.getStockDeducted());
+        // Điểm Sen bị thu hồi: 30 - 20 = 10 điểm
+        assertEquals(10, user.getPoints());
+        assertFalse(res.getPointsAwarded());
+        assertNotNull(res.getReturnedAt());
+    }
+
+    @Test
+    @DisplayName("Case 15: Từ chối yêu cầu hoàn trả -> Khôi phục COMPLETED và lưu lý do từ chối")
+    void testCase15_RejectReturn_RevertsToCompletedWithReason() {
+        Order returnOrder = new Order();
+        returnOrder.setId(15L);
+        returnOrder.setStatus("RETURN_REQUESTED");
+        when(orderRepository.findById(15L)).thenReturn(Optional.of(returnOrder));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderResponse res = orderService.rejectReturn(15L, "Cây bị hỏng do khách tưới úng nước quá liều");
+
+        assertEquals("COMPLETED", res.getStatus());
+        assertEquals("Cây bị hỏng do khách tưới úng nước quá liều", res.getReturnRejectReason());
+    }
+
+    @Test
+    @DisplayName("Case 16: Lấy cấu hình chính sách hoàn trả -> Trả về đúng 7 ngày")
+    void testCase16_GetReturnPolicy_ReturnsConfiguredDays() {
+        ReturnPolicyResponse policy = orderService.getReturnPolicy();
+        assertNotNull(policy);
+        assertEquals(7, policy.getReturnWindowDays());
+        assertTrue(policy.getDescription().contains("7"));
     }
 }

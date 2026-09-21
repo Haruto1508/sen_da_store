@@ -224,6 +224,15 @@ export default function Navbar({
                 Tin Tức & Cẩm Nang
               </a>
             </li>
+            <li>
+              <a 
+                href="/policy" 
+                className={`nav-link ${currentRoute === 'policy' ? 'active' : ''}`} 
+                onClick={(e) => { e.preventDefault(); onNavigate('policy'); }}
+              >
+                Chính Sách
+              </a>
+            </li>
           </ul>
 
           {/* Plant Search & Quick Filter Box */}
@@ -607,6 +616,18 @@ export default function Navbar({
           >
             <Layers size={18} />
             <span>Tin Tức & Cẩm Nang</span>
+          </button>
+
+          <button 
+            type="button"
+            className={`mobile-nav-item ${currentRoute === 'policy' ? 'active' : ''}`}
+            onClick={() => {
+              setIsMobileDrawerOpen(false);
+              onNavigate('policy');
+            }}
+          >
+            <ShieldCheck size={18} />
+            <span>Chính Sách Cửa Hàng</span>
           </button>
 
           <div className="mobile-nav-divider" />

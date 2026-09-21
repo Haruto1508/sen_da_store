@@ -50,6 +50,14 @@ public class Order {
     private Boolean pointsAwarded = false;
 
     private LocalDateTime createdAt;
+    private LocalDateTime completedAt;
+
+    private String returnReason;
+    private String returnNote;
+    private String refundBankInfo;
+    private LocalDateTime returnRequestedAt;
+    private LocalDateTime returnedAt;
+    private String returnRejectReason;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<OrderItem> items = new ArrayList<>();
@@ -126,4 +134,25 @@ public class Order {
     public Boolean isPointsAwarded() { return pointsAwarded != null && pointsAwarded; }
     public Boolean getPointsAwarded() { return pointsAwarded; }
     public void setPointsAwarded(Boolean pointsAwarded) { this.pointsAwarded = pointsAwarded; }
+
+    public LocalDateTime getCompletedAt() { return completedAt; }
+    public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
+
+    public String getReturnReason() { return returnReason; }
+    public void setReturnReason(String returnReason) { this.returnReason = returnReason; }
+
+    public String getReturnNote() { return returnNote; }
+    public void setReturnNote(String returnNote) { this.returnNote = returnNote; }
+
+    public String getRefundBankInfo() { return refundBankInfo; }
+    public void setRefundBankInfo(String refundBankInfo) { this.refundBankInfo = refundBankInfo; }
+
+    public LocalDateTime getReturnRequestedAt() { return returnRequestedAt; }
+    public void setReturnRequestedAt(LocalDateTime returnRequestedAt) { this.returnRequestedAt = returnRequestedAt; }
+
+    public LocalDateTime getReturnedAt() { return returnedAt; }
+    public void setReturnedAt(LocalDateTime returnedAt) { this.returnedAt = returnedAt; }
+
+    public String getReturnRejectReason() { return returnRejectReason; }
+    public void setReturnRejectReason(String returnRejectReason) { this.returnRejectReason = returnRejectReason; }
 }

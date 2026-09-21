@@ -107,6 +107,22 @@ public class AdminController {
         ));
     }
 
+    @PatchMapping("/orders/{id}/return/approve")
+    public ResponseEntity<ApiResult<OrderResponse>> approveReturn(@PathVariable Long id) {
+        OrderResponse result = adminService.approveReturn(id);
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_RETURN_APPROVED, result));
+    }
+
+    @PatchMapping("/orders/{id}/return/reject")
+    public ResponseEntity<ApiResult<OrderResponse>> rejectReturn(
+            @PathVariable Long id,
+            @RequestBody(required = false) RejectReturnRequest request
+    ) {
+        String reason = request != null ? request.getRejectReason() : null;
+        OrderResponse result = adminService.rejectReturn(id, reason);
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_RETURN_REJECTED, result));
+    }
+
     @GetMapping("/products")
     public ResponseEntity<ApiResult<List<ProductResponse>>> getAllProducts() {
         return ResponseEntity.ok(ApiResult.ok(MessageCode.PRODUCT_LIST_SUCCESS, adminService.getAllProducts()));

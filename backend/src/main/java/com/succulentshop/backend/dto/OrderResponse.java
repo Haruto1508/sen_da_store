@@ -22,6 +22,13 @@ public class OrderResponse {
     private Boolean stockDeducted;
     private Boolean pointsAwarded;
     private String createdAt;
+    private String completedAt;
+    private String returnReason;
+    private String returnNote;
+    private String refundBankInfo;
+    private String returnRequestedAt;
+    private String returnedAt;
+    private String returnRejectReason;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -79,4 +86,25 @@ public class OrderResponse {
 
     public Boolean getPointsAwarded() { return pointsAwarded; }
     public void setPointsAwarded(Boolean pointsAwarded) { this.pointsAwarded = pointsAwarded; }
+
+    public String getCompletedAt() { return completedAt; }
+    public void setCompletedAt(String completedAt) { this.completedAt = completedAt; }
+
+    public String getReturnReason() { return returnReason; }
+    public void setReturnReason(String returnReason) { this.returnReason = returnReason; }
+
+    public String getReturnNote() { return returnNote; }
+    public void setReturnNote(String returnNote) { this.returnNote = returnNote; }
+
+    public String getRefundBankInfo() { return refundBankInfo; }
+    public void setRefundBankInfo(String refundBankInfo) { this.refundBankInfo = refundBankInfo; }
+
+    public String getReturnRequestedAt() { return returnRequestedAt; }
+    public void setReturnRequestedAt(String returnRequestedAt) { this.returnRequestedAt = returnRequestedAt; }
+
+    public String getReturnedAt() { return returnedAt; }
+    public void setReturnedAt(String returnedAt) { this.returnedAt = returnedAt; }
+
+    public String getReturnRejectReason() { return returnRejectReason; }
+    public void setReturnRejectReason(String returnRejectReason) { this.returnRejectReason = returnRejectReason; }
 }

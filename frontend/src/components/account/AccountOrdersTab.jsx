@@ -26,6 +26,7 @@ export default function AccountOrdersTab({
   isAdmin,
   handleStatusChange,
   handleOpenCancelModal,
+  handleOpenReturnModal,
   handleConfirmReceived,
   isSubmittingReceive,
   onNavigateShop,
@@ -173,6 +174,8 @@ export default function AccountOrdersTab({
             { id: 'PAID', label: 'Đã Thanh Toán', count: stats?.paidOrders },
             { id: 'SHIPPING', label: 'Đang Giao Hàng', count: stats?.shippingOrders },
             { id: 'COMPLETED', label: 'Đã Nhận Hàng (Đã Giao)', count: stats?.completedOrders },
+            { id: 'RETURN_REQUESTED', label: 'Chờ Hoàn Trả', count: stats?.returnRequestedOrders },
+            { id: 'RETURNED', label: 'Đã Hoàn Trả', count: stats?.returnedOrders },
             { id: 'CANCELLED', label: 'Đã Hủy', count: stats?.cancelledOrders }
           ].map((tab) => (
             <button
@@ -227,6 +230,7 @@ export default function AccountOrdersTab({
                 isAdmin={isAdmin}
                 onStatusChange={handleStatusChange}
                 onOpenCancelModal={handleOpenCancelModal}
+                onOpenReturnModal={handleOpenReturnModal}
                 onConfirmReceived={handleConfirmReceived}
                 isSubmittingReceive={isSubmittingReceive}
                 onNavigatePayment={onNavigatePayment}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, ArrowRight, Radio } from 'lucide-react';
+import { CheckCircle2, ArrowRight, Radio, RotateCcw, RefreshCw } from 'lucide-react';
 import { STATUS_CONFIG, DELIVERY_STEPS, formatPrice } from './accountConstants';
 import { useOrderStatusPolling } from '../../hooks/useOrderStatusPolling';
 
@@ -11,11 +11,12 @@ export default function AccountOrderCard({
   isAdmin,
   onStatusChange,
   onOpenCancelModal,
+  onOpenReturnModal,
   onConfirmReceived,
   isSubmittingReceive,
   onNavigatePayment
 }) {
-  const isTerminal = order.status === 'COMPLETED' || order.status === 'CANCELLED';
+  const isTerminal = order.status === 'COMPLETED' || order.status === 'CANCELLED' || order.status === 'RETURNED';
 
   // Realtime HTTP Polling cho khách hàng theo dõi đơn hàng
   const { status: liveStatus, isPolling } = useOrderStatusPolling({
@@ -129,10 +130,12 @@ export default function AccountOrderCard({
               <option value="PAID">Đã Thanh Toán</option>
               <option value="SHIPPING">Đang Giao Hàng</option>
               <option value="COMPLETED">Đã Hoàn Tất</option>
+              <option value="RETURN_REQUESTED">Chờ Hoàn Trả</option>
+              <option value="RETURNED">Đã Hoàn Trả</option>
               <option value="CANCELLED">Hủy Đơn</option>
             </select>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               {order.status === 'SHIPPING' && (
                 <button
                   className="btn-primary"
@@ -166,25 +169,105 @@ export default function AccountOrderCard({
                 </button>
               )}
 
-              {order.status === 'COMPLETED' && (
-                <span style={{
-                  fontSize: '0.8rem',
-                  color: '#059669',
-                  fontWeight: 600,
-                  background: '#DCFCE7',
-                  padding: '4px 10px',
-                  borderRadius: 'var(--radius-full)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}>
-                  <CheckCircle2 size={13} /> Đã Giao Thành Công
-                </span>
-              )}
+              {order.status === 'COMPLETED' && (() => {
+                const completedDate = order.completedAt ? new Date(order.completedAt) : (order.createdAt ? new Date(order.createdAt) : new Date());
+                const diffDays = Math.floor((new Date() - completedDate) / (1000 * 60 * 60 * 24));
+                const remainingDays = Math.max(0, 7 - diffDays);
+                const canReturn = diffDays <= 7;
+
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: '0.8rem',
+                      color: '#059669',
+                      fontWeight: 600,
+                      background: '#DCFCE7',
+                      padding: '4px 10px',
+                      borderRadius: 'var(--radius-full)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}>
+                      <CheckCircle2 size={13} /> Đã Giao Thành Công
+                    </span>
+
+                    {canReturn ? (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => onOpenReturnModal && onOpenReturnModal(order)}
+                        style={{
+                          padding: '5px 12px',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          color: '#059669',
+                          borderColor: '#A7F3D0',
+                          background: '#F0FDF4',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                        title="Yêu cầu đổi trả cây trong chính sách 7 ngày"
+                      >
+                        <RotateCcw size={12} />
+                        <span>Đổi / Trả Hàng ({remainingDays > 0 ? `Còn ${remainingDays} ngày` : 'Hôm nay'})</span>
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontStyle: 'italic' }}>
+                        (Hết hạn đổi trả 7 ngày)
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
       </div>
+
+      {/* Return Request / Returned Notice Box */}
+      {order.status === 'RETURN_REQUESTED' && (
+        <div style={{
+          background: '#F5F3FF',
+          border: '1px solid #DDD6FE',
+          borderRadius: '10px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          fontSize: '0.86rem',
+          color: '#5B21B6'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+            <RefreshCw size={15} />
+            <span>Đang chờ Sen Xinh Garden duyệt yêu cầu hoàn trả & hoàn tiền</span>
+          </div>
+          <div style={{ marginTop: '6px', fontSize: '0.82rem', color: '#6D28D9' }}>
+            Lý do: <strong>"{order.returnReason}"</strong>
+            {order.returnNote && <span> • Chi tiết: {order.returnNote}</span>}
+            {order.refundBankInfo && <span> • TK nhận hoàn: {order.refundBankInfo}</span>}
+          </div>
+        </div>
+      )}
+
+      {order.status === 'RETURNED' && (
+        <div style={{
+          background: '#F8FAFC',
+          border: '1px solid #E2E8F0',
+          borderRadius: '10px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          fontSize: '0.86rem',
+          color: '#475569'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: '#0F172A' }}>
+            <RotateCcw size={15} color="#059669" />
+            <span>Đơn hàng đã được duyệt hoàn trả & hoàn tiền thành công</span>
+          </div>
+          <div style={{ marginTop: '6px', fontSize: '0.82rem' }}>
+            Lý do hoàn trả: <em>"{order.returnReason || 'Theo thỏa thuận khách hàng'}"</em>
+            {order.returnedAt && <span> • Ngày hoàn tất: {new Date(order.returnedAt).toLocaleString('vi-VN')}</span>}
+          </div>
+        </div>
+      )}
 
       {/* Delivery Progress Bar */}
       {order.status !== 'CANCELLED' ? (

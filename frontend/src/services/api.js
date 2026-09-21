@@ -479,6 +479,149 @@ export async function confirmReceivedOrder(orderId) {
 }
 
 /**
+ * Lấy cấu hình chính sách hoàn trả (số ngày quy định)
+ */
+export async function getReturnPolicy() {
+  if (USE_MOCK_DATA) {
+    return {
+      returnWindowDays: 7,
+      description: 'Chính sách bảo hành & đổi trả Sen Xinh Garden hỗ trợ đổi trả hoặc hoàn tiền trong vòng 7 ngày kể từ khi đơn hàng giao thành công.'
+    };
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/orders/policy`);
+    const data = await res.json();
+    return data.data || { returnWindowDays: 7 };
+  } catch (err) {
+    console.warn('Không thể tải cấu hình chính sách hoàn trả từ server, dùng mặc định 7 ngày:', err);
+    return { returnWindowDays: 7 };
+  }
+}
+
+/**
+ * Khách hàng gửi yêu cầu hoàn trả sản phẩm (áp dụng cho đơn COMPLETED trong vòng 7 ngày)
+ */
+export async function requestReturnOrder(orderId, { reason, note, bankInfo } = {}) {
+  if (USE_MOCK_DATA) {
+    const orders = getStoredOrders();
+    const target = orders.find((o) => String(o.id) === String(orderId) || o.orderCode === orderId);
+    if (!target) throw new Error('Không tìm thấy đơn hàng');
+    if (target.status !== 'COMPLETED') {
+      throw new Error('Chỉ những đơn hàng đã giao thành công (COMPLETED) mới đủ điều kiện yêu cầu hoàn trả.');
+    }
+
+    // Kiểm tra thời hạn 7 ngày trong mock data
+    const completedDate = target.completedAt ? new Date(target.completedAt) : (target.createdAt ? new Date(target.createdAt) : new Date());
+    const now = new Date();
+    const diffDays = Math.floor((now - completedDate) / (1000 * 60 * 60 * 24));
+    if (diffDays > 7) {
+      throw new Error(`Đơn hàng đã hoàn tất quá thời hạn 7 ngày đổi trả theo quy định của shop (đã qua ${diffDays} ngày).`);
+    }
+
+    target.status = 'RETURN_REQUESTED';
+    target.returnReason = reason || 'Khách yêu cầu hoàn trả';
+    target.returnNote = note || '';
+    target.refundBankInfo = bankInfo || '';
+    target.returnRequestedAt = new Date().toISOString();
+    saveStoredOrders(orders);
+
+    return {
+      success: true,
+      message: 'Gửi yêu cầu hoàn trả đơn hàng thành công! Sen Xinh Garden sẽ liên hệ xác nhận trong 24h.',
+      data: target
+    };
+  }
+
+  const res = await fetch(`${API_BASE}/orders/${orderId}/return-request`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason, note, bankInfo })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Không thể gửi yêu cầu hoàn trả');
+  return data;
+}
+
+/**
+ * Admin duyệt yêu cầu hoàn trả sản phẩm (hoàn kho và thu hồi điểm Sen)
+ */
+export async function approveReturnOrder(orderId) {
+  if (USE_MOCK_DATA) {
+    const orders = getStoredOrders();
+    const target = orders.find((o) => String(o.id) === String(orderId) || o.orderCode === orderId);
+    if (!target) throw new Error('Không tìm thấy đơn hàng');
+
+    target.status = 'RETURNED';
+    target.returnedAt = new Date().toISOString();
+
+    // Hoàn kho cho mock products
+    try {
+      const products = getStoredProducts();
+      (target.items || []).forEach((it) => {
+        const p = products.find((prod) => prod.id === it.productId || prod.id === it.id);
+        if (p) {
+          p.inStock = (p.inStock || 0) + (it.quantity || 1);
+        }
+      });
+      localStorage.setItem('senxinh_mock_products', JSON.stringify(products));
+    } catch (e) {
+      console.warn('Lỗi hoàn kho mock:', e);
+    }
+
+    // Thu hồi điểm Sen trong mock user
+    try {
+      const userKey = 'senxinh_user_mock';
+      const savedUser = localStorage.getItem(userKey);
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        const earned = Math.max(1, Math.round((target.totalAmount || 0) / 10000));
+        u.points = Math.max(0, (u.points || 0) - earned);
+        localStorage.setItem(userKey, JSON.stringify(u));
+      }
+    } catch (e) {
+      console.warn('Lỗi thu hồi điểm mock:', e);
+    }
+
+    saveStoredOrders(orders);
+    return { success: true, message: 'Duyệt hoàn trả thành công! Đã hoàn tồn kho và cập nhật doanh thu.', data: target };
+  }
+
+  const res = await fetch(`${API_BASE}/admin/orders/${orderId}/return/approve`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Không thể duyệt hoàn trả');
+  return data;
+}
+
+/**
+ * Admin từ chối yêu cầu hoàn trả sản phẩm
+ */
+export async function rejectReturnOrder(orderId, rejectReason = '') {
+  if (USE_MOCK_DATA) {
+    const orders = getStoredOrders();
+    const target = orders.find((o) => String(o.id) === String(orderId) || o.orderCode === orderId);
+    if (!target) throw new Error('Không tìm thấy đơn hàng');
+
+    target.status = 'COMPLETED';
+    target.returnRejectReason = rejectReason || 'Shop từ chối yêu cầu hoàn trả theo chính sách';
+    saveStoredOrders(orders);
+    return { success: true, message: 'Đã từ chối yêu cầu hoàn trả đơn hàng.', data: target };
+  }
+
+  const res = await fetch(`${API_BASE}/admin/orders/${orderId}/return/reject`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rejectReason })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Không thể từ chối hoàn trả');
+  return data;
+}
+
+/**
  * Khách hàng xóa một đơn hàng khỏi lịch sử
  */
 export async function deleteCustomerOrder(orderId) {

@@ -1,11 +1,13 @@
-import { Clock, CheckCircle2, Truck, AlertCircle } from 'lucide-react';
+import { Clock, CheckCircle2, Truck, AlertCircle, RotateCcw } from 'lucide-react';
 
 export const ORDER_STATUS_LABELS = {
   PENDING: { label: 'Chờ Thanh Toán', color: '#D97706', bg: '#FEF3C7', icon: Clock },
   PAID: { label: 'Đã Thanh Toán', color: '#059669', bg: '#D1FAE5', icon: CheckCircle2 },
   SHIPPING: { label: 'Đang Giao Hàng', color: '#2563EB', bg: '#DBEAFE', icon: Truck },
   COMPLETED: { label: 'Đã Hoàn Tất', color: '#047857', bg: '#A7F3D0', icon: CheckCircle2 },
-  CANCELLED: { label: 'Đã Hủy', color: '#DC2626', bg: '#FEE2E2', icon: AlertCircle }
+  CANCELLED: { label: 'Đã Hủy', color: '#DC2626', bg: '#FEE2E2', icon: AlertCircle },
+  RETURN_REQUESTED: { label: 'Yêu Cầu Hoàn Trả', color: '#EA580C', bg: '#FFEDD5', icon: RotateCcw },
+  RETURNED: { label: 'Đã Hoàn Trả', color: '#4B5563', bg: '#E5E7EB', icon: RotateCcw }
 };
 
 export const SAMPLE_IMAGES = [

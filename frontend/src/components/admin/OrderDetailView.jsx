@@ -11,7 +11,8 @@ import {
   Check,
   AlertCircle,
   ShoppingBag,
-  ChevronRight
+  ChevronRight,
+  RotateCcw
 } from 'lucide-react';
 import { ORDER_STATUS_LABELS, formatPrice } from './adminConstants';
 
@@ -22,7 +23,9 @@ export default function OrderDetailView({
   previousViewMode = 'tabs',
   onBack,
   onOpenCustomerOrders,
-  onDetailStatusChange
+  onDetailStatusChange,
+  onApproveReturn,
+  onRejectReturn
 }) {
   if (!activeOrder) return null;
 
@@ -115,6 +118,8 @@ export default function OrderDetailView({
             <option value="PAID">Đã Thanh Toán</option>
             <option value="SHIPPING">Đang Giao Hàng</option>
             <option value="COMPLETED">Đã Hoàn Tất</option>
+            <option value="RETURN_REQUESTED">Yêu Cầu Hoàn Trả</option>
+            <option value="RETURNED">Đã Hoàn Trả</option>
             <option value="CANCELLED">Hủy Đơn</option>
           </select>
 
@@ -139,6 +144,16 @@ export default function OrderDetailView({
           <div style={{ padding: '16px', background: '#FEE2E2', borderRadius: '10px', color: '#DC2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <AlertCircle size={18} />
             <span>Đơn hàng này đã bị hủy bỏ. Không tiếp tục quy trình xử lý hoặc vận chuyển.</span>
+          </div>
+        ) : activeOrder.status === 'RETURNED' ? (
+          <div style={{ padding: '16px', background: '#F3F4F6', borderRadius: '10px', color: '#4B5563', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <RotateCcw size={18} />
+            <span>Đơn hàng đã được hoàn trả thành công. Tồn kho sản phẩm và điểm thưởng đã được hoàn tác tự động.</span>
+          </div>
+        ) : activeOrder.status === 'RETURN_REQUESTED' ? (
+          <div style={{ padding: '16px', background: '#FFEDD5', borderRadius: '10px', color: '#C2410C', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <RotateCcw size={18} />
+            <span>Khách hàng đã gửi yêu cầu hoàn trả sản phẩm. Vui lòng kiểm tra lý do và xử lý duyệt hoặc từ chối bên dưới.</span>
           </div>
         ) : (
           <div className="order-timeline-stepper">
@@ -167,6 +182,118 @@ export default function OrderDetailView({
           </div>
         )}
       </div>
+
+      {/* Return Order Details Card */}
+      {(activeOrder.status === 'RETURN_REQUESTED' || activeOrder.status === 'RETURNED' || activeOrder.returnReason) && (
+        <div
+          style={{
+            background: activeOrder.status === 'RETURN_REQUESTED' ? '#FFF7ED' : activeOrder.status === 'RETURNED' ? '#F3F4F6' : '#EFF6FF',
+            border: `1.5px solid ${activeOrder.status === 'RETURN_REQUESTED' ? '#FED7AA' : activeOrder.status === 'RETURNED' ? '#D1D5DB' : '#BFDBFE'}`,
+            borderRadius: '12px',
+            padding: '20px 24px',
+            marginBottom: '24px'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: activeOrder.status === 'RETURN_REQUESTED' ? '#EA580C' : '#4B5563',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <RotateCcw size={18} />
+              </div>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '1.05rem', color: '#1E293B', fontWeight: 700 }}>
+                  {activeOrder.status === 'RETURN_REQUESTED'
+                    ? 'Yêu Cầu Đổi / Trả Hàng Từ Khách Hàng'
+                    : activeOrder.status === 'RETURNED'
+                    ? 'Đơn Hàng Đã Được Hoàn Trả Thành Công'
+                    : 'Thông Tin Đổi / Trả Hàng'}
+                </h4>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', color: '#64748B' }}>
+                  {activeOrder.returnRequestedAt
+                    ? `Thời gian gửi yêu cầu: ${new Date(activeOrder.returnRequestedAt).toLocaleString('vi-VN')}`
+                    : 'Chính sách hoàn trả trong 7 ngày'}
+                  {activeOrder.returnedAt && ` • Hoàn trả ngày: ${new Date(activeOrder.returnedAt).toLocaleString('vi-VN')}`}
+                </p>
+              </div>
+            </div>
+
+            {activeOrder.status === 'RETURN_REQUESTED' && (
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => onApproveReturn && onApproveReturn(activeOrder.id)}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: '#059669',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Check size={16} />
+                  <span>Duyệt Hoàn Trả & Phục Hồi Kho</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRejectReturn && onRejectReturn(activeOrder.id)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #FCA5A5',
+                    background: '#fff',
+                    color: '#DC2626',
+                    fontWeight: 600,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Từ Chối Yêu Cầu
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', fontSize: '0.88rem' }}>
+            <div style={{ background: '#fff', padding: '14px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.06)' }}>
+              <div style={{ color: '#64748B', fontSize: '0.8rem', marginBottom: '4px' }}>Lý Do Hoàn Trả:</div>
+              <strong style={{ color: '#0F172A' }}>{activeOrder.returnReason || 'Không có'}</strong>
+              {activeOrder.returnNote && (
+                <div style={{ marginTop: '6px', color: '#475569', fontSize: '0.84rem' }}>
+                  <em>"{activeOrder.returnNote}"</em>
+                </div>
+              )}
+            </div>
+
+            <div style={{ background: '#fff', padding: '14px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.06)' }}>
+              <div style={{ color: '#64748B', fontSize: '0.8rem', marginBottom: '4px' }}>Thông Tin Ngân Hàng Hoàn Tiền:</div>
+              <strong style={{ color: '#0F172A' }}>{activeOrder.refundBankInfo || 'Chưa cung cấp'}</strong>
+            </div>
+
+            {activeOrder.returnRejectReason && (
+              <div style={{ background: '#FEF2F2', padding: '14px', borderRadius: '8px', border: '1px solid #FEE2E2', gridColumn: '1 / -1' }}>
+                <div style={{ color: '#DC2626', fontSize: '0.8rem', marginBottom: '4px', fontWeight: 600 }}>Lý Do Shop Từ Chối Hoàn Trả:</div>
+                <span style={{ color: '#991B1B' }}>{activeOrder.returnRejectReason}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 2-Column Responsive Layout */}
       <div className="order-detail-grid">

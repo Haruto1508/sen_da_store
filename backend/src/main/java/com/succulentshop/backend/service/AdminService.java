@@ -120,7 +120,7 @@ public class AdminService {
             throw new AppException(ErrorCode.ORDER_STATUS_REQUIRED);
         }
 
-        List<String> validStatuses = List.of("PENDING", "PAID", "SHIPPING", "COMPLETED", "CANCELLED");
+        List<String> validStatuses = List.of("PENDING", "PAID", "SHIPPING", "COMPLETED", "CANCELLED", "RETURN_REQUESTED", "RETURNED");
         String formattedStatus = status.trim().toUpperCase();
         if (!validStatuses.contains(formattedStatus)) {
             throw new AppException(ErrorCode.INVALID_ORDER_STATUS, "Trạng thái không hợp lệ: " + validStatuses);
@@ -148,6 +148,40 @@ public class AdminService {
             }
         }
 
+        if ("RETURNED".equals(formattedStatus) && !"RETURNED".equals(oldStatus)) {
+            if (Boolean.TRUE.equals(order.isStockDeducted())) {
+                for (OrderItem it : order.getItems()) {
+                    Optional<Product> pOpt = productRepository.findById(it.getProductId());
+                    if (pOpt.isPresent()) {
+                        Product p = pOpt.get();
+                        p.setInStock((p.getInStock() != null ? p.getInStock() : 0) + it.getQuantity());
+                        productRepository.save(p);
+                    }
+                }
+                order.setStockDeducted(false);
+            }
+            if (Boolean.TRUE.equals(order.isPointsAwarded())) {
+                int totalAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
+                if (totalAmount > 0) {
+                    int pointsRevoked = Math.max(1, totalAmount / 10000);
+                    Optional<User> customerOpt = Optional.empty();
+                    if (order.getCustomerEmail() != null && !order.getCustomerEmail().isBlank()) {
+                        customerOpt = userRepository.findByEmail(order.getCustomerEmail().trim().toLowerCase());
+                    }
+                    if (customerOpt.isEmpty() && order.getCustomerPhone() != null && !order.getCustomerPhone().isBlank()) {
+                        customerOpt = userRepository.findByPhone(order.getCustomerPhone().trim());
+                    }
+                    customerOpt.ifPresent(customer -> {
+                        int currentPoints = customer.getPoints() != null ? customer.getPoints() : 0;
+                        customer.setPoints(Math.max(0, currentPoints - pointsRevoked));
+                        userRepository.save(customer);
+                    });
+                }
+                order.setPointsAwarded(false);
+            }
+            order.setReturnedAt(java.time.LocalDateTime.now());
+        }
+
         if (List.of("PAID", "SHIPPING", "COMPLETED").contains(formattedStatus) && !Boolean.TRUE.equals(order.isStockDeducted())) {
             for (OrderItem it : order.getItems()) {
                 Optional<Product> pOpt = productRepository.findById(it.getProductId());
@@ -168,23 +202,28 @@ public class AdminService {
             order.setStockDeducted(true);
         }
 
-        if ("COMPLETED".equals(formattedStatus) && !Boolean.TRUE.equals(order.isPointsAwarded())) {
-            int totalAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
-            if (totalAmount > 0) {
-                int pointsEarned = Math.max(1, totalAmount / 10000);
-                Optional<User> customerOpt = Optional.empty();
-                if (order.getCustomerEmail() != null && !order.getCustomerEmail().isBlank()) {
-                    customerOpt = userRepository.findByEmail(order.getCustomerEmail().trim().toLowerCase());
+        if ("COMPLETED".equals(formattedStatus)) {
+            if (order.getCompletedAt() == null) {
+                order.setCompletedAt(java.time.LocalDateTime.now());
+            }
+            if (!Boolean.TRUE.equals(order.isPointsAwarded())) {
+                int totalAmount = order.getTotalAmount() != null ? order.getTotalAmount() : 0;
+                if (totalAmount > 0) {
+                    int pointsEarned = Math.max(1, totalAmount / 10000);
+                    Optional<User> customerOpt = Optional.empty();
+                    if (order.getCustomerEmail() != null && !order.getCustomerEmail().isBlank()) {
+                        customerOpt = userRepository.findByEmail(order.getCustomerEmail().trim().toLowerCase());
+                    }
+                    if (customerOpt.isEmpty() && order.getCustomerPhone() != null && !order.getCustomerPhone().isBlank()) {
+                        customerOpt = userRepository.findByPhone(order.getCustomerPhone().trim());
+                    }
+                    customerOpt.ifPresent(customer -> {
+                        int currentPoints = customer.getPoints() != null ? customer.getPoints() : 0;
+                        customer.setPoints(currentPoints + pointsEarned);
+                        userRepository.save(customer);
+                    });
+                    order.setPointsAwarded(true);
                 }
-                if (customerOpt.isEmpty() && order.getCustomerPhone() != null && !order.getCustomerPhone().isBlank()) {
-                    customerOpt = userRepository.findByPhone(order.getCustomerPhone().trim());
-                }
-                customerOpt.ifPresent(customer -> {
-                    int currentPoints = customer.getPoints() != null ? customer.getPoints() : 0;
-                    customer.setPoints(currentPoints + pointsEarned);
-                    userRepository.save(customer);
-                });
-                order.setPointsAwarded(true);
             }
         }
 
@@ -196,6 +235,41 @@ public class AdminService {
         }
 
         return new UpdateOrderStatusResponse(formattedStatus);
+    }
+
+    @Transactional
+    public OrderResponse approveReturn(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
+
+        if (!"RETURN_REQUESTED".equalsIgnoreCase(order.getStatus()) && !"COMPLETED".equalsIgnoreCase(order.getStatus())) {
+            throw new AppException(ErrorCode.ORDER_CANNOT_BE_RETURNED, "Đơn hàng không ở trạng thái yêu cầu hoàn trả.");
+        }
+
+        updateOrderStatus(orderId, "RETURNED");
+        Order updated = orderRepository.findById(orderId).orElse(order);
+        return convertOrderToResponse(updated);
+    }
+
+    @Transactional
+    public OrderResponse rejectReturn(Long orderId, String rejectReason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
+
+        if (!"RETURN_REQUESTED".equalsIgnoreCase(order.getStatus())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST, "Đơn hàng hiện không có yêu cầu hoàn trả để từ chối.");
+        }
+
+        String oldStatus = order.getStatus();
+        order.setStatus("COMPLETED");
+        order.setReturnRejectReason(rejectReason != null && !rejectReason.trim().isBlank() ? rejectReason.trim() : "Shop từ chối yêu cầu đổi trả theo chính sách.");
+        orderRepository.save(order);
+
+        if (orderEventPublisher != null) {
+            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, "COMPLETED");
+        }
+
+        return convertOrderToResponse(order);
     }
 
     @Transactional
@@ -478,6 +552,13 @@ public class AdminService {
         response.setStockDeducted(o.isStockDeducted());
         response.setPointsAwarded(o.isPointsAwarded());
         response.setCreatedAt(o.getCreatedAt() != null ? o.getCreatedAt().toString() : null);
+        response.setCompletedAt(o.getCompletedAt() != null ? o.getCompletedAt().toString() : null);
+        response.setReturnReason(o.getReturnReason());
+        response.setReturnNote(o.getReturnNote());
+        response.setRefundBankInfo(o.getRefundBankInfo());
+        response.setReturnRequestedAt(o.getReturnRequestedAt() != null ? o.getReturnRequestedAt().toString() : null);
+        response.setReturnedAt(o.getReturnedAt() != null ? o.getReturnedAt().toString() : null);
+        response.setReturnRejectReason(o.getReturnRejectReason());
 
         List<OrderItemResponse> itemResponses = new ArrayList<>();
         if (o.getItems() != null) {

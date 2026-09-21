@@ -14,7 +14,8 @@ import {
   Check,
   Calendar,
   MessageSquare,
-  CheckCircle2
+  CheckCircle2,
+  RotateCcw
 } from 'lucide-react';
 import Pagination from '../Pagination';
 import { ORDER_STATUS_LABELS, formatPrice } from './adminConstants';
@@ -31,7 +32,9 @@ export default function OrdersTab({
   itemsPerPage = 10,
   onStatusChange,
   onOpenOrderDetail,
-  onOpenCustomerOrders
+  onOpenCustomerOrders,
+  onApproveReturn,
+  onRejectReturn
 }) {
   const [copiedCode, setCopiedCode] = useState('');
 
@@ -58,7 +61,7 @@ export default function OrdersTab({
 
   // Status counts for tabs
   const statusCounts = useMemo(() => {
-    const counts = { all: orders.length, PENDING: 0, PAID: 0, SHIPPING: 0, COMPLETED: 0, CANCELLED: 0 };
+    const counts = { all: orders.length, PENDING: 0, PAID: 0, SHIPPING: 0, COMPLETED: 0, RETURN_REQUESTED: 0, RETURNED: 0, CANCELLED: 0 };
     orders.forEach((o) => {
       if (counts[o.status] !== undefined) counts[o.status]++;
     });
@@ -77,6 +80,8 @@ export default function OrdersTab({
     { key: 'PAID', label: 'Đã Thanh Toán' },
     { key: 'SHIPPING', label: 'Đang Giao' },
     { key: 'COMPLETED', label: 'Hoàn Tất' },
+    { key: 'RETURN_REQUESTED', label: 'Yêu Cầu Hoàn Trả' },
+    { key: 'RETURNED', label: 'Đã Hoàn Trả' },
     { key: 'CANCELLED', label: 'Đã Hủy' }
   ];
 
@@ -273,6 +278,8 @@ export default function OrdersTab({
                       <option value="PAID">Đã Thanh Toán</option>
                       <option value="SHIPPING">Đang Giao Hàng</option>
                       <option value="COMPLETED">Đã Hoàn Tất</option>
+                      <option value="RETURN_REQUESTED">Yêu Cầu Hoàn Trả</option>
+                      <option value="RETURNED">Đã Hoàn Trả</option>
                       <option value="CANCELLED">Hủy Đơn</option>
                     </select>
                   </div>
@@ -412,6 +419,51 @@ export default function OrdersTab({
                   </div>
                 </div>
 
+                {/* Return Request Banner if applicable */}
+                {(order.status === 'RETURN_REQUESTED' || order.returnReason || order.status === 'RETURNED') && (
+                  <div
+                    style={{
+                      background: order.status === 'RETURN_REQUESTED' ? '#FFF7ED' : order.status === 'RETURNED' ? '#F3F4F6' : '#F8FAFC',
+                      border: `1px solid ${order.status === 'RETURN_REQUESTED' ? '#FED7AA' : '#E2E8F0'}`,
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '12px 16px',
+                      marginBottom: '14px',
+                      fontSize: '0.84rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: order.status === 'RETURN_REQUESTED' ? '#C2410C' : '#374151', marginBottom: '6px' }}>
+                      <RotateCcw size={15} />
+                      <span>
+                        {order.status === 'RETURN_REQUESTED'
+                          ? 'Khách Hàng Đã Gửi Yêu Cầu Hoàn Trả'
+                          : order.status === 'RETURNED'
+                          ? 'Đơn Hàng Đã Được Hoàn Trả & Phục Hồi Kho'
+                          : 'Thông Tin Đổi / Trả Hàng'}
+                      </span>
+                    </div>
+                    {order.returnReason && (
+                      <div style={{ color: '#1E293B', marginBottom: '4px' }}>
+                        <strong>Lý do hoàn trả:</strong> {order.returnReason}
+                      </div>
+                    )}
+                    {order.returnNote && (
+                      <div style={{ color: '#475569', marginBottom: '4px' }}>
+                        <strong>Ghi chú từ khách:</strong> {order.returnNote}
+                      </div>
+                    )}
+                    {order.refundBankInfo && (
+                      <div style={{ color: '#0F172A', marginBottom: '4px' }}>
+                        <strong>Thông tin chuyển khoản hoàn tiền:</strong> {order.refundBankInfo}
+                      </div>
+                    )}
+                    {order.returnRejectReason && (
+                      <div style={{ color: '#DC2626', marginTop: '4px' }}>
+                        <strong>Lý do từ chối:</strong> {order.returnRejectReason}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Footer: Price breakdown & View Details button */}
                 <div
                   style={{
@@ -436,6 +488,30 @@ export default function OrdersTab({
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {order.status === 'RETURN_REQUESTED' && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          onClick={() => onApproveReturn && onApproveReturn(order.id)}
+                          style={{ padding: '6px 14px', fontSize: '0.82rem', background: '#059669', borderColor: '#059669', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+                          title="Duyệt hoàn trả đơn hàng và hoàn kho sản phẩm"
+                        >
+                          <CheckCircle2 size={14} />
+                          <span>Duyệt Hoàn Trả</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => onRejectReturn && onRejectReturn(order.id)}
+                          style={{ padding: '6px 12px', fontSize: '0.8rem', color: '#DC2626', borderColor: '#FCA5A5', fontWeight: 600 }}
+                          title="Từ chối yêu cầu hoàn trả"
+                        >
+                          Từ Chối
+                        </button>
+                      </>
+                    )}
+
                     {order.status === 'SHIPPING' && (
                       <button
                         type="button"

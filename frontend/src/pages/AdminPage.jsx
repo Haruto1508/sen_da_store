@@ -24,7 +24,9 @@ import {
   getShippingConfig,
   fetchShippingConfig,
   saveShippingConfig,
-  resetShippingConfig
+  resetShippingConfig,
+  approveReturnOrder,
+  rejectReturnOrder
 } from '../services/api';
 
 import { ORDER_STATUS_LABELS, SAMPLE_IMAGES } from '../components/admin/adminConstants';
@@ -395,6 +397,41 @@ export default function AdminPage({
     }
   };
 
+  // Duyệt yêu cầu hoàn trả đơn hàng
+  const handleApproveReturn = async (orderId) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn duyệt yêu cầu hoàn trả cho đơn hàng #${orderId}? Hệ thống sẽ tự động khôi phục số lượng tồn kho của các sản phẩm và hoàn tác điểm thưởng tích lũy của khách hàng.`)) {
+      return;
+    }
+    try {
+      await approveReturnOrder(orderId);
+      if (addToast) addToast(`Đã duyệt hoàn trả thành công đơn hàng #${orderId}`, 'success');
+      showModal('success', `Đã duyệt hoàn trả đơn hàng #${orderId} thành công! Sản phẩm đã được cộng lại kho.`);
+      await loadAllData();
+      if (activeOrder && (String(activeOrder.id) === String(orderId) || activeOrder.orderCode === orderId)) {
+        setActiveOrder((prev) => ({ ...prev, status: 'RETURNED' }));
+      }
+    } catch (err) {
+      showModal('error', err.message || 'Không thể duyệt yêu cầu hoàn trả');
+    }
+  };
+
+  // Từ chối yêu cầu hoàn trả đơn hàng
+  const handleRejectReturn = async (orderId, inputReason = '') => {
+    const reason = inputReason || window.prompt('Vui lòng nhập lý do từ chối yêu cầu hoàn trả:', 'Sản phẩm không đáp ứng điều kiện theo chính sách hoàn trả của shop');
+    if (reason === null) return;
+    try {
+      await rejectReturnOrder(orderId, reason);
+      if (addToast) addToast(`Đã từ chối hoàn trả đơn hàng #${orderId}`, 'info');
+      showModal('success', `Đã từ chối yêu cầu hoàn trả. Đơn hàng quay về trạng thái Hoàn Tất.`);
+      await loadAllData();
+      if (activeOrder && (String(activeOrder.id) === String(orderId) || activeOrder.orderCode === orderId)) {
+        setActiveOrder((prev) => ({ ...prev, status: 'COMPLETED', returnRejectReason: reason }));
+      }
+    } catch (err) {
+      showModal('error', err.message || 'Không thể từ chối yêu cầu hoàn trả');
+    }
+  };
+
   // Product Actions
   const handleOpenAddProduct = () => {
     setEditingProduct(null);
@@ -664,6 +701,8 @@ export default function AdminPage({
                   onStatusChange={handleStatusChange}
                   onOpenOrderDetail={handleOpenOrderDetail}
                   onOpenCustomerOrders={handleOpenCustomerOrders}
+                  onApproveReturn={handleApproveReturn}
+                  onRejectReturn={handleRejectReturn}
                 />
               )}
 
@@ -790,6 +829,8 @@ export default function AdminPage({
               onBack={handleBackFromOrderDetail}
               onOpenCustomerOrders={handleOpenCustomerOrders}
               onDetailStatusChange={handleDetailStatusChange}
+              onApproveReturn={handleApproveReturn}
+              onRejectReturn={handleRejectReturn}
             />
           )}
         </div>

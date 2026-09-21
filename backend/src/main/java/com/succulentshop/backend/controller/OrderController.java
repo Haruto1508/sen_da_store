@@ -6,6 +6,8 @@ import com.succulentshop.backend.dto.CancelOrderRequest;
 import com.succulentshop.backend.dto.CreateOrderRequest;
 import com.succulentshop.backend.dto.CreateOrderResponse;
 import com.succulentshop.backend.dto.OrderResponse;
+import com.succulentshop.backend.dto.ReturnOrderRequest;
+import com.succulentshop.backend.dto.ReturnPolicyResponse;
 import com.succulentshop.backend.service.OrderService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -64,12 +66,27 @@ public class OrderController {
         return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_CANCELLED, result));
     }
 
+    @GetMapping("/policy")
+    public ResponseEntity<ApiResult<ReturnPolicyResponse>> getReturnPolicy() {
+        ReturnPolicyResponse result = orderService.getReturnPolicy();
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.POLICY_CONFIG_RETRIEVED, result));
+    }
+
     @PatchMapping("/{id}/receive")
     public ResponseEntity<ApiResult<OrderResponse>> confirmReceived(
             @PathVariable Long id
     ) {
         OrderResponse result = orderService.confirmReceived(id);
         return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_RECEIVED, result));
+    }
+
+    @PatchMapping("/{id}/return-request")
+    public ResponseEntity<ApiResult<OrderResponse>> requestReturn(
+            @PathVariable Long id,
+            @RequestBody ReturnOrderRequest request
+    ) {
+        OrderResponse result = orderService.requestReturn(id, request);
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_RETURN_REQUESTED, result));
     }
 
     @DeleteMapping("/{id}")

@@ -7,6 +7,7 @@ import {
   updateOrderStatus,
   getCustomerOrders,
   cancelCustomerOrder,
+  requestReturnOrder,
   confirmReceivedOrder,
   deleteCustomerOrdersBulk
 } from '../services/api';
@@ -21,6 +22,7 @@ import AccountWishlistTab from '../components/account/AccountWishlistTab';
 import AccountCartTab from '../components/account/AccountCartTab';
 import OrderCancelModal from '../components/account/OrderCancelModal';
 import OrderDeleteModal from '../components/account/OrderDeleteModal';
+import OrderReturnModal from '../components/account/OrderReturnModal';
 import { CANCEL_REASONS } from '../components/account/accountConstants';
 
 export default function AccountPage({
@@ -108,6 +110,10 @@ export default function AccountPage({
   const [customReason, setCustomReason] = useState('');
   const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
   const [isSubmittingReceive, setIsSubmittingReceive] = useState(false);
+
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
+  const [selectedReturnOrder, setSelectedReturnOrder] = useState(null);
+  const [isSubmittingReturn, setIsSubmittingReturn] = useState(false);
 
   const loadOrders = async () => {
     if (!currentUser || (!currentUser.name && !currentUser.email && !currentUser.phone)) {
@@ -256,6 +262,31 @@ export default function AccountPage({
       showModal('error', err.message || 'Không thể hủy đơn hàng');
     } finally {
       setIsSubmittingCancel(false);
+    }
+  };
+
+  const handleOpenReturnModal = (order) => {
+    setSelectedReturnOrder(order);
+    setReturnModalOpen(true);
+  };
+
+  const handleConfirmReturnOrder = async ({ reason, note, refundBankInfo }) => {
+    if (!selectedReturnOrder) return;
+    setIsSubmittingReturn(true);
+    try {
+      await requestReturnOrder(selectedReturnOrder.id, {
+        reason,
+        note,
+        refundBankInfo
+      });
+      setReturnModalOpen(false);
+      setSelectedReturnOrder(null);
+      showModal('success', 'Yêu cầu hoàn trả đã được gửi thành công! Cửa hàng sẽ xét duyệt trong vòng 24h làm việc.');
+      await loadOrders();
+    } catch (err) {
+      showModal('error', err.message || 'Không thể gửi yêu cầu hoàn trả đơn hàng');
+    } finally {
+      setIsSubmittingReturn(false);
     }
   };
 
@@ -434,6 +465,7 @@ export default function AccountPage({
                   isAdmin={isAdmin}
                   handleStatusChange={handleStatusChange}
                   handleOpenCancelModal={handleOpenCancelModal}
+                  handleOpenReturnModal={handleOpenReturnModal}
                   handleConfirmReceived={handleConfirmReceived}
                   isSubmittingReceive={isSubmittingReceive}
                   onNavigateShop={onNavigateShop}
@@ -499,6 +531,15 @@ export default function AccountPage({
         onClose={() => setIsConfirmDeleteModalOpen(false)}
         onConfirmDelete={handleExecuteDeleteBulk}
         isDeleting={isDeletingOrders}
+      />
+
+      {/* Modal Hoàn Trả Đơn Hàng */}
+      <OrderReturnModal
+        isOpen={returnModalOpen}
+        order={selectedReturnOrder}
+        onClose={() => setReturnModalOpen(false)}
+        onConfirmReturn={handleConfirmReturnOrder}
+        isSubmitting={isSubmittingReturn}
       />
 
       {/* Notification Modal */}
