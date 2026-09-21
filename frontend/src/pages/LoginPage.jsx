@@ -692,8 +692,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                       </>
                     ) : (
                       <>
-                        <KeyRound size={18} />
-                        <span>Nhận Mã OTP & Tiếp Tục</span>
+                        <span>Đăng nhập</span>
                         <ArrowRight size={16} />
                       </>
                     )}
