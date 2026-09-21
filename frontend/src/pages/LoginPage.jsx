@@ -753,6 +753,7 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
             <div style={{ textAlign: 'center', marginTop: '12px' }}>
               <button
                 type="button"
+                className='btn btn-primary'
                 onClick={() => onNavigate && onNavigate('home')}
                 style={{
                   background: 'none',
@@ -768,29 +769,6 @@ export default function LoginPage({ onLoginSuccess, onNavigate, addToast }) {
                 }}
               >
                 ← Quay lại trang chủ
-              </button>
-            </div>
-
-            {/* Dedicated Admin Portal Link */}
-            <div style={{ textAlign: 'center', marginTop: '18px', paddingTop: '14px', borderTop: '1px solid #E2E8F0' }}>
-              <span style={{ fontSize: '0.82rem', color: '#64748B' }}>
-                Quản trị viên vườn?{' '}
-              </span>
-              <button
-                type="button"
-                onClick={() => onNavigate && onNavigate('admin')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--primary)',
-                  fontSize: '0.82rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  padding: 0,
-                  textDecoration: 'underline'
-                }}
-              >
-                Cổng Đăng Nhập Quản Trị (Admin) →
               </button>
             </div>
           </div>

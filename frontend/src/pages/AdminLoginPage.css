@@ -91,6 +91,34 @@
   margin-bottom: 28px;
 }
 
+.admin-login-logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.admin-login-logo-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s;
+}
+
+.admin-login-logo-link:hover {
+  transform: scale(1.05);
+  opacity: 0.95;
+}
+
+.admin-login-logo {
+  height: 54px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.06));
+}
+
 .admin-login-badge-wrap {
   display: flex;
   align-items: center;

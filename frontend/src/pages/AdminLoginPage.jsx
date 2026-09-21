@@ -16,6 +16,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { loginUser, loginWithGoogle } from '../services/api';
+import webLogo from '../assets/logo/web_logo.png';
 import './AdminLoginPage.css';
 
 export default function AdminLoginPage({
@@ -226,11 +227,22 @@ export default function AdminLoginPage({
       <div className="admin-login-card">
         {/* Header with Security Badge */}
         <div className="admin-login-header">
-          <div className="admin-login-badge-wrap">
-            <span className="admin-login-badge">
-              <span className="admin-login-badge-dot" />
-              CỔNG QUẢN TRỊ BẢO MẬT
-            </span>
+          <div className="admin-login-logo-wrap">
+            <a 
+              href="/" 
+              onClick={(e) => { 
+                e.preventDefault(); 
+                handleGoHome(); 
+              }} 
+              title="Quay lại Cửa Hàng Sen Xinh Garden"
+              className="admin-login-logo-link"
+            >
+              <img
+                src={webLogo}
+                alt="Sen Xinh Garden"
+                className="admin-login-logo"
+              />
+            </a>
           </div>
 
           <div className="admin-login-icon-box">
