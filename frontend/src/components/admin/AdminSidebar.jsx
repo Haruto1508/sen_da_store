@@ -223,49 +223,6 @@ export default function AdminSidebar({
 
         {/* FIXED FOOTER SECTION */}
         <div className="admin-sidebar-footer-group">
-          {/* Admin User Profile & Logout */}
-          <div className="admin-sidebar-footer">
-            <div
-              className="admin-sidebar-user"
-              onClick={() => {
-                setActiveTab('admin-accounts');
-                setViewMode('tabs');
-                setMobileSidebarOpen(false);
-              }}
-              style={{ cursor: 'pointer' }}
-              title="Xem hồ sơ & Quản lý tài khoản Admin"
-            >
-              <img
-                className="admin-sidebar-avatar"
-                src={
-                  user?.avatar ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
-                }
-                alt={user?.name || 'Admin'}
-              />
-              {!sidebarCollapsed && (
-                <div className="admin-sidebar-user-details">
-                  <span className="user-name">{user?.name || 'Quản Trị Viên'}</span>
-                  <span className="user-role">{user?.role || 'Quản trị viên'}</span>
-                </div>
-              )}
-            </div>
-
-            {onLogout && (
-              <button
-                type="button"
-                className="admin-sidebar-logout"
-                onClick={() => {
-                  setMobileSidebarOpen(false);
-                  onLogout();
-                }}
-                title="Đăng xuất khỏi tài khoản Quản trị"
-              >
-                <LogOut size={16} />
-              </button>
-            )}
-          </div>
-
           {/* Dedicated Bottom Collapse Bar */}
           <div className="admin-sidebar-collapse-bar">
             <button
