@@ -78,15 +78,7 @@ export default function AdminStatsCards({ stats, productsCount, customersCount }
   ];
 
   return (
-    <div
-      className="admin-stats-grid"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-        gap: '16px',
-        marginBottom: '26px'
-      }}
-    >
+    <div className="admin-stats-grid">
       {cards.map((card) => {
         const IconComponent = card.icon;
         return (

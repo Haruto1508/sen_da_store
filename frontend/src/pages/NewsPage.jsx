@@ -36,7 +36,7 @@ export default function NewsPage({ onSelectArticle, onNavigateHome }) {
         </div>
       </div>
 
-      <div className="container" style={{ padding: '36px 24px 80px' }}>
+      <div className="container page-body-container">
         {/* Category tags */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '36px', overflowX: 'auto', paddingBottom: '4px' }}>
           {categories.map((cat) => (

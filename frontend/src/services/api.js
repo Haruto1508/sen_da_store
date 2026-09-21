@@ -341,12 +341,65 @@ export async function lookupOrder(orderCode) {
 }
 
 /**
+ * Lấy danh sách đánh giá của sản phẩm
+ */
+export async function getProductReviews(productId) {
+  if (USE_MOCK_DATA) {
+    try {
+      const stored = localStorage.getItem('senxinh_product_reviews');
+      const allReviews = stored ? JSON.parse(stored) : {};
+      if (allReviews[productId] && allReviews[productId].length > 0) {
+        return allReviews[productId];
+      }
+      return [
+        {
+          id: 1,
+          productId,
+          rating: 5,
+          reviewerName: 'Mai Anh (Hà Nội)',
+          comment: 'Cây giao rất tươi, rễ mập mạp và phát triển rất tốt. Shop đóng gói 4 lớp bọc bông cẩn thận, không dập lá nào.',
+          createdAt: new Date(Date.now() - 2 * 86400000).toISOString()
+        },
+        {
+          id: 2,
+          productId,
+          rating: 5,
+          reviewerName: 'Trần Minh Tuấn',
+          comment: 'Cây thuần dưỡng khỏe, về 1 tuần đã bén rễ mới. Tư vấn cách tưới nước và chăm cây mùa mưa rất nhiệt tình.',
+          createdAt: new Date(Date.now() - 5 * 86400000).toISOString()
+        },
+        {
+          id: 3,
+          productId,
+          rating: 4,
+          reviewerName: 'Thu Hằng (Đà Nẵng)',
+          comment: 'Sen đá rất xinh, đúng chuẩn giống loài như mô tả. Tặng shop 5 sao cho dịch vụ chăm sóc khách hàng chu đáo.',
+          createdAt: new Date(Date.now() - 9 * 86400000).toISOString()
+        }
+      ];
+    } catch {
+      return [];
+    }
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/products/${productId}/reviews`);
+    if (!res.ok) throw new Error('Không thể tải đánh giá sản phẩm');
+    const data = await res.json();
+    return data.data || [];
+  } catch (err) {
+    console.warn('Lỗi khi tải review từ API:', err);
+    return [];
+  }
+}
+
+/**
  * Gửi đánh giá sao cho sản phẩm
  */
 export async function submitReview(productId, reviewData) {
   if (USE_MOCK_DATA) {
     const products = getStoredProducts();
-    const target = products.find((p) => p.id === productId);
+    const target = products.find((p) => p.id === productId || (p.publicId && p.publicId === productId));
     if (target) {
       const currentRating = target.rating || 5.0;
       const count = target.reviewsCount || 0;
@@ -354,6 +407,25 @@ export async function submitReview(productId, reviewData) {
         Math.round(((currentRating * count + (reviewData.rating || 5)) / (count + 1)) * 10) / 10;
       target.reviewsCount = count + 1;
       saveStoredProducts(products);
+
+      // Lưu review vào LocalStorage mock
+      try {
+        const stored = localStorage.getItem('senxinh_product_reviews');
+        const allReviews = stored ? JSON.parse(stored) : {};
+        if (!allReviews[productId]) allReviews[productId] = [];
+        allReviews[productId].unshift({
+          id: Date.now(),
+          productId,
+          rating: reviewData.rating || 5,
+          reviewerName: reviewData.reviewerName || 'Khách yêu sen đá',
+          comment: reviewData.comment || '',
+          createdAt: new Date().toISOString()
+        });
+        localStorage.setItem('senxinh_product_reviews', JSON.stringify(allReviews));
+      } catch (e) {
+        console.warn('Lỗi lưu mock review:', e);
+      }
+
       return { success: true, data: target };
     }
     return { success: true };

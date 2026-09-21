@@ -127,14 +127,14 @@ export default function NotificationModal({ isOpen, type = 'info', title, messag
         <div style={{ height: '4px', background: colorVar }} />
 
         {/* Content */}
-        <div style={{ padding: '28px 28px 24px' }}>
+        <div style={{ padding: '24px 22px 20px' }}>
           {/* Icon + Title */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
             <div
               style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '14px',
+                width: '44px',
+                height: '44px',
+                borderRadius: '12px',
                 background: bgVar,
                 border: `1.5px solid ${borderVar}`,
                 display: 'flex',
@@ -144,7 +144,7 @@ export default function NotificationModal({ isOpen, type = 'info', title, messag
                 flexShrink: 0,
               }}
             >
-              <div style={{ width: '26px', height: '26px' }}>{icon}</div>
+              <div style={{ width: '24px', height: '24px' }}>{icon}</div>
             </div>
             <h3
               id="notif-title"
@@ -165,11 +165,10 @@ export default function NotificationModal({ isOpen, type = 'info', title, messag
           <p
             id="notif-message"
             style={{
-              fontSize: '0.95rem',
+              fontSize: '0.92rem',
               color: '#5C6B61',
-              lineHeight: 1.65,
-              margin: '0 0 22px',
-              paddingLeft: '62px',
+              lineHeight: 1.6,
+              margin: '0 0 20px',
             }}
           >
             {message}

@@ -104,7 +104,7 @@ export default function ShopPage({
         </div>
       </div>
 
-      <div className="shop-container" style={{ padding: '32px 24px 80px' }}>
+      <div className="shop-container page-body-container">
         {/* Anchor for smooth scroll upon pagination */}
         <div ref={catalogAnchorRef} style={{ scrollMarginTop: '90px' }} />
 

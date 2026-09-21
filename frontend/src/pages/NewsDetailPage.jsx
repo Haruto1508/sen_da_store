@@ -42,7 +42,7 @@ export default function NewsDetailPage({
         </div>
       </div>
 
-      <div className="container" style={{ padding: '40px 24px 80px', maxWidth: '880px' }}>
+      <div className="container page-body-container" style={{ maxWidth: '880px' }}>
         {/* Article Meta */}
         <div style={{ marginBottom: '24px' }}>
           <span className="tag-pill" style={{ background: 'var(--accent-light)', color: 'var(--accent)', fontWeight: 700, marginBottom: '12px' }}>

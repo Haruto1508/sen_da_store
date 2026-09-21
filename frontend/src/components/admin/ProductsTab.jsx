@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Plus,
@@ -9,9 +9,12 @@ import {
   CheckCircle,
   XCircle,
   Sun,
-  Droplets
+  Droplets,
+  Star,
+  MessageSquare
 } from 'lucide-react';
 import Pagination from '../Pagination';
+import ProductReviewsModal from './ProductReviewsModal';
 import { CATEGORIES } from '../../data/products';
 import { formatPrice } from './adminConstants';
 
@@ -31,13 +34,16 @@ export default function ProductsTab({
   onQuickStockChange,
   onDeleteProduct
 }) {
+  const [sortBy, setSortBy] = useState('default');
+  const [selectedReviewProduct, setSelectedReviewProduct] = useState(null);
+
   // Reset page when any filter changes
   useEffect(() => {
     if (setProductPage) setProductPage(1);
-  }, [productSearch, productCategory, productStockFilter, setProductPage]);
+  }, [productSearch, productCategory, productStockFilter, sortBy, setProductPage]);
 
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
+    let result = products.filter((p) => {
       const matchSearch =
         !productSearch ||
         p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
@@ -51,7 +57,22 @@ export default function ProductsTab({
 
       return matchSearch && matchCategory && matchStock;
     });
-  }, [products, productSearch, productCategory, productStockFilter]);
+
+    // Xếp hạng theo đánh giá hoặc giá bán
+    if (sortBy === 'rating-desc') {
+      result.sort((a, b) => (b.rating || 0) - (a.rating || 0) || (b.reviewsCount || 0) - (a.reviewsCount || 0));
+    } else if (sortBy === 'rating-asc') {
+      result.sort((a, b) => (a.rating || 0) - (b.rating || 0));
+    } else if (sortBy === 'reviews-desc') {
+      result.sort((a, b) => (b.reviewsCount || 0) - (a.reviewsCount || 0));
+    } else if (sortBy === 'price-asc') {
+      result.sort((a, b) => (a.price || 0) - (b.price || 0));
+    } else if (sortBy === 'price-desc') {
+      result.sort((a, b) => (b.price || 0) - (a.price || 0));
+    }
+
+    return result;
+  }, [products, productSearch, productCategory, productStockFilter, sortBy]);
 
   const productTotalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const pagedProducts = filteredProducts.slice(
@@ -62,8 +83,8 @@ export default function ProductsTab({
   return (
     <div className="admin-tab-content">
       {/* Toolbar */}
-      <div className="admin-toolbar" style={{ marginBottom: '18px' }}>
-        <div className="admin-search-wrapper" style={{ maxWidth: '360px' }}>
+      <div className="admin-toolbar-wrap">
+        <div className="admin-search-wrapper" style={{ maxWidth: '340px' }}>
           <Search size={16} />
           <input
             type="text"
@@ -74,7 +95,7 @@ export default function ProductsTab({
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="admin-toolbar-filters">
           <select
             value={productCategory}
             onChange={(e) => setProductCategory(e.target.value)}
@@ -98,6 +119,20 @@ export default function ProductsTab({
             <option value="all">Tất Cả Tồn Kho</option>
             <option value="low">⚠️ Sắp Hết (≤ 10)</option>
             <option value="out">❌ Hết Hàng (0)</option>
+          </select>
+
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="select-filter"
+            style={{ padding: '8px 28px 8px 12px', fontSize: '0.84rem', fontWeight: 600, borderColor: 'var(--primary)' }}
+          >
+            <option value="default">Sắp xếp: Mặc định</option>
+            <option value="rating-desc">⭐ Đánh giá cao nhất (Top Rated)</option>
+            <option value="rating-asc">⭐ Đánh giá thấp nhất</option>
+            <option value="reviews-desc">💬 Nhiều đánh giá nhất</option>
+            <option value="price-asc">Giá: Thấp đến Cao</option>
+            <option value="price-desc">Giá: Cao đến Thấp</option>
           </select>
 
           <span
@@ -131,18 +166,19 @@ export default function ProductsTab({
           <table className="admin-table">
             <thead>
               <tr>
-                <th style={{ width: '32%' }}>Sen Đá & Giống Loài</th>
-                <th style={{ width: '16%' }}>Phân Loại</th>
-                <th style={{ width: '14%' }}>Giá Bán</th>
-                <th style={{ width: '18%' }}>Tồn Kho & Điều Chỉnh</th>
-                <th style={{ width: '12%' }}>Chăm Sóc</th>
-                <th style={{ textAlign: 'right', width: '8%' }}>Thao Tác</th>
+                <th style={{ width: '28%' }}>Sen Đá & Giống Loài</th>
+                <th style={{ width: '14%' }}>Phân Loại</th>
+                <th style={{ width: '12%' }}>Giá Bán</th>
+                <th style={{ width: '16%' }}>Tồn Kho & Điều Chỉnh</th>
+                <th style={{ width: '14%' }}>⭐ Đánh Giá & Feedback</th>
+                <th style={{ width: '10%' }}>Chăm Sóc</th>
+                <th style={{ textAlign: 'right', width: '6%' }}>Thao Tác</th>
               </tr>
             </thead>
             <tbody>
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
                     <Sprout size={44} style={{ opacity: 0.25, marginBottom: '10px' }} />
                     <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '1rem' }}>
                       Không tìm thấy cây sen đá nào phù hợp
@@ -295,6 +331,42 @@ export default function ProductsTab({
                       </td>
 
                       <td>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ fontWeight: 800, color: '#D97706', fontSize: '0.94rem' }}>
+                              {Number(prod.rating || 5.0).toFixed(1)}
+                            </span>
+                            <Star size={13} fill="#F59E0B" color="#F59E0B" />
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                              ({prod.reviewsCount || 0})
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedReviewProduct(prod)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--primary)',
+                              fontSize: '0.76rem',
+                              padding: 0,
+                              cursor: 'pointer',
+                              textDecoration: 'underline',
+                              marginTop: '3px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              fontWeight: 600
+                            }}
+                            title="Xem nhận xét của khách hàng"
+                          >
+                            <MessageSquare size={12} />
+                            <span>Xem nhận xét</span>
+                          </button>
+                        </div>
+                      </td>
+
+                      <td>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <Sun size={12} color="#D97706" />
@@ -343,6 +415,14 @@ export default function ProductsTab({
           onPageChange={setProductPage}
         />
       </div>
+
+      {/* Product Reviews Modal */}
+      {selectedReviewProduct && (
+        <ProductReviewsModal
+          product={selectedReviewProduct}
+          onClose={() => setSelectedReviewProduct(null)}
+        />
+      )}
     </div>
   );
 }

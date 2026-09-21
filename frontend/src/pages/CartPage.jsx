@@ -119,7 +119,7 @@ export default function CartPage({
         </div>
       </div>
 
-      <div className="container" style={{ padding: "32px 24px 80px" }}>
+      <div className="container page-body-container">
         {cartItems.length === 0 ? (
           <div className="cx-empty">
             <div className="cx-empty-icon"><ShoppingBag size={48} /></div>

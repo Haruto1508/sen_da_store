@@ -87,7 +87,7 @@ export default function QuizPage({
         </div>
       </div>
 
-      <div className="container" style={{ padding: '40px 24px 80px', maxWidth: '840px' }}>
+      <div className="container page-body-container" style={{ maxWidth: '840px' }}>
         {!result ? (
           /* Step-by-Step Questions Card */
           <div className="quiz-card">

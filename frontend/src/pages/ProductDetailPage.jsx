@@ -11,6 +11,7 @@ import ProductCard from '../components/ProductCard';
 import ProductGuaranteeBox from '../components/product/ProductGuaranteeBox';
 import ProductSpecsGrid from '../components/product/ProductSpecsGrid';
 import ProductActionBar from '../components/product/ProductActionBar';
+import ProductReviewsSection from '../components/product/ProductReviewsSection';
 import { formatPrice } from '../utils/formatters';
 
 
@@ -91,7 +92,7 @@ export default function ProductDetailPage({
         </div>
       </div>
 
-      <div className="container" style={{ padding: '36px 24px 80px' }}>
+      <div className="container page-body-container">
         {/* Main Product 2-Column Grid */}
         <div className="product-detail-layout">
           {/* Left Column: Image & Guarantees */}
@@ -210,6 +211,13 @@ export default function ProductDetailPage({
             )}
           </div>
         </div>
+
+        {/* Customer Feedback & Reviews Section */}
+        <ProductReviewsSection
+          productId={product.id}
+          productRating={product.rating}
+          reviewsCount={product.reviewsCount}
+        />
 
         {/* Related Products Section */}
         {relatedProducts.length > 0 && (

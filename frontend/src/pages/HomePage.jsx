@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import Hero from '../components/Hero';
 import ProductCard from '../components/ProductCard';
 import PlantFilterHub from '../components/PlantFilterHub';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, Star, ShieldCheck, Award } from 'lucide-react';
 
 export default function HomePage({
   products,
@@ -15,6 +15,18 @@ export default function HomePage({
   onApplyFilters
 }) {
   const featuredProducts = products.slice(0, 5);
+
+  // Top các sản phẩm được đánh giá cao nhất
+  const topRatedProducts = useMemo(() => {
+    return [...products]
+      .filter((p) => p.status !== 'DELETED')
+      .sort((a, b) => {
+        const ratingDiff = (b.rating || 0) - (a.rating || 0);
+        if (Math.abs(ratingDiff) > 0.05) return ratingDiff;
+        return (b.reviewsCount || 0) - (a.reviewsCount || 0);
+      })
+      .slice(0, 4);
+  }, [products]);
 
   const handleScrollToFilter = () => {
     const el = document.getElementById('plant-filter-hub');
@@ -40,6 +52,95 @@ export default function HomePage({
         onExploreCatalog={onNavigateShop}
         onOpenFilter={handleScrollToFilter}
       />
+
+      {/* Top Rated Products Section */}
+      {topRatedProducts.length > 0 && (
+        <section className="top-rated-section">
+          <div className="shop-container">
+            {/* Trust Badges Banner */}
+            <div className="top-rated-trust-badges">
+              <div className="trust-badge-item">
+                <div className="trust-badge-icon-box" style={{ background: 'rgba(16, 185, 129, 0.12)', color: 'var(--primary)' }}>
+                  <Award size={22} />
+                </div>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.94rem', fontWeight: 700 }}>Đánh Giá Hài Lòng 98.6%</h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Hàng ngàn phản hồi 5 sao từ khách hàng</p>
+                </div>
+              </div>
+
+              <div className="trust-badge-item">
+                <div className="trust-badge-icon-box" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#F59E0B' }}>
+                  <ShieldCheck size={22} />
+                </div>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.94rem', fontWeight: 700 }}>Bảo Hành Cây Sống Khỏe</h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Cam kết đổi bù 1-1 nếu cây dập úng khi giao</p>
+                </div>
+              </div>
+
+              <div className="trust-badge-item">
+                <div className="trust-badge-icon-box" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3B82F6' }}>
+                  <Star size={22} />
+                </div>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.94rem', fontWeight: 700 }}>Thuần Dưỡng Khí Hậu Chuẩn</h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sen đá quen nắng gió, cực dễ chăm tại nhà</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Section Header */}
+            <div className="section-header" style={{ marginBottom: '36px' }}>
+              <span className="section-subtitle" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Star size={14} fill="currentColor" />
+                <span>Khách Hàng Bình Chọn</span>
+              </span>
+              <h2 className="section-title">⭐ Những Mầm Sen Đá Được Đánh Giá Cao Nhất</h2>
+              <p className="section-desc">
+                Tuyển tập những giống sen đá nhận được cơn mưa lời khen về độ tươi khỏe, dáng hình chuẩn và sức sống dẻo dai.
+              </p>
+            </div>
+
+            {/* Top Rated Product Grid */}
+            <div className="top-rated-grid">
+              {topRatedProducts.map((product, idx) => (
+                <div key={product.id} style={{ position: 'relative' }}>
+                  {/* Top ranking badge */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '12px',
+                    left: '12px',
+                    zIndex: 2,
+                    background: idx === 0 ? 'linear-gradient(135deg, #F59E0B, #D97706)' : 'rgba(16, 185, 129, 0.92)',
+                    color: '#fff',
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                  }}>
+                    <Star size={12} fill="#fff" />
+                    <span>Top #{idx + 1} Yêu Thích</span>
+                  </div>
+
+                  <ProductCard
+                    product={product}
+                    onOpenDetail={() => onOpenProductDetail(product.id)}
+                    onAddToCart={onAddToCart}
+                    onBuyNow={onBuyNow}
+                    isWishlisted={wishlist.some(wId => String(wId) === String(product.id) || (product.publicId && String(wId) === String(product.publicId)))}
+                    onToggleWishlist={onToggleWishlist}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Featured Products Section */}
       <section className="catalog-section" style={{ padding: '60px 0 80px' }}>

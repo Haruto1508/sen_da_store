@@ -3,13 +3,18 @@ package com.succulentshop.backend.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.succulentshop.backend.dto.ProductResponse;
+import com.succulentshop.backend.dto.ReviewItemDto;
+import com.succulentshop.backend.dto.ReviewRequest;
 import com.succulentshop.backend.dto.ReviewResponse;
 import com.succulentshop.backend.entity.Product;
+import com.succulentshop.backend.entity.Review;
 import com.succulentshop.backend.exception.AppException;
 import com.succulentshop.backend.exception.ErrorCode;
 import com.succulentshop.backend.exception.InsufficientStockException;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.ProductRepository;
+import com.succulentshop.backend.repository.ReviewRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -21,10 +26,17 @@ import java.util.*;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final ReviewRepository reviewRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public ProductService(ProductRepository productRepository) {
+        this(productRepository, null);
+    }
+
+    @Autowired
+    public ProductService(ProductRepository productRepository, @Autowired(required = false) ReviewRepository reviewRepository) {
         this.productRepository = productRepository;
+        this.reviewRepository = reviewRepository;
     }
 
     @Cacheable(value = "products_filtered", key = "(#category ?: 'all') + '_' + (#search ?: '') + '_' + (#light ?: 'all') + '_' + (#difficulty ?: 'all') + '_' + (#sort ?: 'default')")
@@ -117,11 +129,30 @@ public class ProductService {
         }
     }
 
+    public List<ReviewItemDto> getProductReviews(String productId) {
+        if (reviewRepository == null) return Collections.emptyList();
+        List<Review> list = reviewRepository.findByProductIdOrderByCreatedAtDesc(productId);
+        return list.stream().map(r -> new ReviewItemDto(
+            r.getId(),
+            r.getProductId(),
+            r.getRating(),
+            r.getReviewerName(),
+            r.getComment(),
+            r.getCreatedAt()
+        )).toList();
+    }
+
     @Transactional
     @CacheEvict(value = {"product_detail", "products_filtered"}, allEntries = true)
     public ReviewResponse addReview(String productId, int newRating, String comment, String reviewerName) {
         Product p = findByIdOrThrow(productId);
         int clampedRating = Math.max(1, Math.min(5, newRating));
+        String cleanName = (reviewerName != null && !reviewerName.isBlank()) ? reviewerName.trim() : "Khách yêu sen đá";
+
+        if (reviewRepository != null) {
+            Review review = new Review(productId, clampedRating, cleanName, comment != null ? comment.trim() : "");
+            reviewRepository.save(review);
+        }
 
         double currentRating = p.getRating() != null ? p.getRating() : 5.0;
         int currentReviews = p.getReviewsCount() != null ? p.getReviewsCount() : 0;
@@ -138,7 +169,7 @@ public class ProductService {
         response.setRating(p.getRating());
         response.setReviewsCount(p.getReviewsCount());
         response.setNewRatingAdded(clampedRating);
-        response.setReviewerName(reviewerName != null ? reviewerName : "Khách yêu sen đá");
+        response.setReviewerName(cleanName);
         response.setComment(comment != null ? comment : "");
         return response;
     }

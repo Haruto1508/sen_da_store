@@ -410,7 +410,7 @@ export default function AccountPage({
         </div>
 
         {/* Main Content Layout */}
-        <div className="container" style={{ padding: '36px 24px 80px' }}>
+        <div className="container page-body-container">
           <div className="account-layout">
             {/* Sidebar Left */}
             <AccountSidebar

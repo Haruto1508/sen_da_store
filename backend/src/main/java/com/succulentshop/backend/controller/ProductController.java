@@ -3,6 +3,7 @@ package com.succulentshop.backend.controller;
 import com.succulentshop.backend.constant.MessageCode;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.ProductResponse;
+import com.succulentshop.backend.dto.ReviewItemDto;
 import com.succulentshop.backend.dto.ReviewRequest;
 import com.succulentshop.backend.dto.ReviewResponse;
 import com.succulentshop.backend.exception.ErrorCode;
@@ -38,6 +39,12 @@ public class ProductController {
     public ResponseEntity<ApiResult<ProductResponse>> getProductById(@PathVariable String id) {
         ProductResponse productData = productService.getProductDetail(id);
         return ResponseEntity.ok(ApiResult.ok(MessageCode.PRODUCT_DETAIL_SUCCESS, productData));
+    }
+
+    @GetMapping("/{id}/reviews")
+    public ResponseEntity<ApiResult<List<ReviewItemDto>>> getProductReviews(@PathVariable String id) {
+        List<ReviewItemDto> reviews = productService.getProductReviews(id);
+        return ResponseEntity.ok(ApiResult.ok(MessageCode.SUCCESS, reviews));
     }
 
     @PostMapping("/{id}/reviews")
