@@ -21,6 +21,7 @@ import AccountProfileTab from '../components/account/AccountProfileTab';
 import AccountOrdersTab from '../components/account/AccountOrdersTab';
 import AccountWishlistTab from '../components/account/AccountWishlistTab';
 import AccountCartTab from '../components/account/AccountCartTab';
+import AccountPurchaseHistoryTab from '../components/account/AccountPurchaseHistoryTab';
 import OrderCancelModal from '../components/account/OrderCancelModal';
 import OrderDeleteModal from '../components/account/OrderDeleteModal';
 import OrderReturnModal from '../components/account/OrderReturnModal';
@@ -161,10 +162,19 @@ export default function AccountPage({
   };
 
   useEffect(() => {
-    if (activeTab === 'orders') {
+    if (activeTab === 'orders' || activeTab === 'history') {
       loadOrders();
     }
-  }, [activeTab, filterStatus, user]);
+  }, [activeTab, filterStatus]);
+
+  // Tự động tải đơn hàng ngay khi người dùng đăng nhập/vào trang để các thẻ badge luôn có số liệu mới nhất
+  useEffect(() => {
+    loadOrders();
+  }, [user]);
+
+  const completedOrdersCount = stats?.completedOrders !== undefined 
+    ? stats.completedOrders 
+    : orders.filter((o) => o.status === 'COMPLETED').length;
 
   useEffect(() => {
     setCurrentPage(1);
@@ -376,6 +386,7 @@ export default function AccountPage({
                   <span className="breadcrumb-separator">/</span>
                   <span className="breadcrumb-current">
                     {activeTab === 'orders' && 'Lịch Sử Đơn Hàng & Giao Hàng'}
+                    {activeTab === 'history' && 'Lịch Sử Mua Hàng'}
                     {activeTab === 'wishlist' && 'Mục Yêu Thích Của Tôi'}
                     {activeTab === 'cart' && 'Giỏ Hàng Của Bạn'}
                   </span>
@@ -387,26 +398,28 @@ export default function AccountPage({
               <div>
                 <span className="section-subtitle" style={{ color: 'var(--accent)' }}>
                   {activeTab === 'orders' && 'Theo Dõi Đơn & Vận Chuyển'}
+                  {activeTab === 'history' && 'Bộ Sưu Tập Cây Đã Sở Hữu'}
                   {activeTab === 'wishlist' && 'Bộ Sưu Tập Đã Lưu'}
                   {activeTab === 'cart' && 'Túi Mầm Xanh'}
                   {activeTab === 'profile' && 'Trung Tâm Thành Viên'}
                 </span>
                 <h1 className="page-title" style={{ fontSize: '1.75rem', marginTop: '4px' }}>
                   {activeTab === 'orders' && 'Đơn Hàng & Lịch Sử Giao Hàng'}
+                  {activeTab === 'history' && `Lịch Sử Mua Hàng (${completedOrdersCount} Đơn Hoàn Tất)`}
                   {activeTab === 'wishlist' && `Mục Yêu Thích (${wishlistProducts.length} Cây)`}
                   {activeTab === 'cart' && `Giỏ Hàng (${cartCount} Sản Phẩm)`}
                   {activeTab === 'profile' && 'Hồ Sơ & Quản Lý Tài Khoản'}
                 </h1>
               </div>
 
-              {activeTab === 'orders' && (
+              {(activeTab === 'orders' || activeTab === 'history') && (
                 <button 
                   className="btn-secondary" 
                   onClick={loadOrders}
                   style={{ padding: '10px 18px', fontSize: '0.88rem' }}
                 >
                   <RefreshCw size={15} className={ordersLoading ? 'spin' : ''} />
-                  <span>Làm Mới Đơn Hàng</span>
+                  <span>Làm Mới</span>
                 </button>
               )}
 
@@ -437,6 +450,7 @@ export default function AccountPage({
               setIsEditing={setIsEditing}
               cartCount={cartCount}
               wishlistCount={wishlistCount}
+              completedOrdersCount={completedOrdersCount}
               onLogout={onLogout}
               onNavigateCart={onNavigateCart}
             />
@@ -497,6 +511,19 @@ export default function AccountPage({
                   onOpenProductDetail={onOpenProductDetail}
                   onAddToCart={onAddToCart}
                   onToggleWishlist={onToggleWishlist}
+                />
+              )}
+
+              {activeTab === 'history' && (
+                <AccountPurchaseHistoryTab
+                  orders={orders}
+                  ordersLoading={ordersLoading}
+                  onAddToCart={onAddToCart}
+                  onNavigateShop={onNavigateShop}
+                  onNavigateCart={() => setActiveTab('cart')}
+                  onOpenProductDetail={onOpenProductDetail}
+                  onOpenReturnModal={handleOpenReturnModal}
+                  onNavigateOrders={() => setActiveTab('orders')}
                 />
               )}
 

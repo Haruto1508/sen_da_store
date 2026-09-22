@@ -144,23 +144,23 @@ export default function AccountOrdersTab({
         {/* Quick stats numbers */}
         {stats && (
           <div className="order-stats-grid">
-            <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Tổng Số Đơn</span>
+            <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', minWidth: 0 }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title="Tổng Số Đơn">Tổng Số Đơn</span>
               <strong style={{ fontSize: '1.5rem', color: 'var(--primary)' }}>{stats.totalOrders}</strong>
             </div>
 
-            <div style={{ background: '#FFFBEB', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid #FDE68A' }}>
-              <span style={{ fontSize: '0.8rem', color: '#B45309', display: 'block' }}>Chờ Thanh Toán</span>
+            <div style={{ background: '#FFFBEB', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid #FDE68A', minWidth: 0 }}>
+              <span style={{ fontSize: '0.8rem', color: '#B45309', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title="Chờ Thanh Toán">Chờ Thanh Toán</span>
               <strong style={{ fontSize: '1.5rem', color: '#D97706' }}>{stats.pendingOrders}</strong>
             </div>
 
-            <div style={{ background: '#EFF6FF', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid #BFDBFE' }}>
-              <span style={{ fontSize: '0.8rem', color: '#1D4ED8', display: 'block' }}>Đang Xử Lý / Giao</span>
+            <div style={{ background: '#EFF6FF', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid #BFDBFE', minWidth: 0 }}>
+              <span style={{ fontSize: '0.8rem', color: '#1D4ED8', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title="Đang Xử Lý / Giao">Đang Xử Lý / Giao</span>
               <strong style={{ fontSize: '1.5rem', color: '#2563EB' }}>{stats.paidOrders}</strong>
             </div>
 
-            <div style={{ background: '#ECFDF5', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid #A7F3D0' }}>
-              <span style={{ fontSize: '0.8rem', color: '#047857', display: 'block' }}>Hoàn Tất / Đã Giao</span>
+            <div style={{ background: '#ECFDF5', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid #A7F3D0', minWidth: 0 }}>
+              <span style={{ fontSize: '0.8rem', color: '#047857', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title="Hoàn Tất / Đã Giao">Hoàn Tất / Đã Giao</span>
               <strong style={{ fontSize: '1.5rem', color: '#059669' }}>{stats.completedOrders}</strong>
             </div>
           </div>

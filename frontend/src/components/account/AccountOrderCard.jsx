@@ -295,16 +295,16 @@ export default function AccountOrderCard({
           </div>
         </div>
       ) : (
-        <div style={{ background: '#FEF2F2', border: '1px dashed #FCA5A5', color: '#DC2626', padding: '12px 18px', borderRadius: 'var(--radius-md)', marginBottom: '16px', fontSize: '0.88rem' }}>
+        <div style={{ background: '#FEF2F2', border: '1px dashed #FCA5A5', color: '#DC2626', padding: '12px 18px', borderRadius: 'var(--radius-md)', marginBottom: '16px', fontSize: '0.88rem', wordBreak: 'break-word' }}>
           ⚠️ Đơn hàng này đã bị hủy. Nếu có bất kỳ thắc mắc nào, quý khách vui lòng liên hệ hotline hỗ trợ.
         </div>
       )}
 
       {/* Items and Total */}
-      <div style={{ background: 'var(--bg-main)', padding: '14px 18px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}>
+      <div style={{ background: 'var(--bg-main)', padding: '14px 18px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', wordBreak: 'break-word' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
           <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Sản phẩm đã chọn:</span>
-          <span style={{ fontWeight: 500 }}>
+          <span style={{ fontWeight: 500, wordBreak: 'break-word' }}>
             {(order.items || []).map(it => `${it.productName || it.name} (x${it.quantity})`).join(' • ')}
           </span>
         </div>

@@ -4323,10 +4323,11 @@ input::-webkit-contacts-auto-fill-button {
 
 .account-layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 32px;
   align-items: start;
   min-height: 650px;
+  width: 100%;
 }
 
 .account-main {
@@ -4334,12 +4335,17 @@ input::-webkit-contacts-auto-fill-button {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
 }
 
 .account-tab-content {
   animation: fadeIn 0.25s ease;
   width: 100%;
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .profile-card {
@@ -4495,6 +4501,9 @@ input::-webkit-contacts-auto-fill-button {
   border-radius: var(--radius-xl);
   padding: 32px;
   box-shadow: var(--shadow-sm);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .account-card-header {
@@ -4620,9 +4629,10 @@ input::-webkit-contacts-auto-fill-button {
    ========================================================= */
 .order-stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 24px;
+  width: 100%;
 }
 
 .order-status-tabs-scroll {
@@ -4633,6 +4643,12 @@ input::-webkit-contacts-auto-fill-button {
   padding-bottom: 8px;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
+  width: 100%;
+  max-width: 100%;
+}
+
+.order-status-tabs-scroll .cat-tab {
+  flex-shrink: 0;
 }
 
 .order-status-tabs-scroll::-webkit-scrollbar {
@@ -4649,6 +4665,20 @@ input::-webkit-contacts-auto-fill-button {
   border-radius: var(--radius-lg);
   padding: 24px;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1200px) {
+  .account-layout {
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 20px;
+  }
+  .order-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
 }
 
 @media (max-width: 992px) {
@@ -4657,7 +4687,7 @@ input::-webkit-contacts-auto-fill-button {
     gap: 24px;
   }
   .order-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
 }

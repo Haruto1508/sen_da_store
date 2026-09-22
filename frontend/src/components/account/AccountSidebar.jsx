@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Package, Heart, ShoppingBag, LogOut } from 'lucide-react';
+import { User, Package, History, Heart, ShoppingBag, LogOut } from 'lucide-react';
 
 export default function AccountSidebar({
   user,
@@ -10,6 +10,7 @@ export default function AccountSidebar({
   setIsEditing,
   cartCount,
   wishlistCount,
+  completedOrdersCount = 0,
   onLogout,
   onNavigateCart
 }) {
@@ -89,6 +90,19 @@ export default function AccountSidebar({
           >
             <Package size={18} />
             <span>Xem Đơn Hàng</span>
+          </button>
+
+          <button 
+            className={`profile-nav-btn ${activeTab === 'history' ? 'active' : ''}`}
+            onClick={() => setActiveTab('history')}
+          >
+            <History size={18} />
+            <span>Lịch Sử Mua Hàng</span>
+            {completedOrdersCount > 0 && (
+              <span className="profile-nav-badge" style={{ background: '#ECFDF5', color: '#059669' }}>
+                {completedOrdersCount}
+              </span>
+            )}
           </button>
 
           <button 
