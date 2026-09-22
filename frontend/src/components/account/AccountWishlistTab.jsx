@@ -1,14 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, ShoppingBag, Trash2, Sparkles, ArrowRight } from 'lucide-react';
 import { formatPrice } from './accountConstants';
+import Pagination from '../Pagination';
 
 export default function AccountWishlistTab({
-  wishlistProducts,
+  wishlistProducts = [],
   onNavigateShop,
   onOpenProductDetail,
   onAddToCart,
   onToggleWishlist
 }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
+  const totalPages = Math.max(1, Math.ceil(wishlistProducts.length / itemsPerPage));
+
+  // Tự động điều chỉnh trang nếu xóa bớt sản phẩm
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(Math.max(1, totalPages));
+    }
+  }, [totalPages, currentPage]);
+
+  const pagedProducts = wishlistProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   return (
     <div className="account-tab-content">
       <div className="account-card">
@@ -43,45 +58,65 @@ export default function AccountWishlistTab({
             </button>
           </div>
         ) : (
-          <div className="account-wishlist-grid">
-            {wishlistProducts.map((product) => (
-              <div key={product.id} className="wishlist-item-card">
-                <div 
-                  className="wishlist-thumb-wrap" 
-                  onClick={() => onOpenProductDetail && onOpenProductDetail(product.id)}
-                >
-                  <img src={product.image} alt={product.name} className="wishlist-thumb" />
-                  <span className="wishlist-cat-badge">{product.category}</span>
-                </div>
+          <>
+            <div className="account-wishlist-grid">
+              {pagedProducts.map((product) => (
+                <div key={product.id} className="wishlist-item-card">
+                  <div 
+                    className="wishlist-thumb-wrap" 
+                    onClick={() => onOpenProductDetail && onOpenProductDetail(product.id)}
+                  >
+                    <img src={product.image} alt={product.name} className="wishlist-thumb" />
+                    <span className="wishlist-cat-badge">{product.category}</span>
+                  </div>
 
-                <div className="wishlist-item-info">
-                  <h4 onClick={() => onOpenProductDetail && onOpenProductDetail(product.id)}>
-                    {product.name}
-                  </h4>
-                  <p className="wishlist-item-price">{formatPrice(product.price)}</p>
+                  <div className="wishlist-item-info">
+                    <h4 onClick={() => onOpenProductDetail && onOpenProductDetail(product.id)}>
+                      {product.name}
+                    </h4>
+                    <p className="wishlist-item-price">{formatPrice(product.price)}</p>
 
-                  <div className="wishlist-actions">
-                    <button 
-                      className="btn-primary" 
-                      onClick={() => onAddToCart && onAddToCart(product, 1)}
-                      style={{ padding: '8px 14px', fontSize: '0.84rem' }}
-                    >
-                      <ShoppingBag size={15} />
-                      <span>Thêm Vào Giỏ</span>
-                    </button>
+                    <div className="wishlist-actions">
+                      <button 
+                        className="btn-primary" 
+                        onClick={() => onAddToCart && onAddToCart(product, 1)}
+                        style={{ padding: '8px 14px', fontSize: '0.84rem' }}
+                      >
+                        <ShoppingBag size={15} />
+                        <span>Thêm Vào Giỏ</span>
+                      </button>
 
-                    <button 
-                      className="icon-btn-danger" 
-                      onClick={() => onToggleWishlist && onToggleWishlist(product.id)}
-                      title="Bỏ thích"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                      <button 
+                        className="icon-btn-danger" 
+                        onClick={() => onToggleWishlist && onToggleWishlist(product.id)}
+                        title="Bỏ thích"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Phân Trang (Pagination) */}
+            {wishlistProducts.length > itemsPerPage && (
+              <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={wishlistProducts.length}
+                  onPageChange={(page) => {
+                    setCurrentPage(page);
+                    window.scrollTo({ top: 380, behavior: 'smooth' });
+                  }}
+                />
+                <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                  Hiển thị {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, wishlistProducts.length)} trong tổng số {wishlistProducts.length} cây yêu thích
+                </span>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>

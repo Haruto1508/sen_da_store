@@ -232,11 +232,11 @@ export default function App() {
     if (path === '/admin/login') return 'admin-login';
     if (path === '/admin') return 'admin';
     if (path === '/cart') return 'cart';
-    if (path === '/wishlist') return 'wishlist';
+    if (path === '/wishlist' || path === '/account/wishlist') return 'wishlist';
     if (path === '/checkout') return 'checkout';
     if (path.startsWith('/order-success')) return 'order-success';
     if (path === '/quiz') return 'quiz';
-    if (path === '/account') return 'account';
+    if (path.startsWith('/account') || path === '/orders' || path === '/history') return 'account';
     if (path === '/login') return 'login';
     if (path === '/register') return 'register';
     if (path === '/forgot-password' || path === '/password') return 'password';
@@ -295,6 +295,12 @@ export default function App() {
         break;
       case 'account':
         navigate('/account', navOptions);
+        break;
+      case 'orders':
+        navigate('/account/orders', navOptions);
+        break;
+      case 'history':
+        navigate('/account/history', navOptions);
         break;
       case 'login':
         navigate('/login', navOptions);
@@ -1168,40 +1174,42 @@ export default function App() {
             }
           />
 
-          {/* Dedicated Account Route (Opens AccountPage with Profile Tab) */}
-          <Route
-            path="/account"
-            element={
-              !user ? (
-                <Navigate to="/login" replace />
-              ) : (
-                <AccountPage
-                  initialTab="profile"
-                  user={user}
-                  wishlistCount={wishlist.length}
-                  cartCount={cartTotalCount}
-                  cartItems={cartItems}
-                  products={productList}
-                  wishlist={wishlist}
-                  discountCode={discountCode}
-                  discountPercent={discountPercent}
-                  onUpdateQty={handleUpdateQty}
-                  onRemoveItem={handleRemoveItem}
-                  onApplyCoupon={handleApplyCoupon}
-                  onToggleWishlist={handleToggleWishlist}
-                  onAddToCart={handleAddToCart}
-                  onOpenProductDetail={(id) => navigateTo('product-detail', id)}
-                  onNavigateCheckout={() => navigateTo('checkout')}
-                  onNavigateShop={() => navigateTo('shop')}
-                  onNavigateCart={() => navigateTo('cart')}
-                  onNavigateAdmin={() => navigateTo('admin')}
-                  onNavigateHome={() => navigateTo('home')}
-                  onLogout={handleLogout}
-                  onUpdateUser={handleUpdateUser}
-                />
-              )
-            }
-          />
+          {/* Dedicated Account & Tab Routes (Profile, Orders, History, Wishlist, Cart) */}
+          {['/account', '/account/profile', '/account/orders', '/orders', '/account/history', '/history', '/account/wishlist', '/account/cart'].map((routePath) => (
+            <Route
+              key={routePath}
+              path={routePath}
+              element={
+                !user ? (
+                  <Navigate to="/login" replace />
+                ) : (
+                  <AccountPage
+                    user={user}
+                    wishlistCount={wishlist.length}
+                    cartCount={cartTotalCount}
+                    cartItems={cartItems}
+                    products={productList}
+                    wishlist={wishlist}
+                    discountCode={discountCode}
+                    discountPercent={discountPercent}
+                    onUpdateQty={handleUpdateQty}
+                    onRemoveItem={handleRemoveItem}
+                    onApplyCoupon={handleApplyCoupon}
+                    onToggleWishlist={handleToggleWishlist}
+                    onAddToCart={handleAddToCart}
+                    onOpenProductDetail={(id) => navigateTo('product-detail', id)}
+                    onNavigateCheckout={() => navigateTo('checkout')}
+                    onNavigateShop={() => navigateTo('shop')}
+                    onNavigateCart={(opts) => navigateTo('cart', null, opts)}
+                    onNavigateAdmin={() => navigateTo('admin')}
+                    onNavigateHome={() => navigateTo('home')}
+                    onLogout={handleLogout}
+                    onUpdateUser={handleUpdateUser}
+                  />
+                )
+              }
+            />
+          ))}
 
           {/* Catch-all Wildcard Route */}
           <Route path="*" element={<Navigate to="/" replace />} />

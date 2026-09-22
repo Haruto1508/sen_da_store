@@ -11,6 +11,7 @@ import {
   ShieldCheck, 
   User, 
   Package, 
+  History,
   LogOut, 
   ChevronDown, 
   ChevronRight,
@@ -809,6 +810,26 @@ export default function Navbar({
                       >
                         <div className="menu-item-icon"><User size={17} /></div>
                         <span className="menu-item-label">Thông Tin Tài Khoản</span>
+                      </button>
+
+                      {/* Item 3: Đơn Hàng */}
+                      <button 
+                        id="menu-orders-btn"
+                        className="user-menu-item"
+                        onClick={() => handleMenuItemClick('orders')}
+                      >
+                        <div className="menu-item-icon"><Package size={17} /></div>
+                        <span className="menu-item-label">Đơn Hàng Của Tôi</span>
+                      </button>
+
+                      {/* Item 4: Lịch Sử Mua Hàng */}
+                      <button 
+                        id="menu-history-btn"
+                        className="user-menu-item"
+                        onClick={() => handleMenuItemClick('history')}
+                      >
+                        <div className="menu-item-icon"><History size={17} /></div>
+                        <span className="menu-item-label">Lịch Sử Mua Hàng</span>
                       </button>
                     </div>
 

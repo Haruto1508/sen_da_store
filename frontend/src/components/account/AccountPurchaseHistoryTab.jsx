@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   History,
   CheckCircle2,
@@ -11,6 +11,7 @@ import {
   Search
 } from 'lucide-react';
 import { formatPrice, formatDateTime } from './accountConstants';
+import Pagination from '../Pagination';
 
 export default function AccountPurchaseHistoryTab({
   orders = [],
@@ -25,6 +26,8 @@ export default function AccountPurchaseHistoryTab({
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [reorderingId, setReorderingId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // Lọc danh sách các đơn hàng đã hoàn tất giao hàng hoặc đã từng mua thành công
   const completedOrders = orders.filter(
@@ -48,6 +51,14 @@ export default function AccountPurchaseHistoryTab({
     );
     return matchCode || matchItems;
   });
+
+  // Tự động về trang 1 khi tìm kiếm
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / itemsPerPage));
+  const pagedOrders = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // Xử lý "Mua Lại Cả Đơn" (Re-order): thêm toàn bộ sản phẩm của đơn vào giỏ hàng
   const handleReorderAll = (order) => {
@@ -223,7 +234,7 @@ export default function AccountPurchaseHistoryTab({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            {filteredOrders.map((order) => {
+            {pagedOrders.map((order) => {
               // Kiểm tra hạn bảo hành 7 ngày
               const completedDate = order.completedAt ? new Date(order.completedAt) : (order.createdAt ? new Date(order.createdAt) : new Date());
               const diffDays = Math.floor((new Date() - completedDate) / (1000 * 60 * 60 * 24));
@@ -402,6 +413,24 @@ export default function AccountPurchaseHistoryTab({
                 </div>
               );
             })}
+
+            {/* Phân Trang (Pagination) */}
+            {filteredOrders.length > itemsPerPage && (
+              <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredOrders.length}
+                  onPageChange={(page) => {
+                    setCurrentPage(page);
+                    window.scrollTo({ top: 380, behavior: 'smooth' });
+                  }}
+                />
+                <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                  Hiển thị {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredOrders.length)} trong tổng số {filteredOrders.length} đơn hoàn tất
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -55,7 +55,18 @@ export default function AccountPage({
   const navigate = useNavigate();
   const { modalProps, showModal } = useModal();
 
-  const [activeTab, setActiveTab] = useState(location.state?.tab || initialTab || 'profile');
+  // Xác định tab từ URL path hoặc state hoặc initialTab
+  const getTabFromPath = () => {
+    const p = (location.pathname || '').toLowerCase();
+    if (p === '/account/orders' || p === '/orders') return 'orders';
+    if (p === '/account/history' || p === '/history') return 'history';
+    if (p === '/account/wishlist' || p === '/wishlist') return 'wishlist';
+    if (p === '/account/cart') return 'cart';
+    if (p === '/account/profile' || p === '/account') return 'profile';
+    return location.state?.tab || initialTab || 'profile';
+  };
+
+  const [activeTab, setActiveTab] = useState(getTabFromPath);
   const [isEditing, setIsEditing] = useState(false);
 
   // Chuẩn hóa thông tin user
@@ -81,14 +92,28 @@ export default function AccountPage({
 
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Sync tab nếu location.state hoặc initialTab thay đổi
+  // Sync tab khi location.pathname, location.state hoặc initialTab thay đổi
   useEffect(() => {
-    if (location.state?.tab) {
-      setActiveTab(location.state.tab);
-    } else if (initialTab) {
-      setActiveTab(initialTab);
+    const tab = getTabFromPath();
+    setActiveTab(tab);
+  }, [location.pathname, location.state, initialTab]);
+
+  // Chuyển tab kèm cập nhật URL trang tương ứng
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    if (setIsEditing) setIsEditing(false);
+    const pathMap = {
+      profile: '/account',
+      orders: '/account/orders',
+      history: '/account/history',
+      wishlist: '/account/wishlist',
+      cart: '/account/cart'
+    };
+    const targetPath = pathMap[newTab] || '/account';
+    if (location.pathname !== targetPath) {
+      navigate(targetPath);
     }
-  }, [initialTab, location.state]);
+  };
 
   const isAdmin = Boolean(currentUser?.role?.toLowerCase().includes('admin') || currentUser?.email === 'admin@senxinh.vn');
 
@@ -376,10 +401,7 @@ export default function AccountPage({
                 <>
                   <button 
                     className="breadcrumb-link" 
-                    onClick={() => {
-                      setActiveTab('profile');
-                      if (setIsEditing) setIsEditing(false);
-                    }}
+                    onClick={() => handleTabChange('profile')}
                   >
                     Tài Khoản Của Tôi
                   </button>
@@ -446,7 +468,7 @@ export default function AccountPage({
               currentUser={currentUser}
               formData={formData}
               activeTab={activeTab}
-              setActiveTab={setActiveTab}
+              setActiveTab={handleTabChange}
               setIsEditing={setIsEditing}
               cartCount={cartCount}
               wishlistCount={wishlistCount}
@@ -466,7 +488,7 @@ export default function AccountPage({
                   setIsEditing={setIsEditing}
                   handleSave={handleSave}
                   savedSuccess={savedSuccess}
-                  setActiveTab={setActiveTab}
+                  setActiveTab={handleTabChange}
                   onLogout={onLogout}
                 />
               )}
@@ -520,10 +542,10 @@ export default function AccountPage({
                   ordersLoading={ordersLoading}
                   onAddToCart={onAddToCart}
                   onNavigateShop={onNavigateShop}
-                  onNavigateCart={() => setActiveTab('cart')}
+                  onNavigateCart={() => handleTabChange('cart')}
                   onOpenProductDetail={onOpenProductDetail}
                   onOpenReturnModal={handleOpenReturnModal}
-                  onNavigateOrders={() => setActiveTab('orders')}
+                  onNavigateOrders={() => handleTabChange('orders')}
                 />
               )}
 
