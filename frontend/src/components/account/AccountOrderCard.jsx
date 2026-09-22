@@ -38,13 +38,11 @@ export default function AccountOrderCard({
 
   return (
     <div 
+      className="account-order-card"
       style={{
         background: isDeleteMode && isSelected ? '#FFFDFD' : '#fff',
         border: isDeleteMode && isSelected ? '1.5px solid #FCA5A5' : '1px solid var(--border-light)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '24px',
-        boxShadow: isDeleteMode && isSelected ? '0 4px 12px rgba(225, 29, 72, 0.08)' : 'var(--shadow-sm)',
-        transition: 'all 0.2s ease'
+        boxShadow: isDeleteMode && isSelected ? '0 4px 12px rgba(225, 29, 72, 0.08)' : 'var(--shadow-sm)'
       }}
     >
       {/* Checkbox bar when in Delete Mode */}

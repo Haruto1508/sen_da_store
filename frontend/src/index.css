@@ -45,6 +45,34 @@
 html {
   overflow-y: scroll; /* Luôn giữ thanh cuộn dọc cố định để triệt tiêu hiện tượng giật ngang màn hình */
   overflow-x: clip;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Modern Ultra-Smooth Webkit Scrollbars */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(45, 90, 63, 0.22);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(45, 90, 63, 0.45);
+}
+
+/* Firefox standard scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(45, 90, 63, 0.25) transparent;
 }
 
 body {
@@ -1102,23 +1130,21 @@ input::-webkit-contacts-auto-fill-button {
   transform: translateY(0);
 }
 
-/* Modals */
+/* Modals & Popups Smooth System */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(28, 38, 31, 0.6);
+  background: rgba(15, 23, 42, 0.62);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
-  animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  animation: smoothModalFadeIn 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-content {
@@ -1126,17 +1152,82 @@ input::-webkit-contacts-auto-fill-button {
   border-radius: var(--radius-xl);
   max-width: 820px;
   width: 100%;
-  max-height: 90vh;
+  max-height: calc(100vh - 40px);
   overflow-y: auto;
   position: relative;
-  box-shadow: var(--shadow-lg);
-  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: smoothModalPopIn 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
 
-@keyframes slideUp {
-  from { transform: translateY(30px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+/* Standardized Smooth Modal Classes */
+.modal-backdrop-smooth,
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  animation: smoothModalFadeIn 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity;
 }
+
+.modal-card-smooth,
+.modal-card {
+  background: #ffffff;
+  border-radius: var(--radius-lg, 16px);
+  width: 100%;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-light, #e2e8f0);
+  position: relative;
+  overflow: hidden;
+  animation: smoothModalPopIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+  overscroll-behavior: contain;
+}
+
+.modal-card-smooth-body {
+  padding: 24px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  flex: 1 1 auto;
+  scroll-behavior: smooth;
+}
+
+@keyframes smoothModalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes smoothModalPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.93) translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 
 .modal-close-btn {
   position: absolute;
@@ -4524,11 +4615,233 @@ input::-webkit-contacts-auto-fill-button {
   color: var(--primary);
 }
 
+/* =========================================================
+   ACCOUNT RESPONSIVE & MOBILE POLISH
+   ========================================================= */
+.order-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.order-status-tabs-scroll {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.order-status-tabs-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.order-status-tabs-scroll::-webkit-scrollbar-thumb {
+  background: rgba(45, 90, 63, 0.22);
+  border-radius: 4px;
+}
+
+.account-order-card {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 @media (max-width: 992px) {
   .account-layout {
     grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .order-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 }
+
+@media (max-width: 768px) {
+  .account-page {
+    padding-top: 16px;
+    padding-bottom: 36px;
+  }
+
+  .profile-card {
+    padding: 20px 16px;
+    border-radius: var(--radius-lg);
+  }
+
+  .profile-avatar-wrap {
+    width: 76px;
+    height: 76px;
+    margin-bottom: 12px;
+  }
+
+  .profile-name {
+    font-size: 1.22rem;
+  }
+
+  /* Horizontal scrollable tab buttons on mobile */
+  .profile-nav-list {
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 8px;
+    padding: 6px 2px 10px;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+  }
+
+  .profile-nav-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .profile-nav-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 9px 16px;
+    font-size: 0.84rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-full);
+    background: var(--bg-card);
+  }
+
+  .profile-nav-btn.active {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+  }
+
+  .profile-nav-btn.active .profile-nav-badge {
+    background: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+  }
+
+  .profile-nav-btn.logout {
+    margin-top: 0;
+    border-top: 1px solid var(--border-light);
+    padding: 9px 16px;
+  }
+
+  .account-card {
+    padding: 20px 16px;
+    border-radius: var(--radius-lg);
+  }
+
+  .account-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding-bottom: 16px;
+  }
+
+  .profile-details-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .detail-item {
+    padding: 12px 14px;
+  }
+
+  .account-order-card {
+    padding: 18px 14px;
+  }
+
+  .modal-backdrop-smooth,
+  .modal-backdrop,
+  .admin-modal-overlay,
+  .modal-overlay {
+    padding: 12px;
+  }
+
+  .modal-card-smooth,
+  .modal-card,
+  .admin-modal-container,
+  .modal-content {
+    max-width: 100% !important;
+    max-height: calc(100vh - 24px);
+    border-radius: 16px;
+  }
+
+  .modal-card-smooth-body,
+  .admin-modal-body {
+    padding: 18px 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  .delivery-tracker {
+    padding: 0 4px;
+    margin: 14px 0 10px;
+  }
+
+  .delivery-tracker::before {
+    top: 13px;
+    left: 18px;
+    right: 18px;
+    height: 2px;
+  }
+
+  .delivery-step-dot {
+    width: 26px;
+    height: 26px;
+    font-size: 0.72rem;
+  }
+
+  .delivery-step-label {
+    font-size: 0.68rem;
+    max-width: 64px;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.15;
+  }
+
+  .order-delete-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .order-delete-toolbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .account-card {
+    padding: 16px 12px;
+  }
+
+  .profile-stats {
+    padding: 8px 4px;
+    gap: 4px;
+  }
+
+  .profile-stat-item strong {
+    font-size: 1rem;
+  }
+
+  .profile-stat-item span {
+    font-size: 0.7rem;
+  }
+
+  .order-stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .account-wishlist-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
 
 /* =========================================================
    DELIVERY TRACKER & ACCOUNT ORDERS
@@ -5744,8 +6057,9 @@ html.modal-open {
 .admin-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5753,26 +6067,24 @@ html.modal-open {
   padding: 20px;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  animation: smoothModalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .admin-modal-container {
   background: #fff;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   width: 100%;
   max-width: 740px;
-  max-height: 90vh;
+  max-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
-  animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: smoothModalPopIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
   overflow: hidden;
   overscroll-behavior: contain;
 }
 
-@keyframes modalPop {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
 
 .admin-modal-header {
   padding: 20px 24px;

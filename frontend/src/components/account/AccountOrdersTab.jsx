@@ -143,7 +143,7 @@ export default function AccountOrdersTab({
 
         {/* Quick stats numbers */}
         {stats && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+          <div className="order-stats-grid">
             <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Tổng Số Đơn</span>
               <strong style={{ fontSize: '1.5rem', color: 'var(--primary)' }}>{stats.totalOrders}</strong>
@@ -167,7 +167,7 @@ export default function AccountOrdersTab({
         )}
 
         {/* Status Tabs Filter */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '6px' }}>
+        <div className="order-status-tabs-scroll">
           {[
             { id: 'all', label: 'Tất Cả', count: stats?.totalOrders },
             { id: 'PENDING', label: 'Chờ Thanh Toán', count: stats?.pendingOrders },
