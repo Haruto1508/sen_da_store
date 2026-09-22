@@ -415,7 +415,7 @@ export default function AccountPurchaseHistoryTab({
             })}
 
             {/* Phân Trang (Pagination) */}
-            {filteredOrders.length > itemsPerPage && (
+            {filteredOrders.length > 0 && (
               <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                 <Pagination
                   currentPage={currentPage}

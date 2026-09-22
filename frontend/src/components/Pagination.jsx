@@ -7,7 +7,7 @@ export default function Pagination({
   totalItems,
   onPageChange
 }) {
-  if (totalItems === 0 || totalPages <= 1) return null;
+  if (totalItems === 0) return null;
 
   // Generate page numbers with ellipsis if needed
   const getPageNumbers = () => {

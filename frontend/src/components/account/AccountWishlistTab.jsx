@@ -100,7 +100,7 @@ export default function AccountWishlistTab({
             </div>
 
             {/* Phân Trang (Pagination) */}
-            {wishlistProducts.length > itemsPerPage && (
+            {wishlistProducts.length > 0 && (
               <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                 <Pagination
                   currentPage={currentPage}

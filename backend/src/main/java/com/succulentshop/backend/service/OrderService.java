@@ -356,6 +356,22 @@ public class OrderService {
         return getOrdersByCustomer(phone, null);
     }
 
+    public org.springframework.data.domain.Page<OrderResponse> getOrdersByCustomerPaginated(String phone, String email, String status, int page, int limit) {
+        String cleanPhone = (phone != null && !phone.isBlank()) ? phone.trim() : null;
+        String cleanEmail = (email != null && !email.isBlank()) ? email.trim().toLowerCase() : null;
+
+        if (cleanPhone == null && cleanEmail == null) {
+            return org.springframework.data.domain.Page.empty();
+        }
+
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(Math.max(0, page - 1), limit);
+        
+        String queryStatus = (status == null || status.isBlank() || "all".equalsIgnoreCase(status)) ? null : status;
+        org.springframework.data.domain.Page<Order> orderPage = orderRepository.findByCustomerAndStatus(cleanPhone, cleanEmail, queryStatus, pageable);
+
+        return orderPage.map(this::convertOrderToResponse);
+    }
+
     /**
      * Trừ tồn kho sản phẩm khi đơn được thanh toán hoặc duyệt giao hàng (PAID, SHIPPING, COMPLETED)
      * Đảm bảo idempotent: Không trừ trùng lặp nếu stockDeducted đã là true

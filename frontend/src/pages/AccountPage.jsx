@@ -125,6 +125,8 @@ export default function AccountPage({
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  const [backendTotalPages, setBackendTotalPages] = useState(1);
+  const [backendTotalElements, setBackendTotalElements] = useState(0);
 
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
@@ -157,28 +159,48 @@ export default function AccountPage({
       if (isAdmin) {
         orderList = await getAdminOrders(filterStatus);
         allUserOrders = (filterStatus === 'all') ? orderList : (await getAdminOrders('all') || []);
+        
+        setOrders(orderList || []);
+        const listForStats = allUserOrders || [];
+        setStats({
+          totalOrders: listForStats.length,
+          pendingOrders: listForStats.filter(o => o.status === 'PENDING').length,
+          paidOrders: listForStats.filter(o => o.status === 'PAID').length,
+          shippingOrders: listForStats.filter(o => o.status === 'SHIPPING').length,
+          completedOrders: listForStats.filter(o => o.status === 'COMPLETED').length,
+          cancelledOrders: listForStats.filter(o => o.status === 'CANCELLED').length
+        });
+        setBackendTotalPages(Math.max(1, Math.ceil((orderList?.length || 0) / itemsPerPage)));
+        setBackendTotalElements(orderList?.length || 0);
       } else {
         const identifier = currentUser.phone || currentUser.email || currentUser.name;
         const email = currentUser.email || '';
-        allUserOrders = await getCustomerOrders(identifier, email);
-        if (filterStatus && filterStatus !== 'all') {
-          orderList = allUserOrders.filter((o) => o.status === filterStatus);
+        
+        // Fetch all for stats
+        allUserOrders = await getCustomerOrders(identifier, email, 'all', 1, 0);
+        const listForStats = allUserOrders || [];
+        setStats({
+          totalOrders: listForStats.length,
+          pendingOrders: listForStats.filter(o => o.status === 'PENDING').length,
+          paidOrders: listForStats.filter(o => o.status === 'PAID').length,
+          shippingOrders: listForStats.filter(o => o.status === 'SHIPPING').length,
+          completedOrders: listForStats.filter(o => o.status === 'COMPLETED').length,
+          cancelledOrders: listForStats.filter(o => o.status === 'CANCELLED').length
+        });
+
+        // Fetch paginated for display if on orders tab, else fetch all
+        const fetchLimit = activeTab === 'orders' ? itemsPerPage : 0;
+        const paginatedData = await getCustomerOrders(identifier, email, filterStatus, currentPage, fetchLimit);
+        if (paginatedData && typeof paginatedData.totalPages !== 'undefined') {
+          setOrders(paginatedData.content || []);
+          setBackendTotalPages(paginatedData.totalPages);
+          setBackendTotalElements(paginatedData.totalElements);
         } else {
-          orderList = allUserOrders;
+          setOrders(paginatedData || []);
+          setBackendTotalPages(Math.max(1, Math.ceil((paginatedData?.length || 0) / itemsPerPage)));
+          setBackendTotalElements(paginatedData?.length || 0);
         }
       }
-
-      setOrders(orderList || []);
-
-      const listForStats = allUserOrders || [];
-      setStats({
-        totalOrders: listForStats.length,
-        pendingOrders: listForStats.filter(o => o.status === 'PENDING').length,
-        paidOrders: listForStats.filter(o => o.status === 'PAID').length,
-        shippingOrders: listForStats.filter(o => o.status === 'SHIPPING').length,
-        completedOrders: listForStats.filter(o => o.status === 'COMPLETED').length,
-        cancelledOrders: listForStats.filter(o => o.status === 'CANCELLED').length
-      });
     } catch (err) {
       console.error('Lỗi tải danh sách đơn hàng:', err);
     } finally {
@@ -190,7 +212,7 @@ export default function AccountPage({
     if (activeTab === 'orders' || activeTab === 'history') {
       loadOrders();
     }
-  }, [activeTab, filterStatus]);
+  }, [activeTab, filterStatus, currentPage]);
 
   // Tự động tải đơn hàng ngay khi người dùng đăng nhập/vào trang để các thẻ badge luôn có số liệu mới nhất
   useEffect(() => {
@@ -199,7 +221,7 @@ export default function AccountPage({
 
   const completedOrdersCount = stats?.completedOrders !== undefined 
     ? stats.completedOrders 
-    : orders.filter((o) => o.status === 'COMPLETED').length;
+    : 0;
 
   useEffect(() => {
     setCurrentPage(1);
@@ -209,14 +231,17 @@ export default function AccountPage({
     }
   }, [filterStatus]);
 
-  const totalPages = Math.max(1, Math.ceil(orders.length / itemsPerPage));
+  const totalPages = isAdmin ? Math.max(1, Math.ceil(orders.length / itemsPerPage)) : backendTotalPages;
+  const totalItems = isAdmin ? orders.length : backendTotalElements;
+
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(1);
     }
   }, [totalPages, currentPage]);
 
-  const pagedOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // Nếu là admin, vẫn phân trang frontend. Nếu là khách, orders đã được phân trang từ backend.
+  const pagedOrders = isAdmin ? orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : orders;
 
   const handleToggleDeleteMode = () => {
     if (isDeleteMode) {
@@ -505,6 +530,7 @@ export default function AccountPage({
                   currentPage={currentPage}
                   setCurrentPage={setCurrentPage}
                   totalPages={totalPages}
+                  totalItems={totalItems}
                   itemsPerPage={itemsPerPage}
                   isDeleteMode={isDeleteMode}
                   selectedOrderIds={selectedOrderIds}

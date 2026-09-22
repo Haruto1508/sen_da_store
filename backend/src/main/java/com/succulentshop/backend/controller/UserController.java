@@ -37,20 +37,28 @@ public class UserController {
     }
 
     @GetMapping("/my-orders")
-    public ResponseEntity<ApiResult<List<OrderResponse>>> getMyOrders(
+    public ResponseEntity<?> getMyOrders(
             @RequestParam(required = false) String phone,
-            @RequestParam(required = false) String email
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "0") Integer limit
     ) {
-        List<OrderResponse> orders;
-        if (email != null && !email.isBlank()) {
-            orders = orderService.getOrdersByCustomer(phone, email);
+        if (limit > 0) {
+            org.springframework.data.domain.Page<OrderResponse> ordersPage = orderService.getOrdersByCustomerPaginated(phone, email, status, page, limit);
+            return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_LIST_SUCCESS, ordersPage));
         } else {
-            orders = orderService.getOrdersByCustomer(phone);
+            List<OrderResponse> orders;
+            if (email != null && !email.isBlank()) {
+                orders = orderService.getOrdersByCustomer(phone, email);
+            } else {
+                orders = orderService.getOrdersByCustomer(phone);
+            }
+            return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_LIST_SUCCESS, orders));
         }
-        return ResponseEntity.ok(ApiResult.ok(MessageCode.ORDER_LIST_SUCCESS, orders));
     }
 
-    public ResponseEntity<ApiResult<List<OrderResponse>>> getMyOrders(String phone) {
-        return getMyOrders(phone, null);
+    public ResponseEntity<?> getMyOrders(String phone) {
+        return getMyOrders(phone, null, 1, 0);
     }
 }

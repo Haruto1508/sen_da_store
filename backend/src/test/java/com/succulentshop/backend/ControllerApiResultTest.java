@@ -136,10 +136,11 @@ class ControllerApiResultTest {
         assertTrue(profileResp.getBody().isSuccess());
         assertEquals("user@gmail.com", profileResp.getBody().getData().getEmail());
 
-        ResponseEntity<ApiResult<List<OrderResponse>>> ordersResp = controller.getMyOrders("0988123456");
+        ResponseEntity<?> ordersResp = controller.getMyOrders("0988123456");
         assertEquals(HttpStatus.OK, ordersResp.getStatusCode());
-        assertTrue(ordersResp.getBody().isSuccess());
-        assertEquals(1, ordersResp.getBody().getData().size());
+        ApiResult<List<OrderResponse>> body = (ApiResult<List<OrderResponse>>) ordersResp.getBody();
+        assertTrue(body.isSuccess());
+        assertEquals(1, body.getData().size());
     }
 
     @Test

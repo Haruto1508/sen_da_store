@@ -442,39 +442,56 @@ export async function submitReview(productId, reviewData) {
 }
 
 /**
- * Lấy lịch sử đơn hàng của người dùng theo số điện thoại
+ * Lấy lịch sử đơn hàng của người dùng theo số điện thoại (hỗ trợ phân trang Backend)
  */
-export async function getCustomerOrders(identifier, email) {
+export async function getCustomerOrders(identifier, email, status = 'all', page = 1, limit = 0) {
   if (USE_MOCK_DATA) {
     const mockOrders = getStoredOrders();
-    if (!identifier && !email) return mockOrders;
-    const qId = identifier ? String(identifier).toLowerCase().trim() : '';
-    const qEmail = email ? String(email).toLowerCase().trim() : '';
-    return mockOrders.filter(
-      (o) =>
-        (qId && o.customerPhone && o.customerPhone.toLowerCase().includes(qId)) ||
-        (qId && o.customerEmail && o.customerEmail.toLowerCase().includes(qId)) ||
-        (qId && o.customerName && o.customerName.toLowerCase().includes(qId)) ||
-        (qEmail && o.customerEmail && o.customerEmail.toLowerCase().includes(qEmail))
-    );
+    let filtered = mockOrders;
+    if (identifier || email || (status && status !== 'all')) {
+      const qId = identifier ? String(identifier).toLowerCase().trim() : '';
+      const qEmail = email ? String(email).toLowerCase().trim() : '';
+      filtered = mockOrders.filter(
+        (o) =>
+          ((!qId && !qEmail) ||
+            (qId && o.customerPhone && o.customerPhone.toLowerCase().includes(qId)) ||
+            (qId && o.customerEmail && o.customerEmail.toLowerCase().includes(qId)) ||
+            (qId && o.customerName && o.customerName.toLowerCase().includes(qId)) ||
+            (qEmail && o.customerEmail && o.customerEmail.toLowerCase().includes(qEmail))) &&
+          (status === 'all' || o.status === status)
+      );
+    }
+    if (limit > 0) {
+      const totalElements = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(totalElements / limit));
+      const start = (page - 1) * limit;
+      const content = filtered.slice(start, start + limit);
+      return { content, totalPages, totalElements };
+    }
+    return filtered;
   }
 
   try {
     const params = new URLSearchParams();
     if (identifier) params.append('phone', identifier);
     if (email) params.append('email', email);
+    if (status && status !== 'all') params.append('status', status);
+    if (limit > 0) {
+      params.append('page', page);
+      params.append('limit', limit);
+    }
 
     const res = await fetch(`${API_BASE}/users/my-orders?${params.toString()}`);
     if (!res.ok) {
       console.warn(`Lỗi API lịch sử đơn hàng: HTTP ${res.status}`);
-      return [];
+      return limit > 0 ? { content: [], totalPages: 0, totalElements: 0 } : [];
     }
     const data = await res.json();
-    return data.data || [];
+    return data.data || (limit > 0 ? { content: [], totalPages: 0, totalElements: 0 } : []);
   } catch (err) {
     console.warn('Lỗi kết nối API đơn hàng:', err);
     // Khi chạy Backend thực tế, trả về mảng rỗng để hiển thị Empty State sạch sẽ thay vì data cứng
-    return [];
+    return limit > 0 ? { content: [], totalPages: 0, totalElements: 0 } : [];
   }
 }
 

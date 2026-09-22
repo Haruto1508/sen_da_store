@@ -14,6 +14,7 @@ export default function AccountOrdersTab({
   currentPage,
   setCurrentPage,
   totalPages,
+  totalItems,
   itemsPerPage,
   isDeleteMode,
   selectedOrderIds,
@@ -240,12 +241,12 @@ export default function AccountOrdersTab({
         </div>
 
         {/* Phân Trang (Pagination) */}
-        {orders.length > itemsPerPage && (
+        {orders.length > 0 && (
           <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
-              totalItems={orders.length}
+              totalItems={totalItems}
               onPageChange={(page) => {
                 setCurrentPage(page);
                 window.scrollTo({ top: 380, behavior: 'smooth' });
