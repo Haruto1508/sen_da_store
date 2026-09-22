@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Mail, Phone, MapPin, Package, Heart, Edit3, Check, ArrowRight } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Edit3, Check, ArrowRight } from 'lucide-react';
 
 export default function AccountProfileTab({
   user,
@@ -158,30 +158,6 @@ export default function AccountProfileTab({
         )}
       </div>
 
-      {/* Quick Access Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginTop: '24px' }}>
-        <div className="quick-card" onClick={() => setActiveTab('orders')}>
-          <div className="quick-card-icon" style={{ background: '#EBF4EE', color: 'var(--primary)' }}>
-            <Package size={24} />
-          </div>
-          <div>
-            <h4>Quản Lý & Xem Đơn Hàng</h4>
-            <p>Xem tiến trình vận chuyển, lịch sử giao hàng và hóa đơn theo thời gian thực.</p>
-          </div>
-          <ArrowRight size={18} className="quick-card-arrow" />
-        </div>
-
-        <div className="quick-card" onClick={() => setActiveTab('wishlist')}>
-          <div className="quick-card-icon" style={{ background: '#FFF4E5', color: 'var(--accent)' }}>
-            <Heart size={24} />
-          </div>
-          <div>
-            <h4>Mục Yêu Thích Của Bạn</h4>
-            <p>Xem lại các giống sen đá bạn đã lưu và nhanh chóng thêm vào giỏ hàng.</p>
-          </div>
-          <ArrowRight size={18} className="quick-card-arrow" />
-        </div>
-      </div>
     </div>
   );
 }
