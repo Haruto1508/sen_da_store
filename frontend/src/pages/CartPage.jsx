@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   ShoppingBag,
   Trash2,
@@ -25,8 +26,12 @@ export default function CartPage({
   onNavigateShop,
   onNavigateCheckout,
   onNavigateHome,
+  onNavigateAccount,
   onOpenProductDetail
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isFromAccount = location.state?.from === 'account';
   const [couponInput, setCouponInput] = useState("");
   const [couponError, setCouponError] = useState("");
   const [couponSuccess, setCouponSuccess] = useState(false);
@@ -92,8 +97,22 @@ export default function CartPage({
           <div className="breadcrumb">
             <button className="breadcrumb-link" onClick={onNavigateHome}>Trang Chủ</button>
             <span className="breadcrumb-separator">/</span>
-            <button className="breadcrumb-link" onClick={onNavigateShop}>Cửa Hàng</button>
-            <span className="breadcrumb-separator">/</span>
+            {isFromAccount ? (
+              <>
+                <button 
+                  className="breadcrumb-link" 
+                  onClick={() => (onNavigateAccount ? onNavigateAccount() : navigate('/account'))}
+                >
+                  Tài Khoản Của Tôi
+                </button>
+                <span className="breadcrumb-separator">/</span>
+              </>
+            ) : (
+              <>
+                <button className="breadcrumb-link" onClick={onNavigateShop}>Cửa Hàng</button>
+                <span className="breadcrumb-separator">/</span>
+              </>
+            )}
             <span className="breadcrumb-current">Giỏ Hàng</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "16px", marginTop: "14px" }}>

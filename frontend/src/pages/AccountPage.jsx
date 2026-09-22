@@ -360,12 +360,27 @@ export default function AccountPage({
             <div className="breadcrumb">
               <button className="breadcrumb-link" onClick={onNavigateHome}>Trang Chủ</button>
               <span className="breadcrumb-separator">/</span>
-              <span className="breadcrumb-current">
-                {activeTab === 'orders' && 'Lịch Sử Đơn Hàng & Giao Hàng'}
-                {activeTab === 'wishlist' && 'Mục Yêu Thích Của Tôi'}
-                {activeTab === 'cart' && 'Giỏ Hàng Của Bạn'}
-                {activeTab === 'profile' && 'Tài Khoản Của Tôi'}
-              </span>
+              {activeTab === 'profile' ? (
+                <span className="breadcrumb-current">Tài Khoản Của Tôi</span>
+              ) : (
+                <>
+                  <button 
+                    className="breadcrumb-link" 
+                    onClick={() => {
+                      setActiveTab('profile');
+                      if (setIsEditing) setIsEditing(false);
+                    }}
+                  >
+                    Tài Khoản Của Tôi
+                  </button>
+                  <span className="breadcrumb-separator">/</span>
+                  <span className="breadcrumb-current">
+                    {activeTab === 'orders' && 'Lịch Sử Đơn Hàng & Giao Hàng'}
+                    {activeTab === 'wishlist' && 'Mục Yêu Thích Của Tôi'}
+                    {activeTab === 'cart' && 'Giỏ Hàng Của Bạn'}
+                  </span>
+                </>
+              )}
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px', marginTop: '14px' }}>

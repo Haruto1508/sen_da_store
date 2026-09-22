@@ -36,7 +36,7 @@ export default function AccountCartTab({
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button 
               className="btn-primary" 
-              onClick={onNavigateCart}
+              onClick={() => onNavigateCart && onNavigateCart({ state: { from: 'account' } })}
               style={{ padding: '8px 16px', fontSize: '0.88rem' }}
             >
               <span>Trang Giỏ Hàng Đầy Đủ</span>

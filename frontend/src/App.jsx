@@ -244,63 +244,70 @@ export default function App() {
   }, [location.pathname]);
 
   // Centralized Navigation function using react-router-dom
-  const navigateTo = (route, param = null) => {
+  const navigateTo = (route, param = null, options = {}) => {
+    let navOptions = options;
+    let routeParam = param;
+    if (param && typeof param === 'object' && !Array.isArray(param)) {
+      navOptions = param;
+      routeParam = null;
+    }
+
     switch (route) {
       case 'home':
-        navigate('/', { replace: true });
+        navigate('/', { replace: true, ...navOptions });
         break;
       case 'shop':
         setOnlyWishlist(false);
-        navigate('/shop');
+        navigate('/shop', navOptions);
         break;
       case 'product-detail':
-        navigate(`/product/${param}`);
+        navigate(`/product/${routeParam}`, navOptions);
         break;
       case 'news':
-        navigate('/news');
+        navigate('/news', navOptions);
         break;
       case 'news-detail':
-        navigate(`/news/${param}`);
+        navigate(`/news/${routeParam}`, navOptions);
         break;
       case 'policy':
-        navigate('/policy');
+        navigate('/policy', navOptions);
         break;
       case 'admin':
-        navigate('/admin');
+        navigate('/admin', navOptions);
         break;
       case 'admin-login':
-        navigate('/admin/login');
+        navigate('/admin/login', navOptions);
         break;
       case 'cart':
-        navigate('/cart');
+        navigate('/cart', navOptions);
         break;
       case 'wishlist':
-        navigate('/wishlist');
+        navigate('/wishlist', navOptions);
         break;
       case 'checkout':
-        navigate('/checkout');
+        navigate('/checkout', navOptions);
         break;
       case 'order-success':
-        navigate(param ? `/order-success/${param}` : '/order-success');
+        navigate(routeParam ? `/order-success/${routeParam}` : '/order-success', navOptions);
         break;
       case 'quiz':
-        navigate('/shop');
+        navigate('/shop', navOptions);
         break;
       case 'account':
-        navigate('/account');
+        navigate('/account', navOptions);
         break;
       case 'login':
-        navigate('/login');
+        navigate('/login', navOptions);
         break;
       case 'register':
-        navigate('/register');
+        navigate('/register', navOptions);
         break;
       case 'password':
       case 'forgot-password':
-        navigate('/login');
+        navigate('/login', navOptions);
         break;
       default:
-        navigate('/');
+        navigate('/', navOptions);
         break;
     }
   };
@@ -1124,6 +1131,7 @@ export default function App() {
                 onNavigateShop={() => navigateTo('shop')}
                 onNavigateCheckout={() => navigateTo('checkout')}
                 onNavigateHome={() => navigateTo('home')}
+                onNavigateAccount={() => navigateTo('account')}
                 onOpenProductDetail={(id) => navigateTo('product-detail', id)}
               />
             }
@@ -1151,7 +1159,7 @@ export default function App() {
                 onOpenProductDetail={(id) => navigateTo('product-detail', id)}
                 onNavigateCheckout={() => navigateTo('checkout')}
                 onNavigateShop={() => navigateTo('shop')}
-                onNavigateCart={() => navigateTo('cart')}
+                onNavigateCart={(opts) => navigateTo('cart', null, opts)}
                 onNavigateAdmin={() => navigateTo('admin')}
                 onNavigateHome={() => navigateTo('home')}
                 onLogout={handleLogout}

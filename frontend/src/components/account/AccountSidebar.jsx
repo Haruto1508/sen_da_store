@@ -27,7 +27,7 @@ export default function AccountSidebar({
         <div className="profile-stats">
           <div 
             className={`profile-stat-item ${activeTab === 'cart' ? 'active' : ''}`}
-            onClick={() => (onNavigateCart ? onNavigateCart() : setActiveTab('cart'))}
+            onClick={() => setActiveTab('cart')}
             style={{ cursor: 'pointer' }}
             title="Nhấn để xem giỏ hàng"
           >
@@ -106,7 +106,7 @@ export default function AccountSidebar({
 
           <button 
             className={`profile-nav-btn ${activeTab === 'cart' ? 'active' : ''}`}
-            onClick={() => (onNavigateCart ? onNavigateCart() : setActiveTab('cart'))}
+            onClick={() => setActiveTab('cart')}
           >
             <ShoppingBag size={18} />
             <span>Xem Giỏ Hàng</span>
