@@ -194,36 +194,7 @@ public class BankTransferService {
         return response;
     }
 
-    public BankTransferWebhookResponse simulatePayment(String orderCode) {
-        if (orderCode == null || orderCode.trim().isEmpty()) {
-            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
-            response.setSuccess(false);
-            response.setMessage("Thiếu orderCode");
-            return response;
-        }
 
-        Optional<Order> orderOpt = orderRepository.findByOrderCode(orderCode.trim().toUpperCase());
-        if (orderOpt.isEmpty()) {
-            BankTransferWebhookResponse response = new BankTransferWebhookResponse();
-            response.setSuccess(false);
-            response.setMessage("Không tìm thấy đơn hàng: " + orderCode);
-            return response;
-        }
-
-        Order order = orderOpt.get();
-        deductStockIfPending(order);
-        order.setStatus(OrderStatus.PAID.getCode());
-        orderRepository.save(order);
-
-        log.info("⚡ [Simulate Webhook] Đơn hàng #{} đã được mô phỏng thanh toán chuyển khoản thành công!", orderCode);
-
-        BankTransferWebhookResponse response = new BankTransferWebhookResponse();
-        response.setSuccess(true);
-        response.setMessage("Mô phỏng thanh toán chuyển khoản thành công cho đơn hàng #" + orderCode);
-        response.setOrderCode(order.getOrderCode());
-        response.setStatus(OrderStatus.PAID.getCode());
-        return response;
-    }
 
     private void deductStockIfPending(Order order) {
         if (productRepository != null && order != null && order.getItems() != null && !Boolean.TRUE.equals(order.isStockDeducted())) {

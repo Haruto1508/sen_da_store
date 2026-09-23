@@ -6,7 +6,6 @@ import com.succulentshop.backend.controller.BankTransferWebhookController;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.BankTransferWebhookResponse;
 import com.succulentshop.backend.dto.SepayWebhookRequest;
-import com.succulentshop.backend.dto.SimulatePaymentRequest;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -123,19 +122,5 @@ public class BankTransferWebhookTest {
         assertEquals(OrderStatus.PAID.getCode(), mockOrder.getStatus());
     }
 
-    @Test
-    void testSimulateBankTransferPayment() {
-        Order mockOrder = new Order();
-        mockOrder.setOrderCode("SX888888");
-        mockOrder.setStatus(OrderStatus.PENDING.getCode());
 
-        when(orderRepository.findByOrderCode("SX888888")).thenReturn(Optional.of(mockOrder));
-
-        SimulatePaymentRequest simReq = new SimulatePaymentRequest("SX888888");
-        ResponseEntity<ApiResult<BankTransferWebhookResponse>> response = controller.simulateBankTransferPayment(simReq);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(OrderStatus.PAID.getCode(), mockOrder.getStatus());
-        verify(orderRepository, times(1)).save(mockOrder);
-    }
 }

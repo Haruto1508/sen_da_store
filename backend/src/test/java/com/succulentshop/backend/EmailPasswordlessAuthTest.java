@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
+import com.succulentshop.backend.service.otp.OtpStore;
 
 @SpringBootTest
 @Transactional
@@ -24,18 +25,23 @@ public class EmailPasswordlessAuthTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private OtpStore otpStore;
+
     @Test
     @DisplayName("Đăng nhập email mới: Tự động khởi tạo tài khoản qua OTP và đăng nhập thành công")
     public void testEmailLoginAutoRegistersNewUser() {
         String testEmail = "new_customer_" + System.currentTimeMillis() + "@gmail.com";
         authService.sendOtp(testEmail);
-        String otp = authService.getOtpForTesting(testEmail);
+        String otp = otpStore.getOtp(testEmail);
 
+        // check login with OTP without password
         AuthResponse result = authService.login(testEmail, null, otp);
         Assertions.assertNotNull(result);
         Assertions.assertNotNull(result.getUser());
         Assertions.assertNotNull(result.getToken());
 
+        // check user is created in the database
         User createdUser = userRepository.findByEmail(testEmail).orElseThrow();
         Assertions.assertEquals(testEmail, createdUser.getEmail());
         Assertions.assertNull(createdUser.getPassword(), "Mật khẩu phải là null");
@@ -51,7 +57,7 @@ public class EmailPasswordlessAuthTest {
         userRepository.save(user);
 
         authService.sendOtp(testEmail);
-        String otp = authService.getOtpForTesting(testEmail);
+        String otp = otpStore.getOtp(testEmail);
 
         AuthResponse result = authService.login(testEmail, null, otp);
         Assertions.assertNotNull(result);
@@ -87,7 +93,7 @@ public class EmailPasswordlessAuthTest {
         userRepository.save(bannedUser);
 
         authService.sendOtp(bannedEmail);
-        String otp = authService.getOtpForTesting(bannedEmail);
+        String otp = otpStore.getOtp(bannedEmail);
 
         AppException ex = Assertions.assertThrows(AppException.class, () -> {
             authService.login(bannedEmail, null, otp);

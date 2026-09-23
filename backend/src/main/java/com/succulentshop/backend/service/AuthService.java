@@ -13,213 +13,136 @@ import com.succulentshop.backend.exception.ErrorCode;
 import com.succulentshop.backend.exception.ResourceNotFoundException;
 import com.succulentshop.backend.repository.SocialAccountRepository;
 import com.succulentshop.backend.repository.UserRepository;
+import com.succulentshop.backend.service.otp.OtpStore;
+import com.succulentshop.backend.service.otp.RedisOtpStore;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import com.succulentshop.backend.service.otp.OtpStore;
-import com.succulentshop.backend.service.otp.RedisOtpStore;
-
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
-    // Cấu hình linh hoạt thời gian OTP & Cooldown (có thể chỉnh trong Admin)
-    private volatile int otpExpirySeconds = 120;     // Mặc định 2 phút (120 giây)
-    private volatile int otpCooldownSeconds = 60;    // Mặc định 60 giây chống spam
-    private volatile int maxFailedAttempts = 5;      // Tối đa 5 lần thử sai
+    // =========================================================================
+    // Fields
+    // =========================================================================
 
-    public OtpConfigDto getOtpConfig() {
-        return new OtpConfigDto(otpExpirySeconds, otpCooldownSeconds, maxFailedAttempts);
-    }
-
-    public OtpConfigDto updateOtpConfig(OtpConfigDto dto) {
-        if (dto != null) {
-            if (dto.getExpirySeconds() >= 30 && dto.getExpirySeconds() <= 1800) {
-                this.otpExpirySeconds = dto.getExpirySeconds();
-            }
-            if (dto.getCooldownSeconds() >= 10 && dto.getCooldownSeconds() <= 600) {
-                this.otpCooldownSeconds = dto.getCooldownSeconds();
-            }
-            if (dto.getMaxFailedAttempts() >= 1 && dto.getMaxFailedAttempts() <= 20) {
-                this.maxFailedAttempts = dto.getMaxFailedAttempts();
-            }
-        }
-        log.info("⚙️ [CẤU HÌNH OTP] Đã cập nhật: Hiệu lực = {}s, Cooldown = {}s, Max sai = {} lần",
-                otpExpirySeconds, otpCooldownSeconds, maxFailedAttempts);
-        return getOtpConfig();
-    }
-
-    public static class OtpEntry {
-        private final String code;
-        private final LocalDateTime expiry;
-        private final LocalDateTime createdAt;
-        private int failedAttempts;
-
-        public OtpEntry(String code, LocalDateTime expiry) {
-            this(code, expiry, LocalDateTime.now());
-        }
-
-        public OtpEntry(String code, LocalDateTime expiry, LocalDateTime createdAt) {
-            this.code = code;
-            this.expiry = expiry;
-            this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
-            this.failedAttempts = 0;
-        }
-
-        public String getCode() { return code; }
-        public LocalDateTime getExpiry() { return expiry; }
-        public LocalDateTime getCreatedAt() { return createdAt; }
-        public boolean isExpired() { return LocalDateTime.now().isAfter(expiry); }
-        public int getFailedAttempts() { return failedAttempts; }
-        public int incrementFailedAttempts() { return ++this.failedAttempts; }
-    }
-
-    private final OtpStore otpStore;
     private final UserRepository userRepository;
     private final SocialAccountRepository socialAccountRepository;
     private final PasswordEncoder passwordEncoder;
-    private final EmailService emailService;
+    private final OtpService otpService;
     private final RestTemplate restTemplate;
 
     @Value("${google.client-id:}")
     private String configuredClientId;
 
-    public AuthService(UserRepository userRepository) {
-        this(userRepository, null, new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(), null, null);
-    }
+    // =========================================================================
+    // Constructors
+    // =========================================================================
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
-        this(userRepository, null, passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(), null, null);
-    }
-
-    public AuthService(UserRepository userRepository, SocialAccountRepository socialAccountRepository, PasswordEncoder passwordEncoder) {
-        this(userRepository, socialAccountRepository, passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(), null, null);
-    }
-
-    public AuthService(UserRepository userRepository, SocialAccountRepository socialAccountRepository, PasswordEncoder passwordEncoder, EmailService emailService) {
-        this(userRepository, socialAccountRepository, passwordEncoder, emailService, null);
-    }
-
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public AuthService(UserRepository userRepository,
                        SocialAccountRepository socialAccountRepository,
                        PasswordEncoder passwordEncoder,
-                       @org.springframework.beans.factory.annotation.Autowired(required = false) EmailService emailService,
-                       @org.springframework.beans.factory.annotation.Autowired(required = false) OtpStore otpStore) {
+                       @Autowired(required = false) OtpService otpService) {
         this.userRepository = userRepository;
         this.socialAccountRepository = socialAccountRepository;
-        this.passwordEncoder = passwordEncoder != null ? passwordEncoder : new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
-        this.emailService = emailService;
-        this.otpStore = otpStore != null ? otpStore : new RedisOtpStore();
+        this.passwordEncoder = passwordEncoder != null ? passwordEncoder : new BCryptPasswordEncoder();
+        this.otpService = otpService != null ? otpService : new OtpService(new RedisOtpStore(), null);
         this.restTemplate = new RestTemplate();
     }
 
+    public AuthService(UserRepository userRepository) {
+        this(userRepository, null, new BCryptPasswordEncoder(), null);
+    }
+
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this(userRepository, null,
+                passwordEncoder != null ? passwordEncoder : new BCryptPasswordEncoder(), null);
+    }
+
+    public AuthService(UserRepository userRepository,
+                       SocialAccountRepository socialAccountRepository,
+                       PasswordEncoder passwordEncoder) {
+        this(userRepository, socialAccountRepository,
+                passwordEncoder != null ? passwordEncoder : new BCryptPasswordEncoder(), null);
+    }
+
     /**
-     * Gửi mã OTP xác thực 6 số về Email
-     * Áp dụng Cooldown và thời gian hiệu lực theo cấu hình Admin (mặc định 2 phút)
+     * Constructor dùng cho test – nhận trực tiếp EmailService và OtpStore.
+     * @deprecated Sử dụng constructor nhận {@link OtpService} thay thế.
+     */
+    @Deprecated
+    public AuthService(UserRepository userRepository,
+                       SocialAccountRepository socialAccountRepository,
+                       PasswordEncoder passwordEncoder,
+                       EmailService emailService,
+                       OtpStore otpStore) {
+        this(userRepository, socialAccountRepository,
+                passwordEncoder != null ? passwordEncoder : new BCryptPasswordEncoder(),
+                new OtpService(otpStore != null ? otpStore : new RedisOtpStore(), emailService));
+    }
+
+    // =========================================================================
+    // Public API – OTP (delegate sang OtpService)
+    // =========================================================================
+
+    /**
+     * Gửi mã OTP 6 số về email của người dùng.
+     *
+     * @see OtpService#sendOtp(String)
      */
     public SendOtpResponse sendOtp(String email) {
-        if (email == null || email.isBlank()) {
-            throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING, "Vui lòng nhập email để nhận mã xác thực OTP");
-        }
-        String cleanEmail = email.trim().toLowerCase();
-
-        // 1. Kiểm tra Cooldown chống spam gửi mã
-        long waitSeconds = otpStore.getCooldownSecondsRemaining(cleanEmail, otpCooldownSeconds);
-        if (waitSeconds > 0) {
-            throw new AppException(
-                ErrorCode.OTP_COOLDOWN,
-                "Bạn đang gửi yêu cầu quá nhanh. Vui lòng đợi " + waitSeconds + " giây trước khi yêu cầu mã mới!"
-            );
-        }
-
-        String otpCode = String.format("%06d", new Random().nextInt(999999));
-        otpStore.saveOtp(cleanEmail, otpCode, otpExpirySeconds);
-        otpStore.setCooldown(cleanEmail, otpCooldownSeconds);
-        log.info("🔑 [SEN XINH OTP] Mã xác thực OTP cho [{}]: {} (Hiệu lực {} giây)", cleanEmail, otpCode, otpExpirySeconds);
-
-        boolean emailSent = false;
-        if (emailService != null) {
-            emailSent = emailService.sendOtpEmail(cleanEmail, otpCode, otpExpirySeconds);
-        }
-
-        String expiryDesc = (otpExpirySeconds % 60 == 0) ? (otpExpirySeconds / 60) + " phút" : otpExpirySeconds + " giây";
-        String message = "Mã xác thực OTP gồm 6 chữ số (hiệu lực " + expiryDesc + ") đã được gửi đến " + cleanEmail + ". Quý khách vui lòng kiểm tra hộp thư!";
-
-        return new SendOtpResponse(
-            true, 
-            message, 
-            cleanEmail, 
-            otpExpirySeconds, 
-            null
-        );
+        return otpService.sendOtp(email);
     }
 
     /**
-     * Lấy mã OTP lưu tạm thời (chỉ dùng cho môi trường kiểm thử / test suites)
+     * Lấy cấu hình OTP hiện tại (Admin).
+     *
+     * @see OtpService#getConfig()
      */
-    public String getOtpForTesting(String email) {
-        if (email == null) return null;
-        return otpStore.getOtp(email);
+    public OtpConfigDto getOtpConfig() {
+        return otpService.getConfig();
     }
 
     /**
-     * Xác thực tính hợp lệ của mã OTP
-     * Giới hạn tối đa số lần nhập sai theo cấu hình (mặc định 5 lần)
+     * Cập nhật cấu hình OTP (Admin).
+     *
+     * @see OtpService#updateConfig(OtpConfigDto)
      */
-    private void verifyOtp(String email, String otpInput) {
-        if (otpInput == null || otpInput.isBlank()) {
-            throw new AppException(ErrorCode.INVALID_OTP, "Vui lòng nhập mã OTP xác thực");
-        }
-        String cleanEmail = email.trim().toLowerCase();
-        String currentOtp = otpStore.getOtp(cleanEmail);
-        if (currentOtp == null) {
-            throw new AppException(ErrorCode.INVALID_OTP, "Mã OTP chưa được yêu cầu hoặc đã hết hạn. Vui lòng nhấn gửi lại mã!");
-        }
-
-        // Kiểm tra mã OTP
-        if (!currentOtp.equals(otpInput.trim())) {
-            int currentFailures = otpStore.incrementFailedAttempts(cleanEmail, otpExpirySeconds);
-            int remaining = maxFailedAttempts - currentFailures;
-
-            if (remaining <= 0) {
-                // Đạt tối đa số lần sai -> Hủy mã ngay lập tức
-                otpStore.removeOtp(cleanEmail);
-                throw new AppException(
-                    ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED,
-                    "Bạn đã nhập sai mã OTP quá " + maxFailedAttempts + " lần. Mã đã bị hủy để đảm bảo an toàn. Vui lòng yêu cầu mã mới!"
-                );
-            }
-
-            throw new AppException(
-                ErrorCode.INVALID_OTP,
-                "Mã OTP không chính xác. Bạn còn " + remaining + " lần thử lại!"
-            );
-        }
-
-        // Xóa mã sau khi xác thực thành công
-        otpStore.removeOtp(cleanEmail);
+    public OtpConfigDto updateOtpConfig(OtpConfigDto dto) {
+        return otpService.updateConfig(dto);
     }
 
+    // =========================================================================
+    // Public API – Authentication
+    // =========================================================================
+
     /**
-     * Đăng nhập người dùng kết hợp Mật Khẩu (Phương án 1) hoặc OTP (Phương án 2)
+     * Đăng nhập người dùng bằng Mật Khẩu (Phương án 1) hoặc OTP (Phương án 2).
      */
     public AuthResponse login(String identifier, String password, String otp) {
         if (identifier == null || identifier.isBlank()) {
-            throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING, "Vui lòng nhập email hoặc số điện thoại để đăng nhập");
+            throw new AppException(ErrorCode.REQUIRED_FIELD_MISSING,
+                    "Vui lòng nhập email hoặc số điện thoại để đăng nhập");
         }
 
         String target = identifier.trim().toLowerCase();
@@ -228,8 +151,9 @@ public class AuthService {
             userOpt = userRepository.findByPhone(target);
         }
 
-        boolean isAdmin = "admin@senxinh.vn".equalsIgnoreCase(target) || 
-                          (userOpt.isPresent() && userOpt.get().getRole() != null && userOpt.get().getRole().toLowerCase().contains("admin"));
+        boolean isAdmin = "admin@senxinh.vn".equalsIgnoreCase(target)
+                || (userOpt.isPresent() && userOpt.get().getRole() != null
+                    && userOpt.get().getRole().toLowerCase().contains("admin"));
 
         if (isAdmin) {
             authenticateAdmin(userOpt, target, password, otp);
@@ -253,62 +177,6 @@ public class AuthService {
         return response;
     }
 
-    private void authenticateAdmin(Optional<User> userOpt, String target, String password, String otp) {
-        if (password != null && !password.isBlank()) {
-            String existingPw = userOpt.map(User::getPassword).orElse("admin123");
-            boolean pwMatches = passwordEncoder.matches(password, existingPw) || 
-                                password.equals(existingPw) || 
-                                "admin123".equals(password);
-            if (!pwMatches) {
-                throw new AppException(ErrorCode.INVALID_CREDENTIALS, "Mật khẩu Quản trị viên không chính xác!");
-            }
-        } else if (otp != null && !otp.isBlank()) {
-            verifyOtp(target, otp);
-        } else {
-            throw new AppException(ErrorCode.AUTH_CREDENTIALS_REQUIRED, "Tài khoản Quản trị viên bắt buộc phải nhập Mật khẩu hoặc mã OTP!");
-        }
-    }
-
-    private void authenticateNormalUser(Optional<User> userOpt, String target, String password, String otp) {
-        if (otp != null && !otp.isBlank()) {
-            verifyOtp(target, otp);
-        } else if (password != null && !password.isBlank()) {
-            if (userOpt.isPresent()) {
-                User u = userOpt.get();
-                if (u.getPassword() != null && !u.getPassword().isBlank()) {
-                    boolean pwMatches = passwordEncoder.matches(password, u.getPassword()) || password.equals(u.getPassword());
-                    if (!pwMatches) {
-                        throw new AppException(ErrorCode.INVALID_CREDENTIALS, "Mật khẩu đăng nhập không chính xác!");
-                    }
-                } else {
-                    throw new AppException(ErrorCode.PASSWORD_NOT_SET, "Tài khoản chưa cài đặt mật khẩu. Vui lòng chọn đăng nhập bằng Mã OTP hoặc Google!");
-                }
-            } else {
-                throw new AppException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy tài khoản với email này. Vui lòng chọn đăng nhập bằng Mã OTP để tạo tài khoản mới!");
-            }
-        } else {
-            throw new AppException(ErrorCode.AUTH_CREDENTIALS_REQUIRED, "Vui lòng nhập Mật khẩu hoặc yêu cầu gửi mã OTP để đăng nhập an toàn!");
-        }
-    }
-
-    private User createOtpRegisteredUser(String target) {
-        String displayName = target.contains("@") ? target.split("@")[0] : target;
-        User newUser = new User(
-            displayName,
-            target,
-            "",
-            null,
-            "Hà Nội, Việt Nam",
-            "Thành viên mới",
-            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
-            50
-        );
-        newUser.setAuthProvider("EMAIL");
-        User saved = userRepository.save(newUser);
-        log.info("Tự động tạo tài khoản người dùng mới từ email sau khi xác thực OTP: {}", target);
-        return saved;
-    }
-
     public AuthResponse login(String identifier) {
         return login(identifier, null, null);
     }
@@ -317,11 +185,9 @@ public class AuthService {
         return login(identifier, password, null);
     }
 
-    private record GoogleProfile(String email, String name, String avatar, String sub) {}
-
     /**
-     * Xác thực và đăng nhập người dùng bằng Google OAuth2
-     * Hợp nhất tài khoản: Cùng 1 email chỉ tồn tại duy nhất 1 User
+     * Xác thực và đăng nhập người dùng bằng Google OAuth2.
+     * <p>Hợp nhất tài khoản: Cùng 1 email chỉ tồn tại duy nhất 1 User.</p>
      */
     @Transactional
     public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
@@ -342,127 +208,8 @@ public class AuthService {
         return response;
     }
 
-    @SuppressWarnings("unchecked")
-    private GoogleProfile extractGoogleProfile(GoogleLoginRequest request) {
-        String email = null;
-        String name = null;
-        String avatar = null;
-        String sub = null;
-
-        if (request.getIdToken() != null && !request.getIdToken().isBlank()) {
-            try {
-                String verifyUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + request.getIdToken().trim();
-                Map<String, Object> tokenInfo = restTemplate.getForObject(verifyUrl, Map.class);
-                if (tokenInfo != null && tokenInfo.containsKey("email")) {
-                    email = (String) tokenInfo.get("email");
-                    name = (String) tokenInfo.get("name");
-                    avatar = (String) tokenInfo.get("picture");
-                    sub = (String) tokenInfo.get("sub");
-                }
-            } catch (Exception e) {
-                log.warn("Google ID Token verification failed: {}", e.getMessage());
-            }
-        }
-
-        if (email == null && request.getAccessToken() != null && !request.getAccessToken().isBlank()) {
-            try {
-                HttpHeaders headers = new HttpHeaders();
-                headers.setBearerAuth(request.getAccessToken().trim());
-                HttpEntity<?> entity = new HttpEntity<>(headers);
-                ResponseEntity<Map> resp = restTemplate.exchange(
-                    "https://www.googleapis.com/oauth2/v3/userinfo",
-                    HttpMethod.GET,
-                    entity,
-                    Map.class
-                );
-                Map<String, Object> userInfo = resp.getBody();
-                if (userInfo != null && userInfo.containsKey("email")) {
-                    email = (String) userInfo.get("email");
-                    name = (String) userInfo.get("name");
-                    avatar = (String) userInfo.get("picture");
-                    sub = (String) userInfo.get("sub");
-                }
-            } catch (Exception e) {
-                log.warn("Google UserInfo verification failed: {}", e.getMessage());
-            }
-        }
-
-        if (email == null && request.getProfile() != null && request.getProfile().containsKey("email")) {
-            email = (String) request.getProfile().get("email");
-            if (name == null) name = (String) request.getProfile().get("name");
-            if (avatar == null) avatar = (String) request.getProfile().get("picture");
-            if (sub == null) sub = (String) request.getProfile().get("sub");
-        }
-
-        if (email == null || email.isBlank()) {
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS, "Không thể xác thực danh tính Google. Vui lòng thử lại!");
-        }
-
-        String cleanEmail = email.trim().toLowerCase();
-        if (sub == null || sub.isBlank()) {
-            sub = "google_" + cleanEmail;
-        }
-
-        return new GoogleProfile(cleanEmail, name, avatar, sub);
-    }
-
-    private User findOrCreateGoogleUser(GoogleProfile profile) {
-        String sub = profile.sub;
-        String cleanEmail = profile.email;
-        String avatar = profile.avatar;
-        String name = profile.name;
-
-        Optional<SocialAccount> socialOpt = socialAccountRepository.findByProviderAndProviderId("GOOGLE", sub);
-
-        if (socialOpt.isPresent()) {
-            User user = socialOpt.get().getUser();
-            if (avatar != null && !avatar.isBlank()) {
-                socialOpt.get().setAvatar(avatar);
-                socialAccountRepository.save(socialOpt.get());
-            }
-            log.info("Google login thành công cho User đã liên kết: {} (ID={})", user.getEmail(), user.getId());
-            return user;
-        }
-
-        Optional<User> existingUserOpt = userRepository.findByEmail(cleanEmail);
-        if (existingUserOpt.isPresent()) {
-            User user = existingUserOpt.get();
-            SocialAccount sa = new SocialAccount(user, "GOOGLE", sub, cleanEmail, avatar);
-            socialAccountRepository.save(sa);
-            if (user.getAvatar() == null || user.getAvatar().isBlank()) {
-                user.setAvatar(avatar);
-                userRepository.save(user);
-            }
-            log.info("Đã liên kết thành công Google Identity (sub={}) vào User hiện có: {} (ID={})", sub, user.getEmail(), user.getId());
-            return user;
-        }
-
-        String displayName = (name != null && !name.isBlank()) ? name.trim() : cleanEmail.split("@")[0];
-        String userAvatar = (avatar != null && !avatar.isBlank())
-            ? avatar
-            : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80";
-
-        User newUser = new User(
-            displayName,
-            cleanEmail,
-            "",
-            null,
-            null,
-            "Thành viên mới",
-            userAvatar,
-            50
-        );
-        newUser.setAuthProvider("GOOGLE");
-        User user = userRepository.save(newUser);
-
-        SocialAccount sa = new SocialAccount(user, "GOOGLE", sub, cleanEmail, avatar);
-        socialAccountRepository.save(sa);
-        log.info("Tạo User mới từ Google OAuth2: {} (ID={})", user.getEmail(), user.getId());
-        return user;
-    }
-
     /**
-     * Đăng ký tài khoản mới không cần mật khẩu
+     * Đăng ký tài khoản mới không cần mật khẩu.
      */
     public AuthResponse register(String name, String email, String phone, String address) {
         if (email == null || name == null || email.isBlank() || name.isBlank()) {
@@ -493,12 +240,14 @@ public class AuthService {
         return response;
     }
 
-    /**
-     * Overload tương thích ngược có truyền tham số password
-     */
+    /** Overload tương thích ngược có truyền tham số password (password bị bỏ qua). */
     public AuthResponse register(String name, String email, String phone, String password, String address) {
         return register(name, email, phone, address);
     }
+
+    // =========================================================================
+    // Public API – User Profile
+    // =========================================================================
 
     public UserResponse getProfile(String email) {
         User user = findByIdentifierOrThrow(email);
@@ -532,7 +281,9 @@ public class AuthService {
         if (userOpt.isEmpty()) {
             userOpt = userRepository.findByPhone(clean);
         }
-        return userOpt.orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy tài khoản với: " + identifier));
+        return userOpt.orElseThrow(() ->
+                new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND,
+                        "Không tìm thấy tài khoản với: " + identifier));
     }
 
     public UserResponse sanitizeUser(User user) {
@@ -566,5 +317,213 @@ public class AuthService {
         response.setLinkedProviders(linkedProviders);
         response.setCreatedAt(user.getCreatedAt() != null ? user.getCreatedAt().toString() : null);
         return response;
+    }
+
+    // =========================================================================
+    // Private – Authentication helpers
+    // =========================================================================
+
+    private void authenticateAdmin(Optional<User> userOpt, String target, String password, String otp) {
+        if (password != null && !password.isBlank()) {
+            String existingPw = userOpt.map(User::getPassword).orElse("admin123");
+            boolean pwMatches = passwordEncoder.matches(password, existingPw)
+                    || password.equals(existingPw)
+                    || "admin123".equals(password);
+            if (!pwMatches) {
+                throw new AppException(ErrorCode.INVALID_CREDENTIALS, "Mật khẩu Quản trị viên không chính xác!");
+            }
+        } else if (otp != null && !otp.isBlank()) {
+            otpService.verifyOtp(target, otp);
+        } else {
+            throw new AppException(ErrorCode.AUTH_CREDENTIALS_REQUIRED,
+                    "Tài khoản Quản trị viên bắt buộc phải nhập Mật khẩu hoặc mã OTP!");
+        }
+    }
+
+    private void authenticateNormalUser(Optional<User> userOpt, String target, String password, String otp) {
+        if (otp != null && !otp.isBlank()) {
+            otpService.verifyOtp(target, otp);
+        } else if (password != null && !password.isBlank()) {
+            if (userOpt.isPresent()) {
+                User u = userOpt.get();
+                if (u.getPassword() != null && !u.getPassword().isBlank()) {
+                    boolean pwMatches = passwordEncoder.matches(password, u.getPassword())
+                            || password.equals(u.getPassword());
+                    if (!pwMatches) {
+                        throw new AppException(ErrorCode.INVALID_CREDENTIALS, "Mật khẩu đăng nhập không chính xác!");
+                    }
+                } else {
+                    throw new AppException(ErrorCode.PASSWORD_NOT_SET,
+                            "Tài khoản chưa cài đặt mật khẩu. Vui lòng chọn đăng nhập bằng Mã OTP hoặc Google!");
+                }
+            } else {
+                throw new AppException(ErrorCode.USER_NOT_FOUND,
+                        "Không tìm thấy tài khoản với email này. Vui lòng chọn đăng nhập bằng Mã OTP để tạo tài khoản mới!");
+            }
+        } else {
+            throw new AppException(ErrorCode.AUTH_CREDENTIALS_REQUIRED,
+                    "Vui lòng nhập Mật khẩu hoặc yêu cầu gửi mã OTP để đăng nhập an toàn!");
+        }
+    }
+
+    private User createOtpRegisteredUser(String email) {
+        String displayName = email.contains("@") ? email.split("@")[0] : email;
+        User newUser = new User(
+            displayName, email, "", null,
+            "Hà Nội, Việt Nam", "Thành viên mới",
+            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+            50
+        );
+        newUser.setAuthProvider("EMAIL");
+        User saved = userRepository.save(newUser);
+        log.info("Tự động tạo tài khoản người dùng mới từ email sau khi xác thực OTP: {}", email);
+        return saved;
+    }
+
+    // =========================================================================
+    // Private – Google OAuth2 helpers
+    // =========================================================================
+
+    private record GoogleProfile(String email, String name, String avatar, String sub) {}
+
+    @SuppressWarnings("unchecked")
+    private GoogleProfile extractGoogleProfile(GoogleLoginRequest request) {
+        String email  = null;
+        String name   = null;
+        String avatar = null;
+        String sub    = null;
+
+        // 1. Thử xác thực bằng ID Token
+        if (request.getIdToken() != null && !request.getIdToken().isBlank()) {
+            try {
+                String verifyUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + request.getIdToken().trim();
+                Map<String, Object> tokenInfo = restTemplate.getForObject(verifyUrl, Map.class);
+                if (tokenInfo != null && tokenInfo.containsKey("email")) {
+                    email  = (String) tokenInfo.get("email");
+                    name   = (String) tokenInfo.get("name");
+                    avatar = (String) tokenInfo.get("picture");
+                    sub    = (String) tokenInfo.get("sub");
+                }
+            } catch (Exception e) {
+                log.warn("Google ID Token verification failed: {}", e.getMessage());
+            }
+        }
+
+        // 2. Fallback: Thử xác thực bằng Access Token
+        if (email == null && request.getAccessToken() != null && !request.getAccessToken().isBlank()) {
+            try {
+                HttpHeaders headers = new HttpHeaders();
+                headers.setBearerAuth(request.getAccessToken().trim());
+                HttpEntity<?> entity = new HttpEntity<>(headers);
+                ResponseEntity<Map> resp = restTemplate.exchange(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    HttpMethod.GET, entity, Map.class
+                );
+                Map<String, Object> userInfo = resp.getBody();
+                if (userInfo != null && userInfo.containsKey("email")) {
+                    email  = (String) userInfo.get("email");
+                    name   = (String) userInfo.get("name");
+                    avatar = (String) userInfo.get("picture");
+                    sub    = (String) userInfo.get("sub");
+                }
+            } catch (Exception e) {
+                log.warn("Google UserInfo verification failed: {}", e.getMessage());
+            }
+        }
+
+        // 3. Fallback: Lấy profile trực tiếp từ request
+        if (email == null && request.getProfile() != null && request.getProfile().containsKey("email")) {
+            email  = (String) request.getProfile().get("email");
+            if (name   == null) name   = (String) request.getProfile().get("name");
+            if (avatar == null) avatar = (String) request.getProfile().get("picture");
+            if (sub    == null) sub    = (String) request.getProfile().get("sub");
+        }
+
+        if (email == null || email.isBlank()) {
+            throw new AppException(ErrorCode.INVALID_CREDENTIALS,
+                    "Không thể xác thực danh tính Google. Vui lòng thử lại!");
+        }
+
+        String cleanEmail = email.trim().toLowerCase();
+        if (sub == null || sub.isBlank()) {
+            sub = "google_" + cleanEmail;
+        }
+
+        return new GoogleProfile(cleanEmail, name, avatar, sub);
+    }
+
+    private User findOrCreateGoogleUser(GoogleProfile profile) {
+        String sub        = profile.sub();
+        String cleanEmail = profile.email();
+        String avatar     = profile.avatar();
+        String name       = profile.name();
+
+        // Trường hợp 1: Tài khoản đã liên kết với Google Identity này
+        Optional<SocialAccount> socialOpt = socialAccountRepository.findByProviderAndProviderId("GOOGLE", sub);
+        if (socialOpt.isPresent()) {
+            User user = socialOpt.get().getUser();
+            if (avatar != null && !avatar.isBlank()) {
+                socialOpt.get().setAvatar(avatar);
+                socialAccountRepository.save(socialOpt.get());
+            }
+            log.info("Google login thành công cho User đã liên kết: {} (ID={})", user.getEmail(), user.getId());
+            return user;
+        }
+
+        // Trường hợp 2: Email đã tồn tại → Liên kết Google vào tài khoản hiện có
+        Optional<User> existingUserOpt = userRepository.findByEmail(cleanEmail);
+        if (existingUserOpt.isPresent()) {
+            User user = existingUserOpt.get();
+            socialAccountRepository.save(new SocialAccount(user, "GOOGLE", sub, cleanEmail, avatar));
+            if (user.getAvatar() == null || user.getAvatar().isBlank()) {
+                user.setAvatar(avatar);
+                userRepository.save(user);
+            }
+            log.info("Đã liên kết thành công Google Identity (sub={}) vào User hiện có: {} (ID={})",
+                    sub, user.getEmail(), user.getId());
+            return user;
+        }
+
+        // Trường hợp 3: Tạo tài khoản mới từ Google
+        String displayName = (name != null && !name.isBlank()) ? name.trim() : cleanEmail.split("@")[0];
+        String userAvatar  = (avatar != null && !avatar.isBlank())
+                ? avatar
+                : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80";
+
+        User newUser = new User(displayName, cleanEmail, "", null, null, "Thành viên mới", userAvatar, 50);
+        newUser.setAuthProvider("GOOGLE");
+        User user = userRepository.save(newUser);
+        socialAccountRepository.save(new SocialAccount(user, "GOOGLE", sub, cleanEmail, avatar));
+        log.info("Tạo User mới từ Google OAuth2: {} (ID={})", user.getEmail(), user.getId());
+        return user;
+    }
+
+    // =========================================================================
+    // Inner class – OtpEntry (dùng cho in-memory fallback)
+    // =========================================================================
+
+    public static class OtpEntry {
+        private final String code;
+        private final LocalDateTime expiry;
+        private final LocalDateTime createdAt;
+        private int failedAttempts;
+
+        public OtpEntry(String code, LocalDateTime expiry) {
+            this(code, expiry, LocalDateTime.now());
+        }
+
+        public OtpEntry(String code, LocalDateTime expiry, LocalDateTime createdAt) {
+            this.code = code;
+            this.expiry = expiry;
+            this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
+            this.failedAttempts = 0;
+        }
+
+        public String getCode()              { return code; }
+        public LocalDateTime getExpiry()     { return expiry; }
+        public LocalDateTime getCreatedAt()  { return createdAt; }
+        public boolean isExpired()           { return LocalDateTime.now().isAfter(expiry); }
+        public int getFailedAttempts()       { return failedAttempts; }
+        public int incrementFailedAttempts() { return ++this.failedAttempts; }
     }
 }
