@@ -24,6 +24,7 @@ public enum ErrorCode {
     ACCOUNT_DISABLED("AUTH_010", "Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động. Vui lòng liên hệ quản trị viên.", HttpStatus.FORBIDDEN),
     OTP_COOLDOWN("AUTH_011", "Yêu cầu gửi mã OTP quá nhanh, vui lòng đợi thêm giây lát!", HttpStatus.TOO_MANY_REQUESTS),
     OTP_MAX_ATTEMPTS_EXCEEDED("AUTH_012", "Bạn đã nhập sai mã OTP quá 5 lần. Mã đã bị hủy để đảm bảo an toàn!", HttpStatus.BAD_REQUEST),
+    GOOGLE_AUTH_FAILED("AUTH_013", "Không thể xác thực danh tính Google. Vui lòng thử lại!", HttpStatus.UNAUTHORIZED),
 
     // Product Codes
     PRODUCT_NOT_FOUND("PROD_001", "Không tìm thấy sản phẩm yêu cầu", HttpStatus.NOT_FOUND),

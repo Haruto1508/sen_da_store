@@ -440,8 +440,7 @@ public class AuthService {
         }
 
         if (email == null || email.isBlank()) {
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS,
-                    "Không thể xác thực danh tính Google. Vui lòng thử lại!");
+            throw new AppException(ErrorCode.GOOGLE_AUTH_FAILED);
         }
 
         String cleanEmail = email.trim().toLowerCase();
