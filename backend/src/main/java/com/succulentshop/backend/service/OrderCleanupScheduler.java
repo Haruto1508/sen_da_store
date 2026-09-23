@@ -1,5 +1,6 @@
 package com.succulentshop.backend.service;
 
+import com.succulentshop.backend.constant.OrderStatus;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.entity.OrderItem;
 import com.succulentshop.backend.repository.OrderRepository;
@@ -44,7 +45,7 @@ public class OrderCleanupScheduler {
     @Transactional
     public void cancelStalePendingOrders() {
         Instant cutoff = Instant.now().minus(pendingTimeoutMinutes, ChronoUnit.MINUTES);
-        List<Order> staleOrders = orderRepository.findByStatusAndCreatedAtBefore("PENDING", cutoff);
+        List<Order> staleOrders = orderRepository.findByStatusAndCreatedAtBefore(OrderStatus.PENDING.getCode(), cutoff);
 
         if (staleOrders.isEmpty()) {
             return;
@@ -73,7 +74,7 @@ public class OrderCleanupScheduler {
         // Hoàn trả tồn kho thông qua OrderService
         orderService.restoreOrderStock(order);
 
-        order.setStatus("CANCELLED");
+        order.setStatus(OrderStatus.CANCELLED.getCode());
         String currentNote = order.getNote() != null ? order.getNote() : "";
         order.setNote((currentNote + " [Tự động hủy: Chưa thanh toán sau " + pendingTimeoutMinutes + " phút]").trim());
         orderRepository.save(order);

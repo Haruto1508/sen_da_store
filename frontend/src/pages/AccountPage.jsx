@@ -45,7 +45,6 @@ export default function AccountPage({
   onNavigateCheckout,
   onNavigateShop,
   onNavigateCart,
-  onNavigateAdmin,
   onNavigateHome,
   onLogout,
   onUpdateUser,

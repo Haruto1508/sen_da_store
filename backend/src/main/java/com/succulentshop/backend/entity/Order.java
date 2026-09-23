@@ -1,5 +1,6 @@
 package com.succulentshop.backend.entity;
 
+import com.succulentshop.backend.constant.OrderStatus;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -65,7 +66,7 @@ public class Order {
     public Order() {
         this.publicId = UUID.randomUUID().toString();
         this.createdAt = Instant.now();
-        this.status = "PENDING";
+        this.status = OrderStatus.PENDING.getCode();
         this.stockDeducted = false;
         this.pointsAwarded = false;
     }

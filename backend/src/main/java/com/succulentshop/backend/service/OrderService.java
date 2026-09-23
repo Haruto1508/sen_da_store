@@ -430,29 +430,29 @@ public class OrderService {
         String formatted = newStatus.trim().toUpperCase();
 
         // Chặn không cho hủy đơn đã hoàn tất
-        if ("COMPLETED".equalsIgnoreCase(oldStatus) && "CANCELLED".equalsIgnoreCase(formatted)) {
+        if (OrderStatus.COMPLETED.getCode().equalsIgnoreCase(oldStatus) && OrderStatus.CANCELLED.getCode().equalsIgnoreCase(formatted)) {
             throw new AppException(ErrorCode.INVALID_REQUEST, "Không thể hủy đơn hàng đã hoàn tất thành công.");
         }
 
         // Xử lý hoàn kho khi hủy đơn
-        if ("CANCELLED".equals(formatted) && !"CANCELLED".equals(oldStatus)) {
+        if (OrderStatus.CANCELLED.getCode().equals(formatted) && !OrderStatus.CANCELLED.getCode().equals(oldStatus)) {
             restoreOrderStock(order);
         }
 
         // Xử lý hoàn trả đơn hàng (RETURNED)
-        if ("RETURNED".equals(formatted) && !"RETURNED".equals(oldStatus)) {
+        if (OrderStatus.RETURNED.getCode().equals(formatted) && !OrderStatus.RETURNED.getCode().equals(oldStatus)) {
             restoreOrderStock(order);
             revokeLoyaltyPoints(order);
             order.setReturnedAt(Instant.now());
         }
 
         // Xử lý trừ kho khi đơn được duyệt / thanh toán / giao hàng (PAID, SHIPPING, COMPLETED)
-        if (List.of("PAID", "SHIPPING", "COMPLETED").contains(formatted) && !Boolean.TRUE.equals(order.isStockDeducted())) {
+        if (List.of(OrderStatus.PAID.getCode(), OrderStatus.SHIPPING.getCode(), OrderStatus.COMPLETED.getCode()).contains(formatted) && !Boolean.TRUE.equals(order.isStockDeducted())) {
             deductOrderStock(order);
         }
 
         // Xử lý tích điểm và mốc hoàn tất khi đơn hoàn tất
-        if ("COMPLETED".equals(formatted)) {
+        if (OrderStatus.COMPLETED.getCode().equals(formatted)) {
             if (order.getCompletedAt() == null) {
                 order.setCompletedAt(Instant.now());
             }
@@ -474,10 +474,10 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
 
-        if ("COMPLETED".equalsIgnoreCase(order.getStatus())) {
+        if (OrderStatus.COMPLETED.getCode().equalsIgnoreCase(order.getStatus())) {
             throw new AppException(ErrorCode.INVALID_REQUEST, "Đơn hàng đã hoàn tất, không thể hủy.");
         }
-        if ("CANCELLED".equalsIgnoreCase(order.getStatus())) {
+        if (OrderStatus.CANCELLED.getCode().equalsIgnoreCase(order.getStatus())) {
             return convertOrderToResponse(order);
         }
 
@@ -486,7 +486,7 @@ public class OrderService {
         // Hoàn trả tồn kho nếu đơn đã bị trừ kho
         restoreOrderStock(order);
 
-        order.setStatus("CANCELLED");
+        order.setStatus(OrderStatus.CANCELLED.getCode());
         if (reason != null && !reason.isBlank()) {
             String currentNote = order.getNote() != null ? order.getNote() : "";
             order.setNote((currentNote + " [Lý do hủy: " + reason.trim() + "]").trim());
@@ -494,7 +494,7 @@ public class OrderService {
         orderRepository.save(order);
 
         if (orderEventPublisher != null) {
-            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, "CANCELLED");
+            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, OrderStatus.CANCELLED.getCode());
         }
 
         return convertOrderToResponse(order);
@@ -505,7 +505,7 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
 
-        if ("CANCELLED".equalsIgnoreCase(order.getStatus())) {
+        if (OrderStatus.CANCELLED.getCode().equalsIgnoreCase(order.getStatus())) {
             throw new AppException(ErrorCode.INVALID_REQUEST, "Đơn hàng đã bị hủy, không thể xác nhận nhận hàng.");
         }
 
@@ -516,7 +516,7 @@ public class OrderService {
             deductOrderStock(order);
         }
 
-        order.setStatus("COMPLETED");
+        order.setStatus(OrderStatus.COMPLETED.getCode());
         if (order.getCompletedAt() == null) {
             order.setCompletedAt(Instant.now());
         }
@@ -525,8 +525,8 @@ public class OrderService {
         // Tích lũy Điểm Sen thưởng cho khách hàng
         awardLoyaltyPoints(order);
 
-        if (orderEventPublisher != null && !"COMPLETED".equalsIgnoreCase(oldStatus)) {
-            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, "COMPLETED");
+        if (orderEventPublisher != null && !OrderStatus.COMPLETED.getCode().equalsIgnoreCase(oldStatus)) {
+            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, OrderStatus.COMPLETED.getCode());
         }
 
         return convertOrderToResponse(order);
@@ -558,7 +558,7 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
 
-        if (!"COMPLETED".equalsIgnoreCase(order.getStatus())) {
+        if (!OrderStatus.COMPLETED.getCode().equalsIgnoreCase(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_CANNOT_BE_RETURNED, "Chỉ đơn hàng đã giao thành công (COMPLETED) mới có thể gửi yêu cầu hoàn trả.");
         }
 
@@ -577,7 +577,7 @@ public class OrderService {
         }
 
         String oldStatus = order.getStatus();
-        order.setStatus("RETURN_REQUESTED");
+        order.setStatus(OrderStatus.RETURN_REQUESTED.getCode());
         order.setReturnReason(request.getReason().trim());
         if (request.getNote() != null && !request.getNote().trim().isBlank()) {
             order.setReturnNote(request.getNote().trim());
@@ -589,7 +589,7 @@ public class OrderService {
         orderRepository.save(order);
 
         if (orderEventPublisher != null) {
-            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, "RETURN_REQUESTED");
+            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, OrderStatus.RETURN_REQUESTED.getCode());
         }
 
         return convertOrderToResponse(order);
@@ -600,7 +600,7 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
 
-        if (!"RETURN_REQUESTED".equalsIgnoreCase(order.getStatus()) && !"COMPLETED".equalsIgnoreCase(order.getStatus())) {
+        if (!OrderStatus.RETURN_REQUESTED.getCode().equalsIgnoreCase(order.getStatus()) && !OrderStatus.COMPLETED.getCode().equalsIgnoreCase(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_CANNOT_BE_RETURNED, "Đơn hàng không ở trạng thái yêu cầu hoàn trả.");
         }
 
@@ -612,12 +612,12 @@ public class OrderService {
         // Thu hồi điểm Sen thưởng đã tích lũy cho đơn này
         revokeLoyaltyPoints(order);
 
-        order.setStatus("RETURNED");
+        order.setStatus(OrderStatus.RETURNED.getCode());
         order.setReturnedAt(Instant.now());
         orderRepository.save(order);
 
         if (orderEventPublisher != null) {
-            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, "RETURNED");
+            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, OrderStatus.RETURNED.getCode());
         }
 
         return convertOrderToResponse(order);
@@ -628,17 +628,17 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
 
-        if (!"RETURN_REQUESTED".equalsIgnoreCase(order.getStatus())) {
+        if (!OrderStatus.RETURN_REQUESTED.getCode().equalsIgnoreCase(order.getStatus())) {
             throw new AppException(ErrorCode.INVALID_REQUEST, "Đơn hàng hiện không có yêu cầu hoàn trả để từ chối.");
         }
 
         String oldStatus = order.getStatus();
-        order.setStatus("COMPLETED");
+        order.setStatus(OrderStatus.COMPLETED.getCode());
         order.setReturnRejectReason(rejectReason != null && !rejectReason.trim().isBlank() ? rejectReason.trim() : "Shop từ chối yêu cầu đổi trả theo chính sách.");
         orderRepository.save(order);
 
         if (orderEventPublisher != null) {
-            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, "COMPLETED");
+            orderEventPublisher.publishOrderStatusChanged(orderId, order.getOrderCode(), oldStatus, OrderStatus.COMPLETED.getCode());
         }
 
         return convertOrderToResponse(order);

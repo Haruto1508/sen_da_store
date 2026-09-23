@@ -1,6 +1,7 @@
 package com.succulentshop.backend.service;
 
 import com.succulentshop.backend.config.BankTransferConfig;
+import com.succulentshop.backend.constant.OrderStatus;
 import com.succulentshop.backend.dto.BankTransferWebhookResponse;
 import com.succulentshop.backend.entity.Order;
 import com.succulentshop.backend.repository.OrderRepository;
@@ -162,7 +163,7 @@ public class BankTransferService {
         }
 
         Order order = orderOpt.get();
-        if ("PAID".equalsIgnoreCase(order.getStatus()) || "COMPLETED".equalsIgnoreCase(order.getStatus())) {
+        if (OrderStatus.PAID.getCode().equalsIgnoreCase(order.getStatus()) || OrderStatus.COMPLETED.getCode().equalsIgnoreCase(order.getStatus())) {
             log.info("ℹ️ [SePay Webhook] Đơn hàng #{} đã ở trạng thái {}", foundOrderCode, order.getStatus());
             BankTransferWebhookResponse response = new BankTransferWebhookResponse();
             response.setSuccess(true);
@@ -178,7 +179,7 @@ public class BankTransferService {
         }
 
         deductStockIfPending(order);
-        order.setStatus("PAID");
+        order.setStatus(OrderStatus.PAID.getCode());
         orderRepository.save(order);
 
         log.info("🎉 [SePay Webhook THÀNH CÔNG] Đơn hàng #{} đã tự động cập nhật sang trạng thái PAID!",
@@ -188,7 +189,7 @@ public class BankTransferService {
         response.setSuccess(true);
         response.setMessage("Xác nhận thanh toán đơn hàng thành công");
         response.setOrderCode(order.getOrderCode());
-        response.setStatus("PAID");
+        response.setStatus(OrderStatus.PAID.getCode());
         response.setTransferAmount(transferAmount);
         return response;
     }
@@ -211,7 +212,7 @@ public class BankTransferService {
 
         Order order = orderOpt.get();
         deductStockIfPending(order);
-        order.setStatus("PAID");
+        order.setStatus(OrderStatus.PAID.getCode());
         orderRepository.save(order);
 
         log.info("⚡ [Simulate Webhook] Đơn hàng #{} đã được mô phỏng thanh toán chuyển khoản thành công!", orderCode);
@@ -220,7 +221,7 @@ public class BankTransferService {
         response.setSuccess(true);
         response.setMessage("Mô phỏng thanh toán chuyển khoản thành công cho đơn hàng #" + orderCode);
         response.setOrderCode(order.getOrderCode());
-        response.setStatus("PAID");
+        response.setStatus(OrderStatus.PAID.getCode());
         return response;
     }
 

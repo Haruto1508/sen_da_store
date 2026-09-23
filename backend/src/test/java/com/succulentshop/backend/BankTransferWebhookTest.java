@@ -1,6 +1,7 @@
 package com.succulentshop.backend;
 
 import com.succulentshop.backend.config.BankTransferConfig;
+import com.succulentshop.backend.constant.OrderStatus;
 import com.succulentshop.backend.controller.BankTransferWebhookController;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.BankTransferWebhookResponse;
@@ -42,7 +43,7 @@ public class BankTransferWebhookTest {
     void testSepayWebhook_SuccessPayment() {
         Order mockOrder = new Order();
         mockOrder.setOrderCode("SX123456");
-        mockOrder.setStatus("PENDING");
+        mockOrder.setStatus(OrderStatus.PENDING.getCode());
         mockOrder.setTotalAmount(150000);
 
         when(orderRepository.findByOrderCode("SX123456")).thenReturn(Optional.of(mockOrder));
@@ -62,7 +63,7 @@ public class BankTransferWebhookTest {
         assertTrue(response.getBody().isSuccess());
         assertNotNull(response.getBody().getData());
         assertTrue(response.getBody().getData().isSuccess());
-        assertEquals("PAID", mockOrder.getStatus());
+        assertEquals(OrderStatus.PAID.getCode(), mockOrder.getStatus());
         verify(orderRepository, times(1)).save(mockOrder);
     }
 
@@ -114,19 +115,19 @@ public class BankTransferWebhookTest {
         // Valid key
         Order mockOrder = new Order();
         mockOrder.setOrderCode("SX123456");
-        mockOrder.setStatus("PENDING");
+        mockOrder.setStatus(OrderStatus.PENDING.getCode());
         when(orderRepository.findByOrderCode("SX123456")).thenReturn(Optional.of(mockOrder));
 
         ResponseEntity<ApiResult<BankTransferWebhookResponse>> resValid = controller.handleSepayWebhook("Apikey secret_token_123", payload);
         assertEquals(HttpStatus.OK, resValid.getStatusCode());
-        assertEquals("PAID", mockOrder.getStatus());
+        assertEquals(OrderStatus.PAID.getCode(), mockOrder.getStatus());
     }
 
     @Test
     void testSimulateBankTransferPayment() {
         Order mockOrder = new Order();
         mockOrder.setOrderCode("SX888888");
-        mockOrder.setStatus("PENDING");
+        mockOrder.setStatus(OrderStatus.PENDING.getCode());
 
         when(orderRepository.findByOrderCode("SX888888")).thenReturn(Optional.of(mockOrder));
 
@@ -134,7 +135,7 @@ public class BankTransferWebhookTest {
         ResponseEntity<ApiResult<BankTransferWebhookResponse>> response = controller.simulateBankTransferPayment(simReq);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("PAID", mockOrder.getStatus());
+        assertEquals(OrderStatus.PAID.getCode(), mockOrder.getStatus());
         verify(orderRepository, times(1)).save(mockOrder);
     }
 }

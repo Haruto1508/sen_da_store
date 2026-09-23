@@ -59,6 +59,6 @@ public class UserController {
     }
 
     public ResponseEntity<?> getMyOrders(String phone) {
-        return getMyOrders(phone, null, 1, 0);
+        return getMyOrders(phone, null, null, 1, 0);
     }
 }

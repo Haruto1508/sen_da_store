@@ -1,5 +1,6 @@
 package com.succulentshop.backend;
 
+import com.succulentshop.backend.constant.OrderStatus;
 import com.succulentshop.backend.controller.CartController;
 import com.succulentshop.backend.dto.ApiResult;
 import com.succulentshop.backend.dto.CartItemValidationResult;
@@ -195,7 +196,7 @@ public class ProductCartOrderFlowTest {
         historicalOrder.setCustomerName("Lê Văn C");
         historicalOrder.setCustomerPhone("0909090909");
         historicalOrder.setTotalAmount(150000);
-        historicalOrder.setStatus("COMPLETED");
+        historicalOrder.setStatus(OrderStatus.COMPLETED.getCode());
 
         OrderItem snapshotItem = new OrderItem("sen-da-co-thu", "Sen Đá Cổ Thụ", 150000, 1, "https://image.com/cothu.jpg");
         historicalOrder.addItem(snapshotItem);
@@ -207,7 +208,7 @@ public class ProductCartOrderFlowTest {
 
         assertNotNull(orderDetail);
         assertEquals("SX999111", orderDetail.getOrderCode());
-        assertEquals("COMPLETED", orderDetail.getStatus());
+        assertEquals(OrderStatus.COMPLETED.getCode(), orderDetail.getStatus());
 
         List<com.succulentshop.backend.dto.OrderItemResponse> items = orderDetail.getItems();
         assertEquals(1, items.size());
@@ -247,7 +248,7 @@ public class ProductCartOrderFlowTest {
         assertNotNull(result.getOrder());
 
         com.succulentshop.backend.dto.OrderResponse orderMap = result.getOrder();
-        assertEquals("PENDING", orderMap.getStatus());
+        assertEquals(OrderStatus.PENDING.getCode(), orderMap.getStatus());
         assertEquals("Phạm Văn D", orderMap.getCustomerName());
 
         // Phương án B: Tại thời điểm tạo đơn, kho CHƯA bị trừ (vẫn giữ nguyên 10)
@@ -260,7 +261,7 @@ public class ProductCartOrderFlowTest {
         createdOrder.setOrderCode(orderMap.getOrderCode());
         createdOrder.setCustomerName("Phạm Văn D");
         createdOrder.setCustomerPhone("0933445566");
-        createdOrder.setStatus("PENDING");
+        createdOrder.setStatus(OrderStatus.PENDING.getCode());
         createdOrder.setStockDeducted(false);
         createdOrder.setTotalAmount(orderMap.getTotalAmount());
         OrderItem ordItem = new OrderItem("sen-da-hoa-hong", "Sen Đá Hoa Hồng Đen", 55000, 2, null);
@@ -268,12 +269,12 @@ public class ProductCartOrderFlowTest {
 
         when(orderRepository.findById(123L)).thenReturn(Optional.of(createdOrder));
 
-        orderService.updateOrderStatus(123L, "PAID");
+        orderService.updateOrderStatus(123L, OrderStatus.PAID.getCode());
         assertEquals(8, p.getInStock());
         assertTrue(createdOrder.isStockDeducted());
 
         // Nếu chuyển tiếp sang SHIPPING -> không trừ lần 2
-        orderService.updateOrderStatus(123L, "SHIPPING");
+        orderService.updateOrderStatus(123L, OrderStatus.SHIPPING.getCode());
         assertEquals(8, p.getInStock());
     }
 
@@ -282,13 +283,13 @@ public class ProductCartOrderFlowTest {
     void testCase7_CancelPendingOrderDoesNotRestoreStock() {
         Order pendingOrder = new Order();
         pendingOrder.setId(7L);
-        pendingOrder.setStatus("PENDING");
+        pendingOrder.setStatus(OrderStatus.PENDING.getCode());
         pendingOrder.setStockDeducted(false);
         pendingOrder.addItem(new OrderItem("sen-da-p7", "Sen P7", 50000, 2, null));
         when(orderRepository.findById(7L)).thenReturn(Optional.of(pendingOrder));
 
         orderService.cancelOrder(7L, "Customer cancelled");
-        assertEquals("CANCELLED", pendingOrder.getStatus());
+        assertEquals(OrderStatus.CANCELLED.getCode(), pendingOrder.getStatus());
         assertFalse(pendingOrder.isStockDeducted());
         // Vì đơn chưa trừ kho nên không bao giờ truy vấn hay cập nhật kho sản phẩm
         verify(productRepository, never()).findById(any());
@@ -305,13 +306,13 @@ public class ProductCartOrderFlowTest {
 
         Order paidOrder = new Order();
         paidOrder.setId(8L);
-        paidOrder.setStatus("PAID");
+        paidOrder.setStatus(OrderStatus.PAID.getCode());
         paidOrder.setStockDeducted(true);
         paidOrder.addItem(new OrderItem("sen-da-p8", "Sen P8", 50000, 2, null));
         when(orderRepository.findById(8L)).thenReturn(Optional.of(paidOrder));
 
         orderService.cancelOrder(8L, "Customer cancelled paid order");
-        assertEquals("CANCELLED", paidOrder.getStatus());
+        assertEquals(OrderStatus.CANCELLED.getCode(), paidOrder.getStatus());
         // Hoàn kho thành 10 (8 + 2 = 10)
         assertEquals(10, p.getInStock());
         assertFalse(paidOrder.isStockDeducted());
@@ -326,7 +327,7 @@ public class ProductCartOrderFlowTest {
     void testCase9_CancelCompletedOrderThrowsException() {
         Order completedOrder = new Order();
         completedOrder.setId(9L);
-        completedOrder.setStatus("COMPLETED");
+        completedOrder.setStatus(OrderStatus.COMPLETED.getCode());
         when(orderRepository.findById(9L)).thenReturn(Optional.of(completedOrder));
 
         AppException ex = assertThrows(AppException.class, () -> orderService.cancelOrder(9L, "Muốn hủy"));
@@ -346,12 +347,12 @@ public class ProductCartOrderFlowTest {
         order.setId(10L);
         order.setCustomerEmail("user@example.com");
         order.setTotalAmount(250000);
-        order.setStatus("SHIPPING");
+        order.setStatus(OrderStatus.SHIPPING.getCode());
         order.setStockDeducted(true);
         order.setPointsAwarded(false);
         when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
 
-        orderService.updateOrderStatus(10L, "COMPLETED");
+        orderService.updateOrderStatus(10L, OrderStatus.COMPLETED.getCode());
         // 250,000 VND -> 25 điểm
         assertEquals(25, user.getPoints());
         assertTrue(order.isPointsAwarded());
@@ -367,7 +368,7 @@ public class ProductCartOrderFlowTest {
         Order completedOrder = new Order();
         completedOrder.setId(11L);
         completedOrder.setOrderCode("SX111111");
-        completedOrder.setStatus("COMPLETED");
+        completedOrder.setStatus(OrderStatus.COMPLETED.getCode());
         completedOrder.setCompletedAt(java.time.Instant.now().minus(2, java.time.temporal.ChronoUnit.DAYS)); // Hoàn tất 2 ngày trước (<= 7 ngày)
         when(orderRepository.findById(11L)).thenReturn(Optional.of(completedOrder));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -375,7 +376,7 @@ public class ProductCartOrderFlowTest {
         ReturnOrderRequest req = new ReturnOrderRequest("Cây bị dập nát khi vận chuyển", "Một nhánh sen đá bị gãy", "MBBank - 0123456789 - NGUYEN VAN A");
         OrderResponse res = orderService.requestReturn(11L, req);
 
-        assertEquals("RETURN_REQUESTED", res.getStatus());
+        assertEquals(OrderStatus.RETURN_REQUESTED.getCode(), res.getStatus());
         assertEquals("Cây bị dập nát khi vận chuyển", res.getReturnReason());
         assertEquals("Một nhánh sen đá bị gãy", res.getReturnNote());
         assertEquals("MBBank - 0123456789 - NGUYEN VAN A", res.getRefundBankInfo());
@@ -387,7 +388,7 @@ public class ProductCartOrderFlowTest {
     void testCase12_ReturnRequestOnNonCompletedOrder_ThrowsException() {
         Order shippingOrder = new Order();
         shippingOrder.setId(12L);
-        shippingOrder.setStatus("SHIPPING");
+        shippingOrder.setStatus(OrderStatus.SHIPPING.getCode());
         when(orderRepository.findById(12L)).thenReturn(Optional.of(shippingOrder));
 
         ReturnOrderRequest req = new ReturnOrderRequest("Đổi ý", null, null);
@@ -400,7 +401,7 @@ public class ProductCartOrderFlowTest {
     void testCase13_ReturnRequestAfter7Days_ThrowsException() {
         Order expiredOrder = new Order();
         expiredOrder.setId(13L);
-        expiredOrder.setStatus("COMPLETED");
+        expiredOrder.setStatus(OrderStatus.COMPLETED.getCode());
         expiredOrder.setCompletedAt(java.time.Instant.now().minus(9, java.time.temporal.ChronoUnit.DAYS)); // Đã 9 ngày trước (> 7 ngày)
         when(orderRepository.findById(13L)).thenReturn(Optional.of(expiredOrder));
 
@@ -424,7 +425,7 @@ public class ProductCartOrderFlowTest {
 
         Order returnOrder = new Order();
         returnOrder.setId(14L);
-        returnOrder.setStatus("RETURN_REQUESTED");
+        returnOrder.setStatus(OrderStatus.RETURN_REQUESTED.getCode());
         returnOrder.setCustomerEmail("khach@senxinh.vn");
         returnOrder.setTotalAmount(200000); // 200k = 20 điểm
         returnOrder.setStockDeducted(true);
@@ -436,7 +437,7 @@ public class ProductCartOrderFlowTest {
 
         OrderResponse res = orderService.approveReturn(14L);
 
-        assertEquals("RETURNED", res.getStatus());
+        assertEquals(OrderStatus.RETURNED.getCode(), res.getStatus());
         // Tồn kho được hoàn trả: 5 + 2 = 7 cây
         assertEquals(7, p.getInStock());
         assertFalse(res.getStockDeducted());
@@ -451,13 +452,13 @@ public class ProductCartOrderFlowTest {
     void testCase15_RejectReturn_RevertsToCompletedWithReason() {
         Order returnOrder = new Order();
         returnOrder.setId(15L);
-        returnOrder.setStatus("RETURN_REQUESTED");
+        returnOrder.setStatus(OrderStatus.RETURN_REQUESTED.getCode());
         when(orderRepository.findById(15L)).thenReturn(Optional.of(returnOrder));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         OrderResponse res = orderService.rejectReturn(15L, "Cây bị hỏng do khách tưới úng nước quá liều");
 
-        assertEquals("COMPLETED", res.getStatus());
+        assertEquals(OrderStatus.COMPLETED.getCode(), res.getStatus());
         assertEquals("Cây bị hỏng do khách tưới úng nước quá liều", res.getReturnRejectReason());
     }
 

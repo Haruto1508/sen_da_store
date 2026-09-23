@@ -76,13 +76,13 @@ public class AdminService {
 
     public AdminStatsResponse getStats() {
         long totalOrders = orderRepository.count();
-        long pendingOrders = orderRepository.countByStatus("PENDING");
-        long paidOrders = orderRepository.countByStatus("PAID");
-        long completedOrders = orderRepository.countByStatus("COMPLETED");
+        long pendingOrders = orderRepository.countByStatus(OrderStatus.PENDING.getCode());
+        long paidOrders = orderRepository.countByStatus(OrderStatus.PAID.getCode());
+        long completedOrders = orderRepository.countByStatus(OrderStatus.COMPLETED.getCode());
 
         List<Order> allOrders = orderRepository.findAll();
         long totalRevenue = allOrders.stream()
-                .filter(o -> "PAID".equals(o.getStatus()) || "SHIPPING".equals(o.getStatus()) || "COMPLETED".equals(o.getStatus()))
+                .filter(o -> OrderStatus.PAID.getCode().equals(o.getStatus()) || OrderStatus.SHIPPING.getCode().equals(o.getStatus()) || OrderStatus.COMPLETED.getCode().equals(o.getStatus()))
                 .mapToLong(Order::getTotalAmount)
                 .sum();
 
@@ -134,11 +134,11 @@ public class AdminService {
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng"));
         String oldStatus = order.getStatus();
 
-        if ("COMPLETED".equalsIgnoreCase(oldStatus) && "CANCELLED".equalsIgnoreCase(formattedStatus)) {
+        if (OrderStatus.COMPLETED.getCode().equalsIgnoreCase(oldStatus) && OrderStatus.CANCELLED.getCode().equalsIgnoreCase(formattedStatus)) {
             throw new AppException(ErrorCode.INVALID_REQUEST, "Không thể hủy đơn hàng đã hoàn tất thành công.");
         }
 
-        if ("CANCELLED".equals(formattedStatus) && !"CANCELLED".equals(oldStatus)) {
+        if (OrderStatus.CANCELLED.getCode().equals(formattedStatus) && !OrderStatus.CANCELLED.getCode().equals(oldStatus)) {
             if (Boolean.TRUE.equals(order.isStockDeducted())) {
                 for (OrderItem it : order.getItems()) {
                     Optional<Product> pOpt = productRepository.findById(it.getProductId());
@@ -152,7 +152,7 @@ public class AdminService {
             }
         }
 
-        if ("RETURNED".equals(formattedStatus) && !"RETURNED".equals(oldStatus)) {
+        if (OrderStatus.RETURNED.getCode().equals(formattedStatus) && !OrderStatus.RETURNED.getCode().equals(oldStatus)) {
             if (Boolean.TRUE.equals(order.isStockDeducted())) {
                 for (OrderItem it : order.getItems()) {
                     Optional<Product> pOpt = productRepository.findById(it.getProductId());
@@ -186,7 +186,7 @@ public class AdminService {
             order.setReturnedAt(java.time.Instant.now());
         }
 
-        if (List.of("PAID", "SHIPPING", "COMPLETED").contains(formattedStatus) && !Boolean.TRUE.equals(order.isStockDeducted())) {
+        if (List.of(OrderStatus.PAID.getCode(), OrderStatus.SHIPPING.getCode(), OrderStatus.COMPLETED.getCode()).contains(formattedStatus) && !Boolean.TRUE.equals(order.isStockDeducted())) {
             for (OrderItem it : order.getItems()) {
                 Optional<Product> pOpt = productRepository.findById(it.getProductId());
                 if (pOpt.isPresent()) {
@@ -206,7 +206,7 @@ public class AdminService {
             order.setStockDeducted(true);
         }
 
-        if ("COMPLETED".equals(formattedStatus)) {
+        if (OrderStatus.COMPLETED.getCode().equals(formattedStatus)) {
             if (order.getCompletedAt() == null) {
                 order.setCompletedAt(java.time.Instant.now());
             }
@@ -246,11 +246,11 @@ public class AdminService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
 
-        if (!"RETURN_REQUESTED".equalsIgnoreCase(order.getStatus()) && !"COMPLETED".equalsIgnoreCase(order.getStatus())) {
+        if (!OrderStatus.RETURN_REQUESTED.getCode().equalsIgnoreCase(order.getStatus()) && !OrderStatus.COMPLETED.getCode().equalsIgnoreCase(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_CANNOT_BE_RETURNED, "Đơn hàng không ở trạng thái yêu cầu hoàn trả.");
         }
 
-        updateOrderStatus(orderId, "RETURNED");
+        updateOrderStatus(orderId, OrderStatus.RETURNED.getCode());
         Order updated = orderRepository.findById(orderId).orElse(order);
         return convertOrderToResponse(updated);
     }
@@ -260,12 +260,12 @@ public class AdminService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng ID: " + orderId));
 
-        if (!"RETURN_REQUESTED".equalsIgnoreCase(order.getStatus())) {
+        if (!OrderStatus.RETURN_REQUESTED.getCode().equalsIgnoreCase(order.getStatus())) {
             throw new AppException(ErrorCode.INVALID_REQUEST, "Đơn hàng hiện không có yêu cầu hoàn trả để từ chối.");
         }
 
         String oldStatus = order.getStatus();
-        order.setStatus("COMPLETED");
+        order.setStatus(OrderStatus.COMPLETED.getCode());
         order.setReturnRejectReason(rejectReason != null && !rejectReason.trim().isBlank() ? rejectReason.trim() : "Shop từ chối yêu cầu đổi trả theo chính sách.");
         orderRepository.save(order);
 
